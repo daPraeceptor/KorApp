@@ -161,13 +161,19 @@ export function SongsScreen({ onOpenPlay }: { onOpenPlay: () => void }) {
                 label="♪ Ackord"
                 variant="pure"
                 disabled={song.tones.length === 0}
-                onPress={() => playTones('together', song)}
+                onPress={() => playTones('chord', song)}
                 style={styles.quickButton}
               />
               <Button
-                label="♪ En och en"
+                label="♪ ↑"
                 disabled={song.tones.length === 0}
-                onPress={() => playTones('arpeggio', song)}
+                onPress={() => playTones('forward', song)}
+                style={styles.quickButton}
+              />
+              <Button
+                label="♪ ↓"
+                disabled={song.tones.length === 0}
+                onPress={() => playTones('backward', song)}
                 style={styles.quickButton}
               />
             </View>
@@ -288,11 +294,14 @@ const styles = StyleSheet.create({
   },
   quickRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
     marginTop: spacing.xs,
   },
   quickButton: {
-    flex: 1,
+    // Håller knapparna läsbara även när de bryts till en andra rad på smal skärm.
+    flexGrow: 1,
+    flexBasis: 84,
     paddingHorizontal: 6,
     paddingVertical: 11,
   },

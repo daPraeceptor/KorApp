@@ -11,6 +11,7 @@ import {
   JUST_RATIOS,
   centsBetween,
 } from '../theory/tuning';
+import { MAX_TONE_GAP_BPM, MIN_TONE_GAP_BPM } from '../store/songs';
 import { colors, radius, spacing } from '../theme';
 
 export function SettingsScreen() {
@@ -49,45 +50,50 @@ export function SettingsScreen() {
           value={settings.naming}
           onChange={(naming) => updateSettings({ naming })}
           options={[
-            { value: 'swedish' as const, label: 'Svenskt (H)' },
-            { value: 'international' as const, label: 'Internationellt (B)' },
+            { value: 'international' as const, label: 'B' },
+            { value: 'swedish' as const, label: 'H' },
           ]}
         />
         <Text style={styles.help}>
-          I svensk notation heter tonen över A ett H, och B är tonen ett halvt
-          steg under. I internationell notation heter de B respektive B♭.
+          {settings.naming === 'international'
+            ? 'Internationell notation: tonen över A heter B, och tonen ett halvt steg under heter B♭.'
+            : 'Svensk notation: tonen över A heter H, och tonen ett halvt steg under heter B.'}
         </Text>
       </Card>
 
       <Card>
-        <SectionTitle>Toner en och en</SectionTitle>
+        <SectionTitle>Körtoner</SectionTitle>
+        <View style={styles.row}>
+          <Text style={styles.rowLabel}>Standardhastighet</Text>
+          <Stepper
+            value={settings.defaultToneGapBpm}
+            min={MIN_TONE_GAP_BPM}
+            max={MAX_TONE_GAP_BPM}
+            step={5}
+            onChange={(defaultToneGapBpm) => updateSettings({ defaultToneGapBpm })}
+            format={(value) => `${value} slag/min`}
+          />
+        </View>
         <Text style={styles.help}>
-          När du ger tonerna en stämma i taget styrs mellanrummet antingen av ett
-          fast tempo eller av låtens eget, så att tongivningen går i samma puls
-          som stycket.
+          Hastigheten när tonerna ges en i taget. Varje låt bär sitt eget värde —
+          det här är vad en ny låt börjar med.
         </Text>
+
+        <Text style={styles.rowLabel}>Ordning på tonerna</Text>
         <SegmentedControl
-          value={settings.arpeggioSource}
+          value={settings.toneOrder}
           tint={colors.pure}
-          onChange={(arpeggioSource) => updateSettings({ arpeggioSource })}
+          onChange={(toneOrder) => updateSettings({ toneOrder })}
           options={[
-            { value: 'fixed' as const, label: 'Fast tempo' },
-            { value: 'song' as const, label: 'Låtens tempo' },
+            { value: 'pitch' as const, label: 'Efter tonhöjd' },
+            { value: 'entry' as const, label: 'I vald ordning' },
           ]}
         />
-        {settings.arpeggioSource === 'fixed' ? (
-          <View style={styles.row}>
-            <Text style={styles.rowLabel}>Mellanrum</Text>
-            <Stepper
-              value={settings.arpeggioBpm}
-              min={30}
-              max={200}
-              step={5}
-              onChange={(arpeggioBpm) => updateSettings({ arpeggioBpm })}
-              format={(value) => `${value} slag/min`}
-            />
-          </View>
-        ) : null}
+        <Text style={styles.help}>
+          {settings.toneOrder === 'pitch'
+            ? 'Tonerna läggs i ordning efter tonhöjd, oavsett i vilken följd du väljer dem.'
+            : 'Tonerna behåller den följd du väljer dem i, till exempel stämmornas insatsordning. Uppspelningen följer då den ordningen i stället för tonhöjd.'}
+        </Text>
       </Card>
 
       <Card>

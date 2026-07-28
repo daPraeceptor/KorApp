@@ -17,12 +17,18 @@ under utvecklingen.
 - **Tempererad och ren stämning.** Tempererad är som ett piano. Ren stämning
   bygger varje intervall på en heltalskvot relativt tonikan, så att övertonerna
   sammanfaller och svävningarna försvinner.
-- **Tongivning på två sätt.** «Spela ackordet» ger alla toner samtidigt.
-  «En och en» ger dem nedifrån och upp med 80 slag per minut mellan stämmorna,
-  eller i låtens eget tempo om man ställer om det i inställningarna.
-- **Låtbibliotek.** Varje låt sparar tempo, taktart, stämning, tonika och de
-  starttoner kören ska få. Direkt i listan finns knappar för att starta låtens
-  tempo och ge dess toner, utan att gå via spelvyn.
+- **Tongivning på tre sätt.** «Spela ackordet» ger alla toner samtidigt. De två
+  riktningsknapparna ger dem en i taget, framåt eller bakåt genom tonföljden.
+  Hastigheten sparas per låt.
+- **Valbar tonordning.** Tonerna kan hållas efter tonhöjd, eller i den ordning
+  körledaren valde dem — till exempel stämmornas insatsordning. I det senare
+  fallet är följden betydelsebärande och sorteras varken vid inläsning eller
+  uppspelning.
+- **Låtbibliotek.** Varje låt sparar tempo, taktart, stämning, tonika,
+  starttoner och tongivningens hastighet. Direkt i listan finns knappar för att
+  starta låtens tempo och ge dess toner, utan att gå via spelvyn.
+- **Svenska eller internationella tonnamn.** Internationellt (B) är standard;
+  svenskt (H) går att välja i inställningarna.
 
 ## Kom igång
 

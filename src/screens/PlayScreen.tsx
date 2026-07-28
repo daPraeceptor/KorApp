@@ -18,7 +18,11 @@ import {
   noteNameWithOctave,
   ratioLabel,
 } from '../theory/tuning';
-import { MAX_TONES } from '../store/songs';
+import {
+  MAX_TONES,
+  MAX_TONE_GAP_BPM,
+  MIN_TONE_GAP_BPM,
+} from '../store/songs';
 import { colors, radius, spacing } from '../theme';
 
 /** Knackningar som ligger längre isär än så här räknas som ett nytt tempo. */
@@ -65,6 +69,8 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
   }, [updateLive]);
 
   const displayedNote = playedNote;
+  const noTones = live.tones.length === 0;
+  const byPitch = settings.toneOrder === 'pitch';
   const cents = displayedNote === null ? 0 : centsFromTempered(displayedNote, tuning);
 
   return (
@@ -208,27 +214,41 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
           </View>
         )}
 
+        <Button
+          label="Spela ackordet"
+          variant="pure"
+          disabled={noTones}
+          onPress={() => playTones('chord')}
+        />
         <View style={styles.toneButtons}>
           <Button
-            label="Spela ackordet"
-            variant="pure"
-            disabled={live.tones.length === 0}
-            onPress={() => playTones('together')}
+            label={byPitch ? '↑ Nedifrån och upp' : '↑ I vald ordning'}
+            disabled={noTones}
+            onPress={() => playTones('forward')}
             style={styles.toneButton}
           />
           <Button
-            label="En och en"
-            disabled={live.tones.length === 0}
-            onPress={() => playTones('arpeggio')}
+            label={byPitch ? '↓ Uppifrån och ner' : '↓ Omvänd ordning'}
+            disabled={noTones}
+            onPress={() => playTones('backward')}
             style={styles.toneButton}
           />
         </View>
+        <View style={styles.row}>
+          <Text style={styles.rowLabel}>Hastighet en i taget</Text>
+          <Stepper
+            value={live.toneGapBpm}
+            min={MIN_TONE_GAP_BPM}
+            max={MAX_TONE_GAP_BPM}
+            step={5}
+            onChange={(toneGapBpm) => updateLive({ toneGapBpm })}
+            format={(value) => `${value} slag/min`}
+          />
+        </View>
         <Text style={styles.toneHint}>
-          En och en spelar tonerna nedifrån och upp med{' '}
-          {settings.arpeggioSource === 'song'
-            ? `låtens tempo, ${live.bpm} slag/min`
-            : `${settings.arpeggioBpm} slag/min`}{' '}
-          mellan stämmorna.
+          Hastigheten sparas med låten. Nya låtar börjar på{' '}
+          {settings.defaultToneGapBpm} slag/min, vilket går att ändra i
+          inställningarna.
         </Text>
       </Card>
 

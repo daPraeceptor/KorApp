@@ -17,7 +17,7 @@ import React, {
 } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { ToneMode, audioEngine } from '../audio/engine';
+import { audioEngine } from '../audio/engine';
 import { metronome } from '../audio/metronome';
 import {
   DEFAULT_A4,
@@ -27,12 +27,18 @@ import {
   frequencyOf,
 } from '../theory/tuning';
 import {
+  DEFAULT_TONE_GAP_BPM,
+  PlayDirection,
   Song,
+  ToneOrder,
   createSong,
+  orderTones,
   parseLibrary,
   sortSongs,
   toggleTone,
 } from '../store/songs';
+
+export type { PlayDirection } from '../store/songs';
 
 const SONGS_KEY = 'korapp.songs.v1';
 const SETTINGS_KEY = 'korapp.settings.v1';
@@ -43,21 +49,22 @@ export interface Settings {
   naming: NoteNaming;
   volume: number;
   /**
-   * Vad som styr mellanrummet när tonerna ges en och en: ett fast tempo, eller
-   * låtens eget tempo så att tongivningen går i samma puls som stycket.
+   * Standardhastighet för tongivningen. Varje låt bär sitt eget värde; det här
+   * är vad en ny låt börjar med.
    */
-  arpeggioSource: 'fixed' | 'song';
-  /** Tempot för mellanrummet när arpeggioSource är 'fixed'. */
-  arpeggioBpm: number;
+  defaultToneGapBpm: number;
+  /** Om låtens toner hålls efter tonhöjd eller i den ordning de valdes. */
+  toneOrder: ToneOrder;
 }
 
 const DEFAULT_SETTINGS: Settings = {
   a4: DEFAULT_A4,
-  naming: 'swedish',
+  naming: 'international',
   volume: 0.8,
-  arpeggioSource: 'fixed',
-  arpeggioBpm: 80,
+  defaultToneGapBpm: DEFAULT_TONE_GAP_BPM,
+  toneOrder: 'pitch',
 };
+
 
 /** De värden spelvyn arbetar med just nu. */
 export interface LiveConfig {
@@ -67,6 +74,7 @@ export interface LiveConfig {
   tuningSystem: TuningSystem;
   tonicPitchClass: number;
   tones: number[];
+  toneGapBpm: number;
 }
 
 const DEFAULT_LIVE: LiveConfig = {
@@ -76,6 +84,7 @@ const DEFAULT_LIVE: LiveConfig = {
   tuningSystem: 'tempered',
   tonicPitchClass: 0,
   tones: [],
+  toneGapBpm: DEFAULT_TONE_GAP_BPM,
 };
 
 function liveFromSong(song: Song): LiveConfig {
@@ -86,6 +95,7 @@ function liveFromSong(song: Song): LiveConfig {
     tuningSystem: song.tuningSystem,
     tonicPitchClass: song.tonicPitchClass,
     tones: [...song.tones],
+    toneGapBpm: song.toneGapBpm,
   };
 }
 
@@ -94,7 +104,7 @@ export interface ToneSource {
   tones: number[];
   tuningSystem: TuningSystem;
   tonicPitchClass: number;
-  bpm: number;
+  toneGapBpm: number;
 }
 
 function liveMatchesSong(live: LiveConfig, song: Song): boolean {
@@ -104,6 +114,7 @@ function liveMatchesSong(live: LiveConfig, song: Song): boolean {
     live.subdivision === song.subdivision &&
     live.tuningSystem === song.tuningSystem &&
     live.tonicPitchClass === song.tonicPitchClass &&
+    live.toneGapBpm === song.toneGapBpm &&
     live.tones.length === song.tones.length &&
     live.tones.every((tone, index) => tone === song.tones[index])
   );
@@ -129,7 +140,7 @@ interface AppStateValue {
    * Ger tonerna till kören. Utan källa används det som ligger i spelvyn;
    * med en källa spelas den låtens toner i den låtens stämning.
    */
-  playTones: (mode: ToneMode, source?: ToneSource) => void;
+  playTones: (direction: PlayDirection, source?: ToneSource) => void;
   stopTones: () => void;
   /** Laddar låten och startar dess tempo direkt. */
   playSongTempo: (song: Song) => Promise<void>;
@@ -177,6 +188,13 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
           try {
             const parsed = JSON.parse(settingsJson) as Partial<Settings>;
             setSettings((current) => ({ ...current, ...parsed }));
+            // Utan laddad låt utgår spelvyn från standardhastigheten.
+            if (typeof parsed.defaultToneGapBpm === 'number') {
+              setLive((current) => ({
+                ...current,
+                toneGapBpm: parsed.defaultToneGapBpm as number,
+              }));
+            }
           } catch {
             // Trasiga inställningar ersätts av standardvärdena.
           }
@@ -261,7 +279,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const playTones = useCallback(
-    (mode: ToneMode, source?: ToneSource) => {
+    (direction: PlayDirection, source?: ToneSource) => {
       const from = source ?? live;
       if (from.tones.length === 0) {
         return;
@@ -271,16 +289,17 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         tonicPitchClass: from.tonicPitchClass,
         a4: settings.a4,
       };
-      // När mellanrummet följer låten används tempot från den låt tonerna kom ifrån.
-      const bpm =
-        settings.arpeggioSource === 'song' ? from.bpm : settings.arpeggioBpm;
+      const sequence = orderTones(from.tones, settings.toneOrder, direction);
 
       void audioEngine.playTones(
-        from.tones.map((midi) => frequencyOf(midi, toneTuning)),
-        { mode, spacing: 60 / bpm },
+        sequence.map((midi) => frequencyOf(midi, toneTuning)),
+        {
+          mode: direction === 'chord' ? 'together' : 'sequence',
+          spacing: 60 / from.toneGapBpm,
+        },
       );
     },
-    [live, settings.a4, settings.arpeggioBpm, settings.arpeggioSource],
+    [live, settings.a4, settings.toneOrder],
   );
 
   const stopTones = useCallback(() => audioEngine.stopTones(), []);
@@ -293,9 +312,15 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     setSettings((current) => ({ ...current, ...patch }));
   }, []);
 
-  const toggleSongTone = useCallback((midi: number) => {
-    setLive((current) => ({ ...current, tones: toggleTone(current.tones, midi) }));
-  }, []);
+  const toggleSongTone = useCallback(
+    (midi: number) => {
+      setLive((current) => ({
+        ...current,
+        tones: toggleTone(current.tones, midi, settings.toneOrder),
+      }));
+    },
+    [settings.toneOrder],
+  );
 
   const loadSong = useCallback(
     (id: string) => {

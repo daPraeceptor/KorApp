@@ -58,7 +58,8 @@ const CLICK_VARIANTS: Record<ClickVariant, { frequency: number; peak: number }> 
   subdivision: { frequency: 900, peak: 0.25 },
 };
 
-export type ToneMode = 'together' | 'arpeggio';
+/** Alla toner på en gång, eller en i taget i den ordning de kommer. */
+export type ToneMode = 'together' | 'sequence';
 
 export class AudioEngine {
   private ctx: AudioContextLike | null = null;
@@ -242,7 +243,10 @@ export class AudioEngine {
 
   /**
    * Spelar en uppsättning toner för kören: antingen samtidigt som ett ackord,
-   * eller uppbrutet nedifrån och upp så att varje stämma hinner höra sin ton.
+   * eller en i taget så att varje stämma hinner höra sin ton.
+   *
+   * Tonerna spelas i den ordning de kommer in. Anroparen bestämmer följden,
+   * eftersom den kan vara vald av körledaren och inte alltid är efter tonhöjd.
    *
    * En ny tongivning avbryter en pågående, så att två tryck i rad inte lägger
    * sig ovanpå varandra.
@@ -253,16 +257,15 @@ export class AudioEngine {
   ): Promise<void> {
     this.stopTones();
     await this.ensure();
-    const { mode = 'together', chordDuration = 3, spacing = 0.75 } = options;
+    const { mode = 'together', chordDuration = 1, spacing = 0.75 } = options;
 
-    const sorted = [...frequencies].sort((a, b) => a - b);
     const batchId = `tone-${Date.now()}`;
     // Låt tonen klinga nästan hela mellanrummet, med en liten lucka emellan
     // så att stämmorna hörs som skilda toner och inte som ett svep.
-    const duration = mode === 'arpeggio' ? spacing * 0.92 : chordDuration;
+    const duration = mode === 'sequence' ? spacing * 0.92 : chordDuration;
 
-    sorted.forEach((frequency, index) => {
-      const delay = mode === 'arpeggio' ? index * spacing * 1000 : 0;
+    frequencies.forEach((frequency, index) => {
+      const delay = mode === 'sequence' ? index * spacing * 1000 : 0;
       const id = `${batchId}-${index}`;
       const timer = setTimeout(() => {
         this.toneTimers.delete(timer);

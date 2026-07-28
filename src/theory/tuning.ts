@@ -100,17 +100,17 @@ export function octaveOf(midi: number): number {
   return Math.floor(midi / SEMITONES_PER_OCTAVE) - 1;
 }
 
-export function noteName(midi: number, naming: NoteNaming = 'swedish'): string {
+export function noteName(midi: number, naming: NoteNaming = 'international'): string {
   const names = naming === 'swedish' ? SWEDISH_NAMES : INTERNATIONAL_NAMES;
   return names[pitchClass(midi)];
 }
 
-export function noteNameWithOctave(midi: number, naming: NoteNaming = 'swedish'): string {
+export function noteNameWithOctave(midi: number, naming: NoteNaming = 'international'): string {
   return `${noteName(midi, naming)}${octaveOf(midi)}`;
 }
 
 /** Alla tolv tonnamn i ordning från C. */
-export function allNoteNames(naming: NoteNaming = 'swedish'): readonly string[] {
+export function allNoteNames(naming: NoteNaming = 'international'): readonly string[] {
   return naming === 'swedish' ? SWEDISH_NAMES : INTERNATIONAL_NAMES;
 }
 
