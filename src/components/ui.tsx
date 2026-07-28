@@ -51,6 +51,11 @@ export function Button({
 export interface SegmentOption<T> {
   value: T;
   label: string;
+  /**
+   * Valfri bild ovanför etiketten, till exempel ett notvärde. Får färgen som
+   * argument, eftersom den valda knappen har mörk text mot färgad botten.
+   */
+  renderIcon?: (color: string) => React.ReactNode;
 }
 
 export function SegmentedControl<T extends string | number>({
@@ -77,6 +82,9 @@ export function SegmentedControl<T extends string | number>({
               selected && { backgroundColor: tint, borderColor: tint },
             ]}
           >
+            {option.renderIcon
+              ? option.renderIcon(selected ? '#12121a' : colors.textMuted)
+              : null}
             <Text
               style={[
                 styles.segmentLabel,

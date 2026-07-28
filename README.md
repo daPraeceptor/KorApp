@@ -17,13 +17,19 @@ under utvecklingen.
 - **Tempererad och ren stämning.** Tempererad är som ett piano. Ren stämning
   bygger varje intervall på en heltalskvot relativt tonikan, så att övertonerna
   sammanfaller och svävningarna försvinner.
-- **Tongivning på tre sätt.** «Spela ackordet» ger alla toner samtidigt. De två
-  riktningsknapparna ger dem en i taget, framåt eller bakåt genom tonföljden.
-  Hastigheten sparas per låt.
-- **Valbar tonordning.** Tonerna kan hållas efter tonhöjd, eller i den ordning
-  körledaren valde dem — till exempel stämmornas insatsordning. I det senare
-  fallet är följden betydelsebärande och sorteras varken vid inläsning eller
-  uppspelning.
+- **Tongivning på fyra sätt.** Hela ackordet på en gång, en i taget nedifrån och
+  upp, uppifrån och ner, eller i den ordning tonerna valdes. Hastigheten sparas
+  per låt.
+- **Bevarad tonordning.** Tonerna sparas alltid i den följd de valdes, till
+  exempel stämmornas insatsordning, och sorteras varken vid inläsning eller
+  uppspelning. Knapparna avgör i vilken ordning de faktiskt ges.
+- **Grafisk taktvisare.** Klassisk pendel, streck som går fram och tillbaka,
+  eller boll som studsar mot marken — bollen studsar högre vid långsamma tempon
+  och lägre vid snabba. Animeringen räknas från när taktslaget hördes, så bilden
+  följer ljudet i stället för att glida ur fas.
+- **Valbara tonnamn.** Bokstäver, solmisation (do re mi) eller tonplatser som
+  romerska siffror. De två senare kan räknas fast från C, eller flyttbart från
+  tonikan så att tonikan alltid blir do respektive I. Namnen går att dölja helt.
 - **Låtbibliotek.** Varje låt sparar tempo, taktart, stämning, tonika,
   starttoner och tongivningens hastighet. Direkt i listan finns knappar för att
   starta låtens tempo och ge dess toner, utan att gå via spelvyn.
@@ -79,7 +85,7 @@ npm test
 | `src/audio/tempo.ts` | Tempogränser och knacktempo |
 | `src/store/songs.ts` | Låtmodellen och inläsning från lagring |
 | `src/state/AppState.tsx` | Delat tillstånd och persistens |
-| `src/components/` | Snurrhjul, klaviatur och gemensamma byggstenar |
+| `src/components/` | Snurrhjul, klaviatur, taktvisare och gemensamma byggstenar |
 | `src/screens/` | Spela, Låtar, Inställningar |
 
 Ljudlogiken är skriven mot Web Audio-API:t en enda gång. På webben används

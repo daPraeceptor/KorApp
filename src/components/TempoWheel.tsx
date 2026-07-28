@@ -6,7 +6,14 @@
  * var i hela tempoområdet man befinner sig.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { PanResponder, Platform, StyleSheet, Text, View } from 'react-native';
+import {
+  PanResponder,
+  Platform,
+  StyleSheet,
+  Text,
+  View,
+  ViewStyle,
+} from 'react-native';
 import Svg, { Circle, G, Line, Path } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 
@@ -27,6 +34,8 @@ interface Props {
   /** Taktdel som just nu hörs, för blinket i mitten. Null när metronomen är stoppad. */
   activeBeat?: number | null;
   beatsPerBar?: number;
+  /** Anropas när greppet tas och släpps, så att vyn kan låsa sin scroll. */
+  onDraggingChange?: (dragging: boolean) => void;
 }
 
 /** Punkt på cirkeln där 0 grader är rakt upp och positiva grader går medsols. */
@@ -52,12 +61,25 @@ function shortestDelta(from: number, to: number): number {
   return ((to - from + 540) % 360) - 180;
 }
 
+/**
+ * På webben tolkar webbläsaren annars dragningen som en sidscroll och rullar
+ * sidan samtidigt som hjulet vrids. touchAction stänger av det för just hjulet,
+ * och userSelect hindrar att texten i mitten markeras när man drar med musen.
+ *
+ * Egenskaperna finns bara i react-native-web, därför typkonverteringen.
+ */
+const WEB_GESTURE_STYLE =
+  Platform.OS === 'web'
+    ? ({ touchAction: 'none', userSelect: 'none' } as unknown as ViewStyle)
+    : undefined;
+
 export function TempoWheel({
   bpm,
   onChange,
   size = 260,
   activeBeat = null,
   beatsPerBar = 4,
+  onDraggingChange,
 }: Props) {
   const wheelRef = useRef<View>(null);
   const center = useRef({ x: 0, y: 0 });
@@ -103,6 +125,7 @@ export function TempoWheel({
           needsBaseline.current = true;
           preciseBpm.current = bpmRef.current;
           setDragging(true);
+          onDraggingChange?.(true);
         },
         onPanResponderMove: (_event, gesture) => {
           const angle = angleFromTouch(gesture.moveX, gesture.moveY);
@@ -130,10 +153,16 @@ export function TempoWheel({
             onChange(next);
           }
         },
-        onPanResponderRelease: () => setDragging(false),
-        onPanResponderTerminate: () => setDragging(false),
+        onPanResponderRelease: () => {
+          setDragging(false);
+          onDraggingChange?.(false);
+        },
+        onPanResponderTerminate: () => {
+          setDragging(false);
+          onDraggingChange?.(false);
+        },
       }),
-    [angleFromTouch, measure, onChange],
+    [angleFromTouch, measure, onChange, onDraggingChange],
   );
 
   const cx = size / 2;
@@ -159,7 +188,7 @@ export function TempoWheel({
     <View
       ref={wheelRef}
       onLayout={measure}
-      style={[styles.container, { width: size, height: size }]}
+      style={[styles.container, { width: size, height: size }, WEB_GESTURE_STYLE]}
       {...panResponder.panHandlers}
     >
       <Svg width={size} height={size}>

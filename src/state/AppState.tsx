@@ -21,6 +21,9 @@ import { audioEngine } from '../audio/engine';
 import { metronome } from '../audio/metronome';
 import {
   DEFAULT_A4,
+  LabelConfig,
+  LabelReference,
+  LabelSystem,
   NoteNaming,
   TuningConfig,
   TuningSystem,
@@ -30,7 +33,6 @@ import {
   DEFAULT_TONE_GAP_BPM,
   PlayDirection,
   Song,
-  ToneOrder,
   createSong,
   orderTones,
   parseLibrary,
@@ -53,16 +55,28 @@ export interface Settings {
    * är vad en ny låt börjar med.
    */
   defaultToneGapBpm: number;
-  /** Om låtens toner hålls efter tonhöjd eller i den ordning de valdes. */
-  toneOrder: ToneOrder;
+  /** Om tonnamn skrivs ut på klaviaturens tangenter. */
+  showNoteNames: boolean;
+  /** Bokstäver, solmisation eller romerska tonplatssiffror. */
+  labelSystem: LabelSystem;
+  /** Om solmisation och tonplatser räknas från C eller från tonikan. */
+  labelReference: LabelReference;
+  /** Hur takten visas grafiskt i spelvyn. */
+  metronomeVisual: MetronomeVisualStyle;
 }
+
+/** Klassisk pendel, streck fram och tillbaka, studsande boll, eller ingen alls. */
+export type MetronomeVisualStyle = 'pendulum' | 'bar' | 'ball' | 'none';
 
 const DEFAULT_SETTINGS: Settings = {
   a4: DEFAULT_A4,
   naming: 'international',
   volume: 0.8,
   defaultToneGapBpm: DEFAULT_TONE_GAP_BPM,
-  toneOrder: 'pitch',
+  showNoteNames: true,
+  labelSystem: 'letters',
+  labelReference: 'tonic',
+  metronomeVisual: 'pendulum',
 };
 
 
@@ -99,6 +113,13 @@ function liveFromSong(song: Song): LiveConfig {
   };
 }
 
+/** Ett hört taktslag: vilken taktdel, när det inföll, och hur många i rad. */
+export interface BeatPulse {
+  beat: number;
+  at: number;
+  count: number;
+}
+
 /** Det som behövs för att kunna ge en uppsättning toner i rätt stämning och puls. */
 export interface ToneSource {
   tones: number[];
@@ -129,11 +150,15 @@ interface AppStateValue {
   /** Sant när spelvyns värden avviker från den laddade låten. */
   hasUnsavedChanges: boolean;
   tuning: TuningConfig;
+  /** Färdig uppsättning för att skriva ut tonnamn i valt system. */
+  labels: LabelConfig;
 
   /** Sant medan metronomen går, oavsett vilken vy som startade den. */
   metronomeRunning: boolean;
   /** Taktdelen som just hörs, för den visuella markeringen. */
   activeBeat: number | null;
+  /** Senaste taktslaget med tidpunkt, så att animeringar kan följa ljudet. */
+  pulse: BeatPulse | null;
   toggleMetronome: () => Promise<void>;
   stopMetronome: () => void;
   /**
@@ -166,7 +191,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [live, setLive] = useState<LiveConfig>(DEFAULT_LIVE);
   const [currentSongId, setCurrentSongId] = useState<string | null>(null);
   const [metronomeRunning, setMetronomeRunning] = useState(false);
-  const [activeBeat, setActiveBeat] = useState<number | null>(null);
+  const [pulse, setPulse] = useState<BeatPulse | null>(null);
 
   // Undviker att skriva tillbaka det inlästa värdet direkt efter start.
   const hydrated = useRef(false);
@@ -239,7 +264,14 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   }, [live.bpm, live.beatsPerBar, live.subdivision]);
 
   useEffect(() => {
-    metronome.onBeat = (beat) => setActiveBeat(beat);
+    metronome.onBeat = (beat) =>
+      setPulse((previous) => ({
+        beat,
+        at: Date.now(),
+        // Löpande räknare, till skillnad från taktdelen som börjar om varje takt.
+        // Pendeln behöver veta åt vilket håll den ska svänga.
+        count: (previous?.count ?? -1) + 1,
+      }));
     return () => {
       metronome.onBeat = null;
       metronome.stop();
@@ -255,6 +287,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
 
   const hasUnsavedChanges = currentSong ? !liveMatchesSong(live, currentSong) : false;
 
+  const activeBeat = pulse ? pulse.beat : null;
+
   const tuning = useMemo<TuningConfig>(
     () => ({
       system: live.tuningSystem,
@@ -268,14 +302,14 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     const running = await metronome.toggle();
     setMetronomeRunning(running);
     if (!running) {
-      setActiveBeat(null);
+      setPulse(null);
     }
   }, []);
 
   const stopMetronome = useCallback(() => {
     metronome.stop();
     setMetronomeRunning(false);
-    setActiveBeat(null);
+    setPulse(null);
   }, []);
 
   const playTones = useCallback(
@@ -289,7 +323,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         tonicPitchClass: from.tonicPitchClass,
         a4: settings.a4,
       };
-      const sequence = orderTones(from.tones, settings.toneOrder, direction);
+      const sequence = orderTones(from.tones, direction);
 
       void audioEngine.playTones(
         sequence.map((midi) => frequencyOf(midi, toneTuning)),
@@ -299,10 +333,20 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         },
       );
     },
-    [live, settings.a4, settings.toneOrder],
+    [live, settings.a4],
   );
 
   const stopTones = useCallback(() => audioEngine.stopTones(), []);
+
+  const labels = useMemo<LabelConfig>(
+    () => ({
+      system: settings.labelSystem,
+      naming: settings.naming,
+      reference: settings.labelReference,
+      tonicPitchClass: live.tonicPitchClass,
+    }),
+    [settings.labelSystem, settings.naming, settings.labelReference, live.tonicPitchClass],
+  );
 
   const updateLive = useCallback((patch: Partial<LiveConfig>) => {
     setLive((current) => ({ ...current, ...patch }));
@@ -312,15 +356,12 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     setSettings((current) => ({ ...current, ...patch }));
   }, []);
 
-  const toggleSongTone = useCallback(
-    (midi: number) => {
-      setLive((current) => ({
-        ...current,
-        tones: toggleTone(current.tones, midi, settings.toneOrder),
-      }));
-    },
-    [settings.toneOrder],
-  );
+  const toggleSongTone = useCallback((midi: number) => {
+    setLive((current) => ({
+      ...current,
+      tones: toggleTone(current.tones, midi),
+    }));
+  }, []);
 
   const loadSong = useCallback(
     (id: string) => {
@@ -408,8 +449,10 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       currentSong,
       hasUnsavedChanges,
       tuning,
+      labels,
       metronomeRunning,
       activeBeat,
+      pulse,
       toggleMetronome,
       stopMetronome,
       playTones,
@@ -433,8 +476,10 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       currentSong,
       hasUnsavedChanges,
       tuning,
+      labels,
       metronomeRunning,
       activeBeat,
+      pulse,
       toggleMetronome,
       stopMetronome,
       playTones,

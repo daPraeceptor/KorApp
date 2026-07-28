@@ -167,13 +167,19 @@ export function SongsScreen({ onOpenPlay }: { onOpenPlay: () => void }) {
               <Button
                 label="♪ ↑"
                 disabled={song.tones.length === 0}
-                onPress={() => playTones('forward', song)}
+                onPress={() => playTones('up', song)}
                 style={styles.quickButton}
               />
               <Button
                 label="♪ ↓"
                 disabled={song.tones.length === 0}
-                onPress={() => playTones('backward', song)}
+                onPress={() => playTones('down', song)}
+                style={styles.quickButton}
+              />
+              <Button
+                label="♪ ⇢"
+                disabled={song.tones.length === 0}
+                onPress={() => playTones('chosen', song)}
                 style={styles.quickButton}
               />
             </View>

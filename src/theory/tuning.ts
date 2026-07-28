@@ -83,6 +83,85 @@ export const INTERVAL_NAMES = [
   'Stor septim',
 ] as const;
 
+/**
+ * Solmisationsstavelser för alla tolv halvtoner.
+ *
+ * Halvtonen mellan två skalsteg kan stavas antingen som höjd eller som sänkt.
+ * Här används de sänkta formerna (ra, me, le, te) utom för den höjda kvarten
+ * fi, eftersom en kör betydligt oftare möter till exempel F i G-dur som sänkt
+ * septim än som höjd sext. Det motsvarar också stavningen i DEGREE_NAMES.
+ */
+const SOLFEGE_NAMES = [
+  'do',
+  'ra',
+  're',
+  'me',
+  'mi',
+  'fa',
+  'fi',
+  'sol',
+  'le',
+  'la',
+  'te',
+  'ti',
+] as const;
+
+/** Tonplatser som romerska siffror, så som skalsteg brukar skrivas i harmonilära. */
+const DEGREE_NAMES = [
+  'I',
+  '♭II',
+  'II',
+  '♭III',
+  'III',
+  'IV',
+  '♯IV',
+  'V',
+  '♭VI',
+  'VI',
+  '♭VII',
+  'VII',
+] as const;
+
+/** Bokstäver, solmisation eller tonplatssiffror. */
+export type LabelSystem = 'letters' | 'solfege' | 'degrees';
+
+/**
+ * Vad solmisationen och tonplatserna räknas ifrån: fast från C, eller flyttbart
+ * från den valda tonikan så att tonikan alltid blir do respektive 1.
+ */
+export type LabelReference = 'c' | 'tonic';
+
+export interface LabelConfig {
+  system: LabelSystem;
+  naming: NoteNaming;
+  reference: LabelReference;
+  tonicPitchClass: number;
+}
+
+export const DEFAULT_LABELS: LabelConfig = {
+  system: 'letters',
+  naming: 'international',
+  reference: 'tonic',
+  tonicPitchClass: 0,
+};
+
+export function noteLabel(midi: number, config: LabelConfig): string {
+  if (config.system === 'letters') {
+    return noteName(midi, config.naming);
+  }
+  const root = config.reference === 'tonic' ? config.tonicPitchClass : 0;
+  const step = pitchClass(midi - root);
+  return config.system === 'solfege' ? SOLFEGE_NAMES[step] : DEGREE_NAMES[step];
+}
+
+/** Sant för den ton som systemet räknar från: C, eller tonikan. */
+export function isLabelRoot(midi: number, config: LabelConfig): boolean {
+  const root = config.reference === 'tonic' ? config.tonicPitchClass : 0;
+  return config.system === 'letters'
+    ? pitchClass(midi) === 0
+    : pitchClass(midi - root) === 0;
+}
+
 /** Halvtonssteg inom oktaven som ritas som svarta tangenter. */
 const BLACK_KEY_STEPS = new Set([1, 3, 6, 8, 10]);
 

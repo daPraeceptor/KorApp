@@ -4,13 +4,12 @@
 import type { TuningSystem } from '../theory/tuning';
 
 /**
- * Hur låtens toner hålls i ordning.
+ * Riktning genom en låts toner vid uppspelning.
  *
- * 'pitch' lägger dem efter tonhöjd. 'entry' behåller den ordning körledaren
- * valde dem i, till exempel stämmornas insatsordning, och då är följden
- * betydelsebärande — därför sorteras den varken vid inläsning eller uppspelning.
+ * Tonerna sparas alltid i den ordning körledaren valde dem, så att både
+ * tonhöjdsordning och den valda följden finns tillgängliga samtidigt.
  */
-export type ToneOrder = 'pitch' | 'entry';
+export type PlayDirection = 'chord' | 'up' | 'down' | 'chosen';
 
 export interface Song {
   id: string;
@@ -121,38 +120,26 @@ export function sortSongs(songs: Song[]): Song[] {
   return [...songs].sort((a, b) => a.title.localeCompare(b.title, 'sv'));
 }
 
-/**
- * Riktning genom tonföljden. Med tonerna ordnade efter tonhöjd betyder framåt
- * nedifrån och upp; med egen ordning betyder det den ordning som valdes.
- */
-export type PlayDirection = 'chord' | 'forward' | 'backward';
-
-/**
- * Ställer tonerna i den följd de ska spelas.
- *
- * Med tonerna ordnade efter tonhöjd ger 'forward' nedifrån och upp. Med egen
- * ordning respekteras den följd körledaren valde, och 'backward' vänder den.
- */
-export function orderTones(
-  tones: number[],
-  order: ToneOrder,
-  direction: PlayDirection,
-): number[] {
-  const base = order === 'pitch' ? [...tones].sort((a, b) => a - b) : [...tones];
-  return direction === 'backward' ? base.reverse() : base;
+/** Ställer tonerna i den följd de ska spelas. */
+export function orderTones(tones: number[], direction: PlayDirection): number[] {
+  switch (direction) {
+    case 'up':
+      return [...tones].sort((a, b) => a - b);
+    case 'down':
+      return [...tones].sort((a, b) => b - a);
+    default:
+      // Ackordet spelas ändå samtidigt, så den valda ordningen duger åt båda.
+      return [...tones];
+  }
 }
 
-export function toggleTone(
-  tones: number[],
-  midi: number,
-  order: ToneOrder = 'pitch',
-): number[] {
+/** Lägger till eller tar bort en ton. Nya toner hamnar sist, i vald ordning. */
+export function toggleTone(tones: number[], midi: number): number[] {
   if (tones.includes(midi)) {
     return tones.filter((tone) => tone !== midi);
   }
   if (tones.length >= MAX_TONES) {
     return tones;
   }
-  const next = [...tones, midi];
-  return order === 'pitch' ? next.sort((a, b) => a - b) : next;
+  return [...tones, midi];
 }

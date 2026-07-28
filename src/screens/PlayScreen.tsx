@@ -6,6 +6,8 @@ import React, { useCallback, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Keyboard } from '../components/Keyboard';
+import { MetronomeVisual } from '../components/MetronomeVisual';
+import { NoteValueIcon } from '../components/NoteValueIcon';
 import { TempoWheel } from '../components/TempoWheel';
 import { Button, Card, SectionTitle, SegmentedControl, Stepper } from '../components/ui';
 import { MAX_BPM, MIN_BPM, clampBpm, tempoFromTaps } from '../audio/tempo';
@@ -14,6 +16,7 @@ import {
   centsFromTempered,
   frequencyOf,
   intervalName,
+  noteLabel,
   noteName,
   noteNameWithOctave,
   ratioLabel,
@@ -39,8 +42,10 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
     tuning,
     currentSong,
     hasUnsavedChanges,
+    labels,
     metronomeRunning,
     activeBeat,
+    pulse,
     toggleMetronome,
     playTones,
     updateLive,
@@ -51,6 +56,7 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
   const [selectMode, setSelectMode] = useState(false);
   const [playedNote, setPlayedNote] = useState<number | null>(null);
   const [keyboardStart, setKeyboardStart] = useState(48);
+  const [wheelDragging, setWheelDragging] = useState(false);
   const taps = useRef<number[]>([]);
 
   const tapTempo = useCallback(() => {
@@ -70,7 +76,6 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
 
   const displayedNote = playedNote;
   const noTones = live.tones.length === 0;
-  const byPitch = settings.toneOrder === 'pitch';
   const cents = displayedNote === null ? 0 : centsFromTempered(displayedNote, tuning);
 
   return (
@@ -78,6 +83,8 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
       style={styles.screen}
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
+      // Vyn får inte rulla iväg under fingret medan tempohjulet vrids.
+      scrollEnabled={!wheelDragging}
     >
       <Pressable style={styles.songBar} onPress={onOpenSongs}>
         <View style={styles.songBarText}>
@@ -98,12 +105,21 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
         ) : null}
       </Pressable>
 
+      <MetronomeVisual
+        style={settings.metronomeVisual}
+        running={metronomeRunning}
+        bpm={live.bpm}
+        pulse={pulse}
+        activeBeat={activeBeat}
+      />
+
       <View style={styles.wheelArea}>
         <TempoWheel
           bpm={live.bpm}
           onChange={(bpm) => updateLive({ bpm })}
           activeBeat={metronomeRunning ? activeBeat : null}
           beatsPerBar={live.beatsPerBar}
+          onDraggingChange={setWheelDragging}
         />
       </View>
 
@@ -144,10 +160,28 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
           value={live.subdivision}
           onChange={(subdivision) => updateLive({ subdivision })}
           options={[
-            { value: 1, label: 'Fjärdedelar' },
-            { value: 2, label: 'Åttondelar' },
-            { value: 3, label: 'Trioler' },
-            { value: 4, label: 'Sextondelar' },
+            {
+              value: 1,
+              label: 'Fjärdedelar',
+              renderIcon: (color) => <NoteValueIcon value="quarter" color={color} />,
+            },
+            {
+              value: 2,
+              label: 'Åttondelar',
+              renderIcon: (color) => <NoteValueIcon value="eighths" color={color} />,
+            },
+            {
+              value: 3,
+              label: 'Trioler',
+              renderIcon: (color) => <NoteValueIcon value="triplet" color={color} />,
+            },
+            {
+              value: 4,
+              label: 'Sextondelar',
+              renderIcon: (color) => (
+                <NoteValueIcon value="sixteenths" color={color} />
+              ),
+            },
           ]}
         />
       </Card>
@@ -186,7 +220,7 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
 
       <Card>
         <View style={styles.row}>
-          <SectionTitle>Körtoner</SectionTitle>
+          <SectionTitle>Tongivning</SectionTitle>
           <Text style={styles.counter}>
             {live.tones.length}/{MAX_TONES}
           </Text>
@@ -222,18 +256,23 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
         />
         <View style={styles.toneButtons}>
           <Button
-            label={byPitch ? '↑ Nedifrån och upp' : '↑ I vald ordning'}
+            label="↑ Nedifrån och upp"
             disabled={noTones}
-            onPress={() => playTones('forward')}
+            onPress={() => playTones('up')}
             style={styles.toneButton}
           />
           <Button
-            label={byPitch ? '↓ Uppifrån och ner' : '↓ Omvänd ordning'}
+            label="↓ Uppifrån och ner"
             disabled={noTones}
-            onPress={() => playTones('backward')}
+            onPress={() => playTones('down')}
             style={styles.toneButton}
           />
         </View>
+        <Button
+          label="⇢ I vald ordning"
+          disabled={noTones}
+          onPress={() => playTones('chosen')}
+        />
         <View style={styles.row}>
           <Text style={styles.rowLabel}>Hastighet en i taget</Text>
           <Stepper
@@ -253,8 +292,7 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
       </Card>
 
       <Card style={styles.keyboardCard}>
-        <View style={styles.row}>
-          <SectionTitle>Klaviatur</SectionTitle>
+        <View style={styles.toggleRow}>
           <Pressable
             onPress={() => setSelectMode((current) => !current)}
             style={[styles.toggle, selectMode && styles.toggleOn]}
@@ -288,12 +326,13 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
           fromMidi={keyboardStart}
           toMidi={keyboardStart + KEYBOARD_SPAN}
           tuning={tuning}
-          naming={settings.naming}
+          labels={labels}
+          showLabels={settings.showNoteNames}
           selectedTones={live.tones}
           selectMode={selectMode}
-          onSetTonic={(pitchClass) =>
-            updateLive({ tonicPitchClass: pitchClass, tuningSystem: 'just' })
-          }
+          // Tonikan styr både den rena stämningen och solmisationen, så den
+          // sätts utan att stämningssystemet ändras med.
+          onSetTonic={(pitchClass) => updateLive({ tonicPitchClass: pitchClass })}
           onToggleTone={toggleSongTone}
           onNotePlayed={setPlayedNote}
         />
@@ -308,6 +347,9 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
             <>
               <Text style={styles.readoutNote}>
                 {noteNameWithOctave(displayedNote, settings.naming)}
+                {settings.labelSystem !== 'letters'
+                  ? `  ·  ${noteLabel(displayedNote, labels)}`
+                  : ''}
               </Text>
               <Text style={styles.readoutDetail}>
                 {frequencyOf(displayedNote, tuning).toFixed(2)} Hz
@@ -480,6 +522,10 @@ const styles = StyleSheet.create({
   },
   keyboardCard: {
     paddingHorizontal: spacing.sm,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
   },
   toggle: {
     paddingVertical: 7,

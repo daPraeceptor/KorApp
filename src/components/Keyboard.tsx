@@ -21,11 +21,12 @@ import * as Haptics from 'expo-haptics';
 
 import { audioEngine } from '../audio/engine';
 import {
-  NoteNaming,
+  LabelConfig,
   TuningConfig,
   frequencyOf,
   isBlackKey,
-  noteName,
+  isLabelRoot,
+  noteLabel,
   octaveOf,
   pitchClass,
 } from '../theory/tuning';
@@ -44,7 +45,9 @@ interface Props {
   fromMidi: number;
   toMidi: number;
   tuning: TuningConfig;
-  naming: NoteNaming;
+  labels: LabelConfig;
+  /** När falskt lämnas tangenterna omärkta. */
+  showLabels: boolean;
   /** MIDI-toner som är sparade till låten. */
   selectedTones: number[];
   /** När sant lägger ett tryck också till eller tar bort tonen ur låten. */
@@ -59,7 +62,8 @@ export function Keyboard({
   fromMidi,
   toMidi,
   tuning,
-  naming,
+  labels,
+  showLabels,
   selectedTones,
   selectMode,
   onSetTonic,
@@ -128,14 +132,29 @@ export function Keyboard({
     [onNotePlayed],
   );
 
+  // Tonikan märks ut när den betyder något: som referens för den rena
+  // stämningen, eller som utgångspunkt för solmisation och tonplatser.
+  const tonicMatters =
+    tuning.system === 'just' ||
+    (labels.system !== 'letters' && labels.reference === 'tonic');
+
   const isTonic = (midi: number) =>
-    tuning.system === 'just' && pitchClass(midi) === tuning.tonicPitchClass;
+    tonicMatters && pitchClass(midi) === tuning.tonicPitchClass;
 
   const renderLabel = (midi: number, black: boolean) => {
-    const name = noteName(midi, naming);
-    const showOctave = pitchClass(midi) === 0;
+    if (!showLabels) {
+      return null;
+    }
+    const name = noteLabel(midi, labels);
+    // Oktavsiffran sätts ut på systemets utgångston, så att man hittar läget.
+    // Utom för tonplatser: «I3» läses lätt som ett tal i stället för första
+    // tonplatsen i tredje oktaven.
+    const showOctave = labels.system !== 'degrees' && isLabelRoot(midi, labels);
     return (
-      <Text style={[styles.label, black ? styles.labelBlack : styles.labelWhite]}>
+      <Text
+        numberOfLines={1}
+        style={[styles.label, black ? styles.labelBlack : styles.labelWhite]}
+      >
         {showOctave ? `${name}${octaveOf(midi)}` : name}
       </Text>
     );
@@ -166,12 +185,14 @@ export function Keyboard({
               <View style={styles.markers}>
                 {saved ? <View style={styles.savedDot} /> : null}
               </View>
-              {tonic ? (
-                <Text style={styles.tonicBadge} numberOfLines={1}>
-                  TONIKA
-                </Text>
-              ) : null}
-              {renderLabel(midi, false)}
+              <View style={styles.keyFoot}>
+                {tonic ? (
+                  <Text style={styles.tonicBadge} numberOfLines={1}>
+                    TONIKA
+                  </Text>
+                ) : null}
+                {renderLabel(midi, false)}
+              </View>
             </Pressable>
           );
         })}
@@ -198,12 +219,14 @@ export function Keyboard({
               <View style={styles.markers}>
                 {saved ? <View style={styles.savedDot} /> : null}
               </View>
-              {tonic ? (
-                <Text style={styles.tonicBadgeBlack} numberOfLines={1}>
-                  TON
-                </Text>
-              ) : null}
-              {renderLabel(midi, true)}
+              <View style={styles.keyFoot}>
+                {tonic ? (
+                  <Text style={styles.tonicBadgeBlack} numberOfLines={1}>
+                    TON
+                  </Text>
+                ) : null}
+                {renderLabel(midi, true)}
+              </View>
             </Pressable>
           );
         })}
@@ -272,26 +295,33 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     backgroundColor: colors.tone,
   },
-  tonicBadge: {
-    // Full bredd på tangenten så att ordet får plats på en rad.
+  /**
+   * Nedre delen av tangenten. Tonika-etiketten hör hemma här och inte högre
+   * upp, eftersom de svarta tangenterna täcker den övre halvan av de vita.
+   */
+  keyFoot: {
     alignSelf: 'stretch',
-    marginHorizontal: -6,
-    textAlign: 'center',
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#0d3b2e',
-    backgroundColor: '#a8f0d4',
-    paddingVertical: 2,
+    alignItems: 'center',
+    gap: 3,
   },
-  tonicBadgeBlack: {
+  tonicBadge: {
     alignSelf: 'stretch',
-    marginHorizontal: -6,
     textAlign: 'center',
     fontSize: 8,
     fontWeight: '800',
+    letterSpacing: 0.2,
+    color: '#0d3b2e',
+    backgroundColor: '#a8f0d4',
+    paddingVertical: 1,
+  },
+  tonicBadgeBlack: {
+    alignSelf: 'stretch',
+    textAlign: 'center',
+    fontSize: 7,
+    fontWeight: '800',
     color: '#0d3b2e',
     backgroundColor: colors.pure,
-    paddingVertical: 2,
+    paddingVertical: 1,
   },
   label: {
     fontSize: 12,

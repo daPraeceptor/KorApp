@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  isLabelRoot,
+  noteLabel,
   centsBetween,
   centsFromTempered,
   frequencyOf,
@@ -125,6 +127,96 @@ test('cent räknas rätt mellan frekvenser', () => {
   close(centsBetween(440, 880), 1200, 1e-9, 'oktav');
   close(centsBetween(440, 440), 0, 1e-9, 'samma ton');
   close(centsBetween(880, 440), -1200, 1e-9, 'oktav nedåt');
+});
+
+const etiketter = (
+  system: 'letters' | 'solfege' | 'degrees',
+  reference: 'c' | 'tonic',
+  tonicPitchClass: number,
+) =>
+  [60, 62, 64, 65, 67, 69, 71].map((midi) =>
+    noteLabel(midi, { system, naming: 'international', reference, tonicPitchClass }),
+  );
+
+test('solmisation från C ger do re mi på den vita skalan', () => {
+  assert.deepEqual(etiketter('solfege', 'c', 0), [
+    'do', 're', 'mi', 'fa', 'sol', 'la', 'ti',
+  ]);
+});
+
+test('solmisation flyttar med tonikan', () => {
+  // Med G som tonika blir G do. F är då sänkt septim och heter te, inte ti —
+  // ledtonen i G-dur är F♯.
+  assert.deepEqual(etiketter('solfege', 'tonic', 7), [
+    'fa', 'sol', 'la', 'te', 'do', 're', 'mi',
+  ]);
+});
+
+test('tonplatser skrivs som romerska siffror och räknas från tonikan', () => {
+  assert.deepEqual(etiketter('degrees', 'tonic', 2), [
+    '♭VII', 'I', 'II', '♭III', 'IV', 'V', 'VI',
+  ]);
+});
+
+test('fast referens struntar i tonikan', () => {
+  assert.deepEqual(etiketter('degrees', 'c', 5), etiketter('degrees', 'c', 0));
+});
+
+test('bokstäver påverkas inte av referensen', () => {
+  assert.deepEqual(etiketter('letters', 'tonic', 9), etiketter('letters', 'c', 0));
+});
+
+test('höjda toner får egna stavelser utan krock', () => {
+  const kromatisk = Array.from({ length: 12 }, (_, i) =>
+    noteLabel(60 + i, {
+      system: 'solfege',
+      naming: 'international',
+      reference: 'c',
+      tonicPitchClass: 0,
+    }),
+  );
+  assert.equal(new Set(kromatisk).size, 12, 'alla tolv stavelser ska vara unika');
+  assert.equal(kromatisk[3], 'me', 'sänkt ters');
+  assert.equal(kromatisk[6], 'fi', 'höjd kvart');
+  assert.equal(kromatisk[10], 'te', 'sänkt septim');
+  assert.equal(kromatisk[11], 'ti', 'ledtonen');
+});
+
+test('stavelserna följer samma stavning som tonplatssiffrorna', () => {
+  // Sänkta steg ska heta sänkt i båda systemen, annars blir de motsägelsefulla.
+  const bas = { naming: 'international' as const, reference: 'c' as const, tonicPitchClass: 0 };
+  for (const step of [1, 3, 8, 10]) {
+    const siffra = noteLabel(60 + step, { ...bas, system: 'degrees' });
+    assert.ok(siffra.startsWith('♭'), `steg ${step} ska vara sänkt, fick ${siffra}`);
+  }
+  assert.equal(noteLabel(66, { ...bas, system: 'degrees' }), '♯IV');
+});
+
+test('alla tolv tonplatser är unika romerska siffror', () => {
+  const bas = { naming: 'international' as const, reference: 'c' as const, tonicPitchClass: 0 };
+  const alla = Array.from({ length: 12 }, (_, i) =>
+    noteLabel(60 + i, { ...bas, system: 'degrees' }),
+  );
+  assert.equal(new Set(alla).size, 12);
+  assert.ok(
+    alla.every((namn) => /^[♭♯]?[IV]+$/.test(namn)),
+    `alla ska vara romerska, fick ${alla.join(' ')}`,
+  );
+  assert.deepEqual(
+    [alla[0], alla[4], alla[7], alla[11]],
+    ['I', 'III', 'V', 'VII'],
+    'grundton, ters, kvint och ledton',
+  );
+});
+
+test('utgångstonen pekas ut rätt i varje system', () => {
+  const bas = { naming: 'international' as const, tonicPitchClass: 7 };
+  // Bokstäver utgår från C, solmisation från tonikan när den är vald.
+  assert.equal(isLabelRoot(60, { ...bas, system: 'letters', reference: 'tonic' }), true);
+  assert.equal(isLabelRoot(67, { ...bas, system: 'letters', reference: 'tonic' }), false);
+  assert.equal(isLabelRoot(67, { ...bas, system: 'solfege', reference: 'tonic' }), true);
+  assert.equal(isLabelRoot(60, { ...bas, system: 'solfege', reference: 'tonic' }), false);
+  assert.equal(isLabelRoot(60, { ...bas, system: 'solfege', reference: 'c' }), true);
 });
 
 test('byte av tonika flyttar vilka toner som är rena', () => {

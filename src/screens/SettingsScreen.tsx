@@ -1,6 +1,6 @@
 /** Inställningar: kammarton, tonnamn, volym och hur körtonerna ges. */
 import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Button, Card, SectionTitle, SegmentedControl, Stepper } from '../components/ui';
 import { audioEngine } from '../audio/engine';
@@ -45,24 +45,107 @@ export function SettingsScreen() {
       </Card>
 
       <Card>
-        <SectionTitle>Tonnamn</SectionTitle>
+        <View style={styles.row}>
+          <SectionTitle>Tonnamn på tangenterna</SectionTitle>
+          <Pressable
+            onPress={() => updateSettings({ showNoteNames: !settings.showNoteNames })}
+            style={[styles.toggle, settings.showNoteNames && styles.toggleOn]}
+          >
+            <Text
+              style={[
+                styles.toggleText,
+                settings.showNoteNames && styles.toggleTextOn,
+              ]}
+            >
+              {settings.showNoteNames ? 'Visas' : 'Dolda'}
+            </Text>
+          </Pressable>
+        </View>
+
         <SegmentedControl
-          value={settings.naming}
-          onChange={(naming) => updateSettings({ naming })}
+          value={settings.labelSystem}
+          onChange={(labelSystem) => updateSettings({ labelSystem })}
           options={[
-            { value: 'international' as const, label: 'B' },
-            { value: 'swedish' as const, label: 'H' },
+            { value: 'letters' as const, label: 'Bokstäver' },
+            { value: 'solfege' as const, label: 'Do re mi' },
+            { value: 'degrees' as const, label: 'Tonplatser' },
+          ]}
+        />
+
+        {settings.labelSystem === 'letters' ? (
+          <>
+            <Text style={styles.rowLabel}>Bokstavssystem</Text>
+            <SegmentedControl
+              value={settings.naming}
+              onChange={(naming) => updateSettings({ naming })}
+              options={[
+                { value: 'international' as const, label: 'B' },
+                { value: 'swedish' as const, label: 'H' },
+              ]}
+            />
+            <Text style={styles.help}>
+              {settings.naming === 'international'
+                ? 'Internationell notation: tonen över A heter B, och tonen ett halvt steg under heter B♭.'
+                : 'Svensk notation: tonen över A heter H, och tonen ett halvt steg under heter B.'}
+            </Text>
+          </>
+        ) : (
+          <>
+            <Text style={styles.rowLabel}>Räknas från</Text>
+            <SegmentedControl
+              value={settings.labelReference}
+              tint={colors.pure}
+              onChange={(labelReference) => updateSettings({ labelReference })}
+              options={[
+                { value: 'tonic' as const, label: 'Tonikan' },
+                { value: 'c' as const, label: 'C' },
+              ]}
+            />
+            <Text style={styles.help}>
+              {settings.labelReference === 'tonic'
+                ? `Flyttbart: tonikan blir alltid ${
+                    settings.labelSystem === 'solfege' ? 'do' : 'I'
+                  }, så samma benämning betyder samma funktion oavsett tonart. Tonikan väljs med dubbeltryck på klaviaturen.`
+                : `Fast: C är alltid ${
+                    settings.labelSystem === 'solfege' ? 'do' : 'I'
+                  }, oavsett vilken tonart stycket går i.`}
+            </Text>
+            {settings.labelSystem === 'solfege' ? (
+              <Text style={styles.footnote}>
+                Halvtonerna stavas sänkta — ra, me, le, te — utom den höjda
+                kvarten fi. En kör möter till exempel F i G-dur som sänkt septim,
+                inte som höjd sext.
+              </Text>
+            ) : null}
+          </>
+        )}
+      </Card>
+
+      <Card>
+        <SectionTitle>Taktvisare</SectionTitle>
+        <SegmentedControl
+          value={settings.metronomeVisual}
+          onChange={(metronomeVisual) => updateSettings({ metronomeVisual })}
+          options={[
+            { value: 'pendulum' as const, label: 'Pendel' },
+            { value: 'bar' as const, label: 'Streck' },
+            { value: 'ball' as const, label: 'Boll' },
+            { value: 'none' as const, label: 'Ingen' },
           ]}
         />
         <Text style={styles.help}>
-          {settings.naming === 'international'
-            ? 'Internationell notation: tonen över A heter B, och tonen ett halvt steg under heter B♭.'
-            : 'Svensk notation: tonen över A heter H, och tonen ett halvt steg under heter B.'}
+          {settings.metronomeVisual === 'pendulum'
+            ? 'En klassisk pendel som vänder på varje taktslag.'
+            : settings.metronomeVisual === 'bar'
+              ? 'Ett streck som går fram och tillbaka och vänder på varje taktslag.'
+              : settings.metronomeVisual === 'ball'
+                ? 'En boll som studsar mot marken på varje taktslag. Studsen blir högre vid långsamma tempon och lägre vid snabba.'
+                : 'Ingen grafisk taktvisare. Taktdelarna syns ändå som prickar i tempohjulet.'}
         </Text>
       </Card>
 
       <Card>
-        <SectionTitle>Körtoner</SectionTitle>
+        <SectionTitle>Tongivning</SectionTitle>
         <View style={styles.row}>
           <Text style={styles.rowLabel}>Standardhastighet</Text>
           <Stepper
@@ -78,21 +161,10 @@ export function SettingsScreen() {
           Hastigheten när tonerna ges en i taget. Varje låt bär sitt eget värde —
           det här är vad en ny låt börjar med.
         </Text>
-
-        <Text style={styles.rowLabel}>Ordning på tonerna</Text>
-        <SegmentedControl
-          value={settings.toneOrder}
-          tint={colors.pure}
-          onChange={(toneOrder) => updateSettings({ toneOrder })}
-          options={[
-            { value: 'pitch' as const, label: 'Efter tonhöjd' },
-            { value: 'entry' as const, label: 'I vald ordning' },
-          ]}
-        />
-        <Text style={styles.help}>
-          {settings.toneOrder === 'pitch'
-            ? 'Tonerna läggs i ordning efter tonhöjd, oavsett i vilken följd du väljer dem.'
-            : 'Tonerna behåller den följd du väljer dem i, till exempel stämmornas insatsordning. Uppspelningen följer då den ordningen i stället för tonhöjd.'}
+        <Text style={styles.footnote}>
+          Tonerna sparas alltid i den ordning du väljer dem. Knapparna i spelvyn
+          avgör om de ges nedifrån och upp, uppifrån och ner, eller i den valda
+          ordningen.
         </Text>
       </Card>
 
@@ -225,5 +297,25 @@ const styles = StyleSheet.create({
   footnote: {
     color: colors.textMuted,
     fontSize: 11,
+    lineHeight: 16,
+  },
+  toggle: {
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  toggleOn: {
+    backgroundColor: colors.tone,
+    borderColor: colors.tone,
+  },
+  toggleText: {
+    color: colors.textMuted,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  toggleTextOn: {
+    color: '#0c1630',
   },
 });
