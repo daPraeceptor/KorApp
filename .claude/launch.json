@@ -1,0 +1,14 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "korapp-web",
+      "runtimeExecutable": "cmd.exe",
+      "runtimeArgs": [
+        "/c",
+        "set PATH=C:\\PROGRA~1\\nodejs;%PATH%&& C:\\PROGRA~1\\nodejs\\npx.cmd expo start --web --port 8082"
+      ],
+      "port": 8082
+    }
+  ]
+}

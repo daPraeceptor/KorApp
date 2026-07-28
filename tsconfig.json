@@ -1,6 +1,10 @@
 {
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
-    "strict": true
+    "strict": true,
+    "noEmit": true,
+    // Testerna körs av Node, som kräver filändelse i importsökvägen.
+    "allowImportingTsExtensions": true,
+    "types": ["node"]
   }
 }
