@@ -2,6 +2,9 @@
  * Låtbiblioteket: tempo, taktart, stämning och starttoner sparade per låt.
  */
 import type { TuningSystem } from '../theory/tuning';
+// SubdivisionId är en typ och måste märkas som sådan, annars försöker Node
+// importera den i körläge när testerna går.
+import { type SubdivisionId, toSubdivisionId } from '../audio/subdivisions.ts';
 
 /**
  * Riktning genom en låts toner vid uppspelning.
@@ -16,7 +19,7 @@ export interface Song {
   title: string;
   bpm: number;
   beatsPerBar: number;
-  subdivision: number;
+  subdivision: SubdivisionId;
   tuningSystem: TuningSystem;
   /** Tonklass 0–11 för låtens tonika. */
   tonicPitchClass: number;
@@ -119,7 +122,7 @@ export function createSong(partial: Partial<Song> = {}): Song {
     title: 'Ny låt',
     bpm: 90,
     beatsPerBar: 4,
-    subdivision: 1,
+    subdivision: 'quarter',
     tuningSystem: 'tempered',
     tonicPitchClass: 0,
     tones: [],
@@ -162,7 +165,8 @@ export function normalizeSong(raw: unknown): Song | null {
     title: value.title,
     bpm: Math.min(300, Math.max(30, Math.round(number(value.bpm, 90)))),
     beatsPerBar: Math.max(1, Math.round(number(value.beatsPerBar, 4))),
-    subdivision: Math.max(1, Math.round(number(value.subdivision, 1))),
+    // Underdelningen sparades förr som antal klick per slag.
+    subdivision: toSubdivisionId(value.subdivision),
     tuningSystem: value.tuningSystem === 'just' ? 'just' : 'tempered',
     tonicPitchClass: ((Math.round(number(value.tonicPitchClass, 0)) % 12) + 12) % 12,
     tones,

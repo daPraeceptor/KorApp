@@ -20,6 +20,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { audioEngine } from '../audio/engine';
 import { DEFAULT_TIMBRE, TimbreId } from '../audio/timbres';
 import { metronome } from '../audio/metronome';
+import { DEFAULT_SUBDIVISION, SubdivisionId } from '../audio/subdivisions';
 import { ThemeProvider } from '../ThemeContext';
 import { DEFAULT_THEME, ThemeId, buildPalette } from '../theme';
 import {
@@ -79,6 +80,8 @@ export interface Settings {
   toneTimbre: TimbreId;
   /** Appens färgtema. */
   themeId: ThemeId;
+  /** Visar swing, punkterat och kvintol bland underdelningarna. */
+  showAdvancedSubdivisions: boolean;
   /** Hur takten visas grafiskt i spelvyn. */
   metronomeVisual: MetronomeVisualStyle;
 }
@@ -97,6 +100,7 @@ const DEFAULT_SETTINGS: Settings = {
   markTonicInTempered: false,
   toneTimbre: DEFAULT_TIMBRE,
   themeId: DEFAULT_THEME,
+  showAdvancedSubdivisions: false,
   metronomeVisual: 'pendulum',
 };
 
@@ -105,7 +109,7 @@ const DEFAULT_SETTINGS: Settings = {
 export interface LiveConfig {
   bpm: number;
   beatsPerBar: number;
-  subdivision: number;
+  subdivision: SubdivisionId;
   tuningSystem: TuningSystem;
   tonicPitchClass: number;
   tones: number[];
@@ -115,7 +119,7 @@ export interface LiveConfig {
 const DEFAULT_LIVE: LiveConfig = {
   bpm: 90,
   beatsPerBar: 4,
-  subdivision: 1,
+  subdivision: DEFAULT_SUBDIVISION,
   tuningSystem: 'tempered',
   tonicPitchClass: 0,
   tones: [],

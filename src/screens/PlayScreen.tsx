@@ -2,12 +2,17 @@
  * Spelvyn: tempo, taktart, stämning och körens starttoner på en och samma skärm,
  * så att körledaren slipper byta vy mitt i en repetition.
  */
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Keyboard } from '../components/Keyboard';
 import { MetronomeVisual } from '../components/MetronomeVisual';
 import { NoteValueIcon } from '../components/NoteValueIcon';
+import {
+  SUBDIVISIONS,
+  SUBDIVISION_ORDER,
+  subdivisionOr,
+} from '../audio/subdivisions';
 import { TempoWheel } from '../components/TempoWheel';
 import { Button, Card, SectionTitle, SegmentedControl, Stepper } from '../components/ui';
 import { MAX_BPM, MIN_BPM, clampBpm, tempoFromTaps } from '../audio/tempo';
@@ -30,14 +35,6 @@ import { useTheme, useThemedStyles } from '../ThemeContext';
 
 /** Knackningar som ligger längre isär än så här räknas som ett nytt tempo. */
 const TAP_RESET_MS = 2000;
-
-/** Kortnamn på underdelningarna, för sammanfattningen när taktarten är hopfälld. */
-const SUBDIVISION_LABELS: Record<number, string> = {
-  1: 'fjärdedelar',
-  2: 'åttondelar',
-  3: 'trioler',
-  4: 'sextondelar',
-};
 
 const LOWEST_MIDI = 24;
 const HIGHEST_START = 84;
@@ -68,7 +65,28 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
   const [keyboardStart, setKeyboardStart] = useState(48);
   const [wheelDragging, setWheelDragging] = useState(false);
   const [meterOpen, setMeterOpen] = useState(true);
+  const [tonesOpen, setTonesOpen] = useState(true);
   const taps = useRef<number[]>([]);
+  const föregåendeAntalToner = useRef(live.tones.length);
+
+  /**
+   * Tonvalet öppnar kortet hopfällt med en instruktion, så att klaviaturen
+   * hamnar i blickfånget i stället för en tom knapprad. Första tonen fäller
+   * upp det igen — då finns det något att se.
+   */
+  const toggleSelectMode = useCallback(() => {
+    if (!selectMode && live.tones.length === 0) {
+      setTonesOpen(false);
+    }
+    setSelectMode((current) => !current);
+  }, [selectMode, live.tones.length]);
+
+  useEffect(() => {
+    if (live.tones.length > 0 && föregåendeAntalToner.current === 0) {
+      setTonesOpen(true);
+    }
+    föregåendeAntalToner.current = live.tones.length;
+  }, [live.tones.length]);
 
   const tapTempo = useCallback(() => {
     const now = Date.now();
@@ -86,6 +104,15 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
   }, [updateLive]);
 
   const displayedNote = playedNote;
+  // De avancerade göms tills körledaren slår på dem, men en redan vald
+  // underdelning måste synas även då — annars ser knappraden tom ut.
+  const synligaUnderdelningar = SUBDIVISION_ORDER.filter(
+    (id) =>
+      !SUBDIVISIONS[id].advanced ||
+      settings.showAdvancedSubdivisions ||
+      live.subdivision === id,
+  );
+
   const toneCount = live.tones.length;
   // Tonikan går bara att sätta där den betyder något, så tipset följer
   // markeringen i stället för att stå kvar och lova något som inte händer.
@@ -172,7 +199,7 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
             {/* Hopfälld visar kortet ändå vad som är inställt. */}
             {meterOpen
               ? '▾'
-              : `${live.beatsPerBar}/4 · ${SUBDIVISION_LABELS[live.subdivision] ?? ''}  ▸`}
+              : `${live.beatsPerBar}/4 · ${subdivisionOr(live.subdivision).label.toLocaleLowerCase('sv')}  ▸`}
           </Text>
         </Pressable>
 
@@ -191,40 +218,116 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
             <SegmentedControl
               value={live.subdivision}
               onChange={(subdivision) => updateLive({ subdivision })}
-              options={[
-                {
-                  value: 1,
-                  label: 'Fjärdedelar',
-                  renderIcon: (color) => (
-                    <NoteValueIcon value="quarter" color={color} />
-                  ),
-                },
-                {
-                  value: 2,
-                  label: 'Åttondelar',
-                  renderIcon: (color) => (
-                    <NoteValueIcon value="eighths" color={color} />
-                  ),
-                },
-                {
-                  value: 3,
-                  label: 'Trioler',
-                  renderIcon: (color) => (
-                    <NoteValueIcon value="triplet" color={color} />
-                  ),
-                },
-                {
-                  value: 4,
-                  label: 'Sextondelar',
-                  renderIcon: (color) => (
-                    <NoteValueIcon value="sixteenths" color={color} />
-                  ),
-                },
-              ]}
+              options={synligaUnderdelningar.map((id) => ({
+                value: id,
+                // Med alla åtta framme finns ingen plats för text. Notbilderna
+                // säger ändå vad varje figur är, och namnen står i inställningarna.
+                label: settings.showAdvancedSubdivisions ? '' : SUBDIVISIONS[id].label,
+                renderIcon: (color: string) => (
+                  <NoteValueIcon value={id} color={color} />
+                ),
+              }))}
             />
           </>
         ) : null}
       </Card>
+
+      {/* Utan sparade toner finns ingenting att ge kören. Kortet väcks ändå
+          så fort man slår på tonvalet, så att man ser var tonerna hamnar. */}
+      {toneCount > 0 || selectMode ? (
+        <Card>
+          <Pressable
+            onPress={() => setTonesOpen((open) => !open)}
+            style={styles.cardHeader}
+          >
+            <SectionTitle>Tongivning</SectionTitle>
+            <Text style={styles.cardHeaderNote}>
+              {/* Hopfälld visar kortet ändå vilka toner som ligger sparade. */}
+              {tonesOpen
+                ? `${toneCount}/${MAX_TONES}  ▾`
+                : toneCount === 0
+                  ? '▸'
+                  : `${live.tones
+                      .map((midi) => noteNameWithOctave(midi, settings.naming))
+                      .join(' ')}  ▸`}
+            </Text>
+          </Pressable>
+
+          {!tonesOpen && toneCount === 0 ? (
+            <Text style={styles.helpText}>
+              Tryck på en tangent på klaviaturen för att lägga till en ton.
+            </Text>
+          ) : null}
+
+          {tonesOpen ? (
+          <>
+          <View style={styles.chips}>
+            {live.tones.map((midi) => (
+              <Pressable
+                key={midi}
+                onPress={() => toggleSongTone(midi)}
+                style={styles.chip}
+              >
+                <Text style={styles.chipText}>
+                  {noteNameWithOctave(midi, settings.naming)}
+                </Text>
+                <Text style={styles.chipRemove}>×</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          {toneCount === 1 ? (
+            // En ensam ton har varken ackord eller ordning — bara sig själv.
+            <Button
+              label={`Spela ${noteNameWithOctave(live.tones[0], settings.naming)}`}
+              variant="pure"
+              onPress={() => playTones('chord')}
+            />
+          ) : (
+            <>
+              <Button
+                label="Spela ackordet"
+                variant="pure"
+                onPress={() => playTones('chord')}
+              />
+              <View style={styles.toneButtons}>
+                <Button
+                  label="↑ Nedifrån och upp"
+                  onPress={() => playTones('up')}
+                  style={styles.toneButton}
+                />
+                <Button
+                  label="↓ Uppifrån och ner"
+                  onPress={() => playTones('down')}
+                  style={styles.toneButton}
+                />
+              </View>
+              <Button
+                label="⇢ I vald ordning"
+                onPress={() => playTones('chosen')}
+              />
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>Tempo mellan tonerna</Text>
+                <Stepper
+                  value={live.toneGapBpm}
+                  min={MIN_TONE_GAP_BPM}
+                  max={MAX_TONE_GAP_BPM}
+                  step={5}
+                  onChange={(toneGapBpm) => updateLive({ toneGapBpm })}
+                  format={(value) => `${value} slag/min`}
+                />
+              </View>
+              <Text style={styles.toneHint}>
+                Tempot sparas med låten. Nya låtar börjar på{' '}
+                {settings.defaultToneGapBpm} slag/min, vilket går att ändra i
+                inställningarna.
+              </Text>
+            </>
+          )}
+          </>
+          ) : null}
+        </Card>
+      ) : null}
 
       <Card style={styles.keyboardCard}>
         <View style={styles.keyboardHeader}>
@@ -239,11 +342,11 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
             ]}
           />
           <Pressable
-            onPress={() => setSelectMode((current) => !current)}
+            onPress={toggleSelectMode}
             style={[styles.toggle, selectMode && styles.toggleOn]}
           >
             <Text style={[styles.toggleText, selectMode && styles.toggleTextOn]}>
-              Välj toner
+              Välj toner för tongivning
             </Text>
           </Pressable>
         </View>
@@ -324,81 +427,6 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
         </View>
       </Card>
 
-      {/* Utan sparade toner finns ingenting att ge kören, så kortet står över. */}
-      {toneCount > 0 ? (
-        <Card>
-          <View style={styles.row}>
-            <SectionTitle>Tongivning</SectionTitle>
-            <Text style={styles.counter}>
-              {toneCount}/{MAX_TONES}
-            </Text>
-          </View>
-
-          <View style={styles.chips}>
-            {live.tones.map((midi) => (
-              <Pressable
-                key={midi}
-                onPress={() => toggleSongTone(midi)}
-                style={styles.chip}
-              >
-                <Text style={styles.chipText}>
-                  {noteNameWithOctave(midi, settings.naming)}
-                </Text>
-                <Text style={styles.chipRemove}>×</Text>
-              </Pressable>
-            ))}
-          </View>
-
-          {toneCount === 1 ? (
-            // En ensam ton har varken ackord eller ordning — bara sig själv.
-            <Button
-              label={`Spela ${noteNameWithOctave(live.tones[0], settings.naming)}`}
-              variant="pure"
-              onPress={() => playTones('chord')}
-            />
-          ) : (
-            <>
-              <Button
-                label="Spela ackordet"
-                variant="pure"
-                onPress={() => playTones('chord')}
-              />
-              <View style={styles.toneButtons}>
-                <Button
-                  label="↑ Nedifrån och upp"
-                  onPress={() => playTones('up')}
-                  style={styles.toneButton}
-                />
-                <Button
-                  label="↓ Uppifrån och ner"
-                  onPress={() => playTones('down')}
-                  style={styles.toneButton}
-                />
-              </View>
-              <Button
-                label="⇢ I vald ordning"
-                onPress={() => playTones('chosen')}
-              />
-              <View style={styles.row}>
-                <Text style={styles.rowLabel}>Tempo mellan tonerna</Text>
-                <Stepper
-                  value={live.toneGapBpm}
-                  min={MIN_TONE_GAP_BPM}
-                  max={MAX_TONE_GAP_BPM}
-                  step={5}
-                  onChange={(toneGapBpm) => updateLive({ toneGapBpm })}
-                  format={(value) => `${value} slag/min`}
-                />
-              </View>
-              <Text style={styles.toneHint}>
-                Tempot sparas med låten. Nya låtar börjar på{' '}
-                {settings.defaultToneGapBpm} slag/min, vilket går att ändra i
-                inställningarna.
-              </Text>
-            </>
-          )}
-        </Card>
-      ) : null}
 
       <Text style={styles.rangeHint}>
         Tempoområde {MIN_BPM}–{MAX_BPM} slag per minut. Kammarton A = {settings.a4} Hz.

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { DEFAULT_TIMBRE, TIMBRES, TIMBRE_ORDER } from './timbres.ts';
+import { DEFAULT_TIMBRE, TIMBRES, TIMBRE_ORDER, timbreOr } from './timbres.ts';
 
 const C4 = 261.626;
 
@@ -17,7 +17,8 @@ test('körtonen är standard', () => {
 test('varje klang ger användbara deltoner', () => {
   for (const id of TIMBRE_ORDER) {
     const partials = TIMBRES[id].partials(C4);
-    assert.ok(partials.length >= 4, `${id} har för få deltoner`);
+    // Sinustonen består med flit av en enda delton.
+    assert.ok(partials.length >= 1, `${id} saknar deltoner`);
     for (const partial of partials) {
       assert.ok(
         Number.isFinite(partial.gain) && partial.gain > 0,
@@ -36,10 +37,10 @@ test('varje klang har en grundton som dominerar eller bär tonhöjden', () => {
   }
 });
 
-test('alla klanger bär femte och sjätte deltonen', () => {
+test('klanger som utger sig för att visa stämningen bär femte och sjätte deltonen', () => {
   // Utan dem finns skillnaden mellan tempererad och ren stämning inte i ljudet,
-  // hur rätt frekvenserna än är räknade. Det gäller varje valbar klang.
-  for (const id of TIMBRE_ORDER) {
+  // hur rätt frekvenserna än är räknade.
+  for (const id of TIMBRE_ORDER.filter((x) => TIMBRES[x].revealsTuning)) {
     const partials = TIMBRES[id].partials(C4);
     for (const ratio of [5, 6]) {
       const partial = partials.find((p) => p.ratio === ratio);
@@ -58,7 +59,7 @@ test('anslagsklanger klingar av, liggande klanger gör det inte', () => {
     assert.ok(TIMBRES[id].partialDecay, `${id} ska klinga av`);
     assert.ok(TIMBRES[id].sustain < 0.2, `${id} ska inte ligga kvar`);
   }
-  for (const id of ['choir', 'flute', 'ah', 'oh'] as const) {
+  for (const id of ['choir', 'flute', 'sine', 'square'] as const) {
     assert.equal(TIMBRES[id].partialDecay, undefined, `${id} ska ligga kvar`);
     assert.ok(TIMBRES[id].sustain > 0.5, `${id} ska ligga kvar`);
   }
@@ -78,30 +79,6 @@ test('anslagsklangernas ljusa deltoner dör före de mörka', () => {
   }
 });
 
-test('vokalerna formas av sina formanter', () => {
-  const styrka = (id: 'ah' | 'oh', hz: number) => {
-    const partials = TIMBRES[id].partials(C4);
-    const traff = partials.reduce((bast, p) =>
-      Math.abs(p.ratio * C4 - hz) < Math.abs(bast.ratio * C4 - hz) ? p : bast,
-    );
-    return traff.gain;
-  };
-  // «ah» har sin första formant kring 730 Hz, «oh» kring 450 Hz.
-  assert.ok(styrka('ah', 730) > styrka('ah', 450), 'ah ska vara ljusare');
-  assert.ok(styrka('oh', 450) > styrka('oh', 1090), 'oh ska vara mörkare');
-});
-
-test('vokalerna skiljer sig hörbart från varandra', () => {
-  const ah = TIMBRES.ah.partials(C4);
-  const oh = TIMBRES.oh.partials(C4);
-  const tyngdpunkt = (list: typeof ah) => {
-    const summa = list.reduce((s, p) => s + p.gain, 0);
-    return list.reduce((s, p) => s + p.ratio * C4 * p.gain, 0) / summa;
-  };
-  const skillnad = tyngdpunkt(ah) - tyngdpunkt(oh);
-  assert.ok(skillnad > 100, `klangtyngdpunkterna skiljer bara ${skillnad.toFixed(0)} Hz`);
-});
-
 test('inga deltoner hamnar över hörselområdet för höga toner', () => {
   // Klaviaturen går upp till C6. Deltoner över 18 kHz filtreras i motorn, men
   // en klang ska inte bestå av nästan bara sådana.
@@ -109,6 +86,34 @@ test('inga deltoner hamnar över hörselområdet för höga toner', () => {
   for (const id of TIMBRE_ORDER) {
     const partials = TIMBRES[id].partials(C6);
     const horbara = partials.filter((p) => p.ratio * C6 <= 18000);
-    assert.ok(horbara.length >= 4, `${id} tappar för många deltoner högt upp`);
+    // Grundtonen måste alltid finnas kvar, och klangen får inte tappa mer än
+    // hälften av sina deltoner ens längst upp på klaviaturen.
+    assert.ok(horbara.length >= 1, `${id} tappar grundtonen`);
+    assert.ok(
+      horbara.length >= partials.length / 2,
+      `${id} tappar ${partials.length - horbara.length} av ${partials.length} deltoner`,
+    );
   }
+});
+
+test('de rena vågformerna är ärligt märkta', () => {
+  // Sinus saknar övertoner helt. Fyrkantsvågen har bara udda, men både tersens
+  // och kvintens sammanfall sker på jämna deltoner — alltså ingen svävning.
+  for (const id of ['sine', 'square'] as const) {
+    assert.equal(TIMBRES[id].revealsTuning, false, `${id} ska vara märkt`);
+    const jämna = TIMBRES[id].partials(C4).filter((p) => p.ratio % 2 === 0);
+    assert.equal(jämna.length, 0, `${id} ska sakna jämna deltoner`);
+  }
+});
+
+test('fyrkantsvågen har udda deltoner med styrkan ett genom n', () => {
+  for (const p of TIMBRES.square.partials(C4)) {
+    assert.equal(p.ratio % 2, 1, 'bara udda deltoner');
+    assert.ok(Math.abs(p.gain - 1 / p.ratio) < 1e-9, `delton ${p.ratio} ska ha styrkan 1/${p.ratio}`);
+  }
+});
+
+test('en okänd klang faller tillbaka på standard i stället för att krascha', () => {
+  assert.equal(timbreOr('ah').id, DEFAULT_TIMBRE);
+  assert.equal(timbreOr('choir').id, 'choir');
 });

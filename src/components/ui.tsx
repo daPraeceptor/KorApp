@@ -123,14 +123,17 @@ export function SegmentedControl<T extends string | number>({
             {option.renderIcon
               ? option.renderIcon(selected ? t.onAccent : t.textMuted)
               : null}
-            <Text
-              style={[
-                styles.segmentLabel,
-                selected && styles.segmentLabelSelected,
-              ]}
-            >
-              {option.label}
-            </Text>
+            {/* Tom etikett hoppas över helt, annars tar den ändå plats i höjd. */}
+            {option.label ? (
+              <Text
+                style={[
+                  styles.segmentLabel,
+                  selected && styles.segmentLabelSelected,
+                ]}
+              >
+                {option.label}
+              </Text>
+            ) : null}
           </Pressable>
         );
       })}

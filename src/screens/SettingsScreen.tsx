@@ -12,7 +12,8 @@ import {
   centsBetween,
 } from '../theory/tuning';
 import { MAX_TONE_GAP_BPM, MIN_TONE_GAP_BPM } from '../store/songs';
-import { TIMBRES, TIMBRE_ORDER } from '../audio/timbres';
+import { TIMBRES, TIMBRE_ORDER, timbreOr } from '../audio/timbres';
+import { SUBDIVISIONS, SUBDIVISION_ORDER } from '../audio/subdivisions';
 import {
   Palette,
   THEME_META,
@@ -180,6 +181,41 @@ export function SettingsScreen() {
       </Card>
 
       <Card>
+        <View style={styles.row}>
+          <SectionTitle>Avancerade underdelningar</SectionTitle>
+          <Pressable
+            onPress={() =>
+              updateSettings({
+                showAdvancedSubdivisions: !settings.showAdvancedSubdivisions,
+              })
+            }
+            style={[styles.toggle, settings.showAdvancedSubdivisions && styles.toggleOn]}
+          >
+            <Text
+              style={[
+                styles.toggleText,
+                settings.showAdvancedSubdivisions && styles.toggleTextOn,
+              ]}
+            >
+              {settings.showAdvancedSubdivisions ? 'Visas' : 'Dolda'}
+            </Text>
+          </Pressable>
+        </View>
+        <Text style={styles.help}>
+          Lägger till swing, punkterat och kvintol bland underdelningarna i
+          spelvyn. Till skillnad från de vanliga är de ojämnt fördelade över
+          taktslaget.
+        </Text>
+        {SUBDIVISION_ORDER.filter((id) => SUBDIVISIONS[id].advanced).map((id) => (
+          <Text key={id} style={styles.footnote}>
+            <Text style={styles.rowLabel}>{SUBDIVISIONS[id].label}</Text>
+            {'  '}
+            {SUBDIVISIONS[id].description}
+          </Text>
+        ))}
+      </Card>
+
+      <Card>
         <SectionTitle>Taktvisare</SectionTitle>
         <SegmentedControl
           value={settings.metronomeVisual}
@@ -233,7 +269,7 @@ export function SettingsScreen() {
           })}
         </View>
         <Text style={styles.help}>
-          {TIMBRES[settings.toneTimbre].description} Tryck på en klang för att
+          {timbreOr(settings.toneTimbre).description} Tryck på en klang för att
           höra den.
         </Text>
 

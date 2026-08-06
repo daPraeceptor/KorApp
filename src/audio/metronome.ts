@@ -6,10 +6,16 @@
  * framåt i tiden och bokar in alla klick som infaller inom fönstret på
  * ljudkortets klocka, som är exakt.
  */
-import { AudioEngine, ClickVariant, audioEngine } from './engine';
-import { clampBpm } from './tempo';
+import { type ClickVariant, AudioEngine, audioEngine } from './engine.ts';
+import {
+  DEFAULT_SUBDIVISION,
+  type SubdivisionId,
+  subdivisionOr,
+  toSubdivisionId,
+} from './subdivisions.ts';
+import { clampBpm } from './tempo.ts';
 
-export { MAX_BPM, MIN_BPM, clampBpm, tempoFromTaps } from './tempo';
+export { MAX_BPM, MIN_BPM, clampBpm, tempoFromTaps } from './tempo.ts';
 
 /** Hur ofta schemaläggaren vaknar och tittar framåt. */
 const TIMER_INTERVAL_MS = 25;
@@ -20,23 +26,26 @@ const SCHEDULE_AHEAD = 0.12;
 export interface MetronomeState {
   bpm: number;
   beatsPerBar: number;
-  /** 1 = fjärdedelar, 2 = åttondelar, 3 = triolet, 4 = sextondelar. */
-  subdivision: number;
+  subdivision: SubdivisionId;
   accentFirstBeat: boolean;
 }
 
 export const DEFAULT_METRONOME: MetronomeState = {
   bpm: 90,
   beatsPerBar: 4,
-  subdivision: 1,
+  subdivision: DEFAULT_SUBDIVISION,
   accentFirstBeat: true,
 };
 
 export class Metronome {
   private engine: AudioEngine;
   private timer: ReturnType<typeof setInterval> | null = null;
-  private nextTickTime = 0;
-  private tick = 0;
+  /** Ljudkortstiden när det pågående taktslaget började. */
+  private beatStart = 0;
+  /** Vilket läge inom taktslaget som står näst på tur. */
+  private offsetIndex = 0;
+  /** Löpande taktslag sedan starten, för att veta var i takten vi är. */
+  private beatIndex = 0;
   private state: MetronomeState = { ...DEFAULT_METRONOME };
 
   /** Anropas när en taktdel hörs, med taktdelens nummer från noll. */
@@ -59,7 +68,7 @@ export class Metronome {
     const next = { ...this.state, ...patch };
     next.bpm = clampBpm(next.bpm);
     next.beatsPerBar = Math.max(1, Math.round(next.beatsPerBar));
-    next.subdivision = Math.max(1, Math.round(next.subdivision));
+    next.subdivision = toSubdivisionId(next.subdivision);
 
     const restartCounting =
       next.beatsPerBar !== this.state.beatsPerBar ||
@@ -69,7 +78,10 @@ export class Metronome {
 
     if (restartCounting && this.isRunning) {
       // Taktarten bytte — börja om på en etta så att accenten hamnar rätt.
-      this.tick = 0;
+      // Lägesräknaren måste nollas också: den nya underdelningen kan ha färre
+      // lägen än den gamla, och skulle annars peka utanför sin egen lista.
+      this.beatIndex = 0;
+      this.offsetIndex = 0;
     }
   }
 
@@ -79,9 +91,10 @@ export class Metronome {
     }
     const ctx = await this.engine.ensure();
 
-    this.tick = 0;
+    this.beatIndex = 0;
+    this.offsetIndex = 0;
     // Liten marginal så att det första klicket hinner bokas in innan det ska låta.
-    this.nextTickTime = ctx.currentTime + 0.06;
+    this.beatStart = ctx.currentTime + 0.06;
 
     this.timer = setInterval(() => this.scheduleWindow(), TIMER_INTERVAL_MS);
     this.scheduleWindow();
@@ -92,7 +105,8 @@ export class Metronome {
       clearInterval(this.timer);
       this.timer = null;
     }
-    this.tick = 0;
+    this.beatIndex = 0;
+    this.offsetIndex = 0;
   }
 
   async toggle(): Promise<boolean> {
@@ -104,39 +118,58 @@ export class Metronome {
     return true;
   }
 
-  private secondsPerTick(): number {
-    return 60 / this.state.bpm / this.state.subdivision;
-  }
-
+  /**
+   * Bokar in alla klick som infaller inom fönstret.
+   *
+   * Tiderna räknas ut från taktslagets början plus underdelningens lägen, i
+   * stället för att stega vidare med ett fast avstånd. Det är vad som gör
+   * ojämna figurer som swing och punkterat möjliga.
+   */
   private scheduleWindow(): void {
     const now = this.engine.currentTime;
+    const beatSeconds = 60 / this.state.bpm;
 
-    while (this.nextTickTime < now + SCHEDULE_AHEAD) {
-      const ticksPerBar = this.state.beatsPerBar * this.state.subdivision;
-      const positionInBar = this.tick % ticksPerBar;
-      const isSubdivision = positionInBar % this.state.subdivision !== 0;
-      const isFirstBeat = positionInBar === 0;
+    for (;;) {
+      const spec = subdivisionOr(this.state.subdivision);
+      // Underdelningen kan ha bytts mitt i ett taktslag till en med färre lägen.
+      if (this.offsetIndex >= spec.offsets.length) {
+        this.offsetIndex = 0;
+        this.beatStart += beatSeconds;
+        this.beatIndex += 1;
+        continue;
+      }
+
+      const tickTime = this.beatStart + spec.offsets[this.offsetIndex] * beatSeconds;
+      if (tickTime >= now + SCHEDULE_AHEAD) {
+        return;
+      }
+
+      const isSubdivision = this.offsetIndex !== 0;
+      const positionInBar = this.beatIndex % this.state.beatsPerBar;
 
       let variant: ClickVariant;
       if (isSubdivision) {
         variant = 'subdivision';
-      } else if (isFirstBeat && this.state.accentFirstBeat) {
+      } else if (positionInBar === 0 && this.state.accentFirstBeat) {
         variant = 'accent';
       } else {
         variant = 'beat';
       }
 
-      this.engine.scheduleClick(this.nextTickTime, variant);
+      this.engine.scheduleClick(tickTime, variant);
 
       if (!isSubdivision && this.onBeat) {
-        const beat = positionInBar / this.state.subdivision;
-        const delayMs = Math.max((this.nextTickTime - now) * 1000, 0);
+        const delayMs = Math.max((tickTime - now) * 1000, 0);
         // Blinket får ligga någon millisekund fel; det är bara en visuell markering.
-        setTimeout(() => this.onBeat?.(beat), delayMs);
+        setTimeout(() => this.onBeat?.(positionInBar), delayMs);
       }
 
-      this.nextTickTime += this.secondsPerTick();
-      this.tick += 1;
+      this.offsetIndex += 1;
+      if (this.offsetIndex >= spec.offsets.length) {
+        this.offsetIndex = 0;
+        this.beatStart += beatSeconds;
+        this.beatIndex += 1;
+      }
     }
   }
 }

@@ -17,8 +17,8 @@ export type TimbreId =
   | 'glockenspiel'
   | 'tuningFork'
   | 'flute'
-  | 'ah'
-  | 'oh';
+  | 'sine'
+  | 'square';
 
 export interface PartialSpec {
   /** Deltonens frekvens som multipel av grundtonen. */
@@ -46,42 +46,18 @@ export interface Timbre {
    * ger anslagsklanger deras naturliga förlopp där ljusa deltoner dör först.
    */
   partialDecay?: number;
+  /**
+   * Om klangen bär de deltoner som svävar mot varandra, och alltså kan visa
+   * skillnaden mellan tempererad och ren stämning. Falskt för de rena
+   * vågformerna: en sinuston saknar övertoner helt, och fyrkantsvågen har bara
+   * udda — men både tersens och kvintens sammanfall sker på jämna deltoner.
+   */
+  revealsTuning: boolean;
   partials: (fundamental: number) => PartialSpec[];
 }
 
 const fixedPartials =
   (list: ReadonlyArray<PartialSpec>) => () => list as PartialSpec[];
-
-/**
- * Formantmodell för vokaler: deltoner nära formanttopparna förstärks, övriga
- * dämpas. Det är formanternas läge, inte grundtonen, som gör att örat hör ett
- * «ah» eller ett «oh».
- */
-function vowelPartials(
-  formants: ReadonlyArray<{ frequency: number; amplitude: number; width: number }>,
-  count = 14,
-) {
-  return (fundamental: number): PartialSpec[] => {
-    const partials: PartialSpec[] = [];
-    for (let harmonic = 1; harmonic <= count; harmonic += 1) {
-      const frequency = fundamental * harmonic;
-      let gain = 0;
-      for (const formant of formants) {
-        const distance = (frequency - formant.frequency) / formant.width;
-        gain += formant.amplitude * Math.exp(-distance * distance);
-      }
-      // Golv för de sex första deltonerna. Dels så att tonhöjden hörs även när
-      // ingen formant träffar, dels för att femman och sexan måste finnas kvar
-      // för att skillnaden mellan tempererad och ren stämning ska höras — i en
-      // mörk vokal som «oh» ligger de annars långt under alla formanter.
-      gain += harmonic <= 6 ? Math.max(0.08, 0.2 / harmonic) : 0;
-      if (gain > 0.02) {
-        partials.push({ ratio: harmonic, gain });
-      }
-    }
-    return partials;
-  };
-}
 
 export const TIMBRES: Record<TimbreId, Timbre> = {
   choir: {
@@ -92,6 +68,7 @@ export const TIMBRES: Record<TimbreId, Timbre> = {
     decay: 0.12,
     sustain: 0.75,
     release: 0.35,
+    revealsTuning: true,
     partials: fixedPartials([
       { ratio: 1, gain: 1 },
       { ratio: 2, gain: 0.5 },
@@ -110,6 +87,7 @@ export const TIMBRES: Record<TimbreId, Timbre> = {
     decay: 0.9,
     sustain: 0.12,
     release: 0.4,
+    revealsTuning: true,
     partialDecay: 2.6,
     partials: fixedPartials([
       { ratio: 1, gain: 1, decayScale: 1.4 },
@@ -130,6 +108,7 @@ export const TIMBRES: Record<TimbreId, Timbre> = {
     decay: 1.6,
     sustain: 0.05,
     release: 0.6,
+    revealsTuning: true,
     partialDecay: 3.2,
     partials: fixedPartials([
       { ratio: 1, gain: 1, decayScale: 1.5 },
@@ -151,6 +130,7 @@ export const TIMBRES: Record<TimbreId, Timbre> = {
     decay: 0.5,
     sustain: 0.55,
     release: 0.5,
+    revealsTuning: true,
     partials: fixedPartials([
       { ratio: 1, gain: 1 },
       { ratio: 2, gain: 0.07 },
@@ -169,6 +149,7 @@ export const TIMBRES: Record<TimbreId, Timbre> = {
     decay: 0.2,
     sustain: 0.8,
     release: 0.3,
+    revealsTuning: true,
     partials: fixedPartials([
       { ratio: 1, gain: 1 },
       { ratio: 2, gain: 0.3 },
@@ -179,33 +160,38 @@ export const TIMBRES: Record<TimbreId, Timbre> = {
     ]),
   },
 
-  ah: {
-    id: 'ah',
-    label: 'Ah',
-    description: 'Öppen vokal, som kören sjunger på «a».',
-    attack: 0.05,
+  sine: {
+    id: 'sine',
+    label: 'Sinus',
+    description:
+      'Ren sinuston utan övertoner. Mjukast tänkbara klang — men skillnaden mellan tempererad och ren stämning hörs inte.',
+    attack: 0.02,
     decay: 0.2,
-    sustain: 0.8,
-    release: 0.3,
-    partials: vowelPartials([
-      { frequency: 730, amplitude: 1, width: 130 },
-      { frequency: 1090, amplitude: 0.62, width: 160 },
-      { frequency: 2440, amplitude: 0.24, width: 260 },
-    ]),
+    sustain: 0.85,
+    release: 0.35,
+    revealsTuning: false,
+    partials: fixedPartials([{ ratio: 1, gain: 1 }]),
   },
 
-  oh: {
-    id: 'oh',
-    label: 'Oh',
-    description: 'Sluten vokal, mörkare än «ah».',
-    attack: 0.05,
-    decay: 0.2,
+  square: {
+    id: 'square',
+    label: 'Fyrkant',
+    description:
+      'Ihålig och klarinettlik, byggd av enbart udda övertoner. Bär långt, men visar inte stämningsskillnaden.',
+    attack: 0.008,
+    decay: 0.15,
     sustain: 0.8,
     release: 0.3,
-    partials: vowelPartials([
-      { frequency: 450, amplitude: 1, width: 110 },
-      { frequency: 800, amplitude: 0.55, width: 140 },
-      { frequency: 2600, amplitude: 0.16, width: 250 },
+    revealsTuning: false,
+    // Fyrkantsvåg: udda deltoner med styrkan 1/n. Just därför uteblir
+    // svävningen — tersens och kvintens sammanfall ligger på jämna deltoner.
+    partials: fixedPartials([
+      { ratio: 1, gain: 1 },
+      { ratio: 3, gain: 1 / 3 },
+      { ratio: 5, gain: 1 / 5 },
+      { ratio: 7, gain: 1 / 7 },
+      { ratio: 9, gain: 1 / 9 },
+      { ratio: 11, gain: 1 / 11 },
     ]),
   },
 };
@@ -216,8 +202,16 @@ export const TIMBRE_ORDER: TimbreId[] = [
   'glockenspiel',
   'tuningFork',
   'flute',
-  'ah',
-  'oh',
+  'sine',
+  'square',
 ];
 
 export const DEFAULT_TIMBRE: TimbreId = 'choir';
+
+/**
+ * Hämtar en klang och faller tillbaka på standard om id:t inte finns.
+ * Lagringen kan innehålla en klang som tagits bort i en senare version.
+ */
+export function timbreOr(id: TimbreId | string): Timbre {
+  return TIMBRES[id as TimbreId] ?? TIMBRES[DEFAULT_TIMBRE];
+}

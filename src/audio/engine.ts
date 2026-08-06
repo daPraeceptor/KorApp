@@ -5,13 +5,13 @@
  * för JavaScript-timers, eftersom timers driver iväg så fort appen får annat att göra.
  */
 import {
-  AudioContextLike,
-  GainNodeLike,
-  OscillatorNodeLike,
+  type AudioContextLike,
+  type GainNodeLike,
+  type OscillatorNodeLike,
   createAudioContext,
   unlockAudioContext,
-} from './context';
-import { DEFAULT_TIMBRE, TIMBRES, TimbreId } from './timbres';
+} from './context.ts';
+import { DEFAULT_TIMBRE, TIMBRES, type TimbreId } from './timbres.ts';
 
 /** Nivå som exponentiella ramper går mot i stället för noll, som de inte klarar. */
 const SILENCE = 0.0001;
