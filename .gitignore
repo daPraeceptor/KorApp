@@ -6,6 +6,10 @@ node_modules/
 # Expo
 .expo/
 dist/
+korapp-web.zip
+
+# Säkerhetskopia av ikonerna före bytet. Git-historiken har dem redan.
+assets/gamla-ikoner/
 web-build/
 expo-env.d.ts
 

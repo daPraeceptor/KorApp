@@ -18,7 +18,8 @@ import Svg, { Circle, G, Line, Path } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 
 import { MAX_BPM, MIN_BPM, clampBpm } from '../audio/tempo';
-import { colors, radius } from '../theme';
+import { Palette, radius } from '../theme';
+import { useTheme, useThemedStyles } from '../ThemeContext';
 
 /** Gradtal per steg om ett slag per minut. En helt varv motsvarar ca 144 bpm. */
 const DEGREES_PER_BPM = 2.5;
@@ -82,6 +83,8 @@ export function TempoWheel({
   onDraggingChange,
 }: Props) {
   const wheelRef = useRef<View>(null);
+  const t = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const center = useRef({ x: 0, y: 0 });
   const lastAngle = useRef(0);
   /**
@@ -196,21 +199,21 @@ export function TempoWheel({
           cx={cx}
           cy={cy}
           r={knobRadius}
-          fill={colors.surfaceRaised}
-          stroke={dragging ? colors.accent : colors.border}
+          fill={t.surfaceRaised}
+          stroke={dragging ? t.accent : t.border}
           strokeWidth={dragging ? 3 : 2}
         />
 
         <Path
           d={arcPath(cx, cy, trackRadius, START_ANGLE, START_ANGLE + SWEEP)}
-          stroke={colors.border}
+          stroke={t.border}
           strokeWidth={6}
           strokeLinecap="round"
           fill="none"
         />
         <Path
           d={arcPath(cx, cy, trackRadius, START_ANGLE, needleAngle)}
-          stroke={colors.accent}
+          stroke={t.accent}
           strokeWidth={6}
           strokeLinecap="round"
           fill="none"
@@ -226,7 +229,7 @@ export function TempoWheel({
               y1={outer.y}
               x2={inner.x}
               y2={inner.y}
-              stroke={major ? colors.textMuted : colors.border}
+              stroke={major ? t.textMuted : t.border}
               strokeWidth={major ? 2 : 1}
             />
           );
@@ -235,7 +238,7 @@ export function TempoWheel({
         <G>
           {(() => {
             const grip = polar(cx, cy, knobRadius - 14, needleAngle);
-            return <Circle cx={grip.x} cy={grip.y} r={7} fill={colors.accent} />;
+            return <Circle cx={grip.x} cy={grip.y} r={7} fill={t.accent} />;
           })()}
         </G>
       </Svg>
@@ -260,7 +263,7 @@ export function TempoWheel({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (t: Palette) => StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -275,14 +278,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   bpm: {
-    color: colors.text,
+    color: t.text,
     fontSize: 64,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
     lineHeight: 68,
   },
   unit: {
-    color: colors.textMuted,
+    color: t.textMuted,
     fontSize: 13,
     letterSpacing: 1,
     textTransform: 'uppercase',
@@ -297,15 +300,15 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: radius.pill,
-    backgroundColor: colors.border,
+    backgroundColor: t.border,
   },
   beatDotFirst: {
-    backgroundColor: colors.surfaceRaised,
+    backgroundColor: t.surfaceRaised,
     borderWidth: 1,
-    borderColor: colors.textMuted,
+    borderColor: t.textMuted,
   },
   beatDotActive: {
-    backgroundColor: colors.accent,
+    backgroundColor: t.accent,
     transform: [{ scale: 1.3 }],
   },
 });

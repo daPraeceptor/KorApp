@@ -4,11 +4,18 @@ import assert from 'node:assert/strict';
 import {
   DEFAULT_TONE_GAP_BPM,
   MAX_TONES,
+  createFolder,
   normalizeSong,
   orderTones,
+  parseFolders,
   parseLibrary,
+  searchSongs,
   toggleTone,
+  withValidFolders,
 } from './songs.ts';
+
+const lat = (id: string, title: string, folderId: string | null = null) =>
+  ({ id, title, folderId }) as never;
 
 // G4, C4, E4 — medvetet inte i tonhöjdsordning.
 const VALD_ORDNING = [67, 60, 64];
@@ -123,6 +130,67 @@ test('alla riktningar innehåller samma toner', () => {
       `riktning ${direction}`,
     );
   }
+});
+
+test('en låt utan mapp läses in som lös', () => {
+  const song = normalizeSong({ id: 'x', title: 'Gammal låt' });
+  assert.equal(song?.folderId, null);
+});
+
+test('en låts mapp överlever inläsning', () => {
+  const song = normalizeSong({ id: 'x', title: 'I mapp', folderId: 'f-1' });
+  assert.equal(song?.folderId, 'f-1');
+});
+
+test('mappar med skräp i lagringen sorteras bort', () => {
+  const mappar = parseFolders(
+    JSON.stringify([
+      { id: 'f-1', name: 'Vårkonsert', createdAt: 1 },
+      { id: 'f-2' },
+      { name: 'Utan id' },
+      null,
+    ]),
+  );
+  assert.equal(mappar.length, 1);
+  assert.equal(mappar[0].name, 'Vårkonsert');
+});
+
+test('trasig mapplagring ger tom lista i stället för krasch', () => {
+  assert.deepEqual(parseFolders('{ trasig'), []);
+  assert.deepEqual(parseFolders(null), []);
+});
+
+test('en ny mapp får ett namn även om fältet lämnas tomt', () => {
+  assert.equal(createFolder('   ').name, 'Ny mapp');
+  assert.equal(createFolder('  Advent  ').name, 'Advent');
+});
+
+test('låtar i en mapp som försvunnit blir lösa i stället för osynliga', () => {
+  const songs = [lat('a', 'Kvar', 'f-1'), lat('b', 'Hemlös', 'f-borta'), lat('c', 'Lös')];
+  const resultat = withValidFolders(songs, [
+    { id: 'f-1', name: 'Finns', createdAt: 1 },
+  ]);
+  assert.deepEqual(
+    resultat.map((s) => s.folderId),
+    ['f-1', null, null],
+  );
+});
+
+test('sökning matchar oberoende av versaler och träffar mitt i titeln', () => {
+  const songs = [lat('a', 'Vårvindar friska'), lat('b', 'Sommarpsalm'), lat('c', 'Vintern rasat')];
+  assert.deepEqual(searchSongs(songs, 'vår').map((s) => s.id), ['a']);
+  assert.deepEqual(searchSongs(songs, 'PSALM').map((s) => s.id), ['b']);
+  assert.deepEqual(searchSongs(songs, 'ras').map((s) => s.id), ['c']);
+});
+
+test('tom sökning ger alla låtar', () => {
+  const songs = [lat('a', 'En'), lat('b', 'Två')];
+  assert.equal(searchSongs(songs, '').length, 2);
+  assert.equal(searchSongs(songs, '   ').length, 2);
+});
+
+test('sökning utan träff ger tom lista', () => {
+  assert.deepEqual(searchSongs([lat('a', 'En')], 'finns inte'), []);
 });
 
 test('trasig lagring ger ett tomt bibliotek i stället för krasch', () => {

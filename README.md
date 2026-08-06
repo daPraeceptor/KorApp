@@ -20,6 +20,9 @@ under utvecklingen.
 - **Tongivning på fyra sätt.** Hela ackordet på en gång, en i taget nedifrån och
   upp, uppifrån och ner, eller i den ordning tonerna valdes. Hastigheten sparas
   per låt.
+- **Sju klangfärger.** Körton, piano, klockspel, stämgaffel, flöjt samt vokalerna
+  ah och oh. Alla byggs av sinustoner, och alla bär femte och sjätte deltonen så
+  att skillnaden mellan stämningarna hörs oavsett vilken klang som är vald.
 - **Bevarad tonordning.** Tonerna sparas alltid i den följd de valdes, till
   exempel stämmornas insatsordning, och sorteras varken vid inläsning eller
   uppspelning. Knapparna avgör i vilken ordning de faktiskt ges.
@@ -27,12 +30,19 @@ under utvecklingen.
   eller boll som studsar mot marken — bollen studsar högre vid långsamma tempon
   och lägre vid snabba. Animeringen räknas från när taktslaget hördes, så bilden
   följer ljudet i stället för att glida ur fas.
+- **Sju färgteman.** Fyra mörka för dunkla kyrkor och salar, tre ljusa för
+  repetition i dagsljus. Varje tema anger ett tjugotal grundfärger; resten
+  härleds, så att textfärgen ovanpå en färgad knapp alltid får kontrast oavsett
+  om accentfärgen är ljus eller mörk.
 - **Valbara tonnamn.** Bokstäver, solmisation (do re mi) eller tonplatser som
   romerska siffror. De två senare kan räknas fast från C, eller flyttbart från
   tonikan så att tonikan alltid blir do respektive I. Namnen går att dölja helt.
-- **Låtbibliotek.** Varje låt sparar tempo, taktart, stämning, tonika,
-  starttoner och tongivningens hastighet. Direkt i listan finns knappar för att
-  starta låtens tempo och ge dess toner, utan att gå via spelvyn.
+  Tonikatangenten märks ut i ren stämning, och valfritt även i tempererad.
+- **Låtbibliotek med mappar och sök.** Varje låt sparar tempo, taktart,
+  stämning, tonika, starttoner och tongivningens hastighet. Låtar kan samlas i
+  mappar — en per konsert eller termin — flyttas mellan dem, och sökas fram på
+  titel. Direkt i listan finns knappar för att starta låtens tempo och ge dess
+  toner, utan att gå via spelvyn.
 - **Svenska eller internationella tonnamn.** Internationellt (B) är standard;
   svenskt (H) går att välja i inställningarna.
 

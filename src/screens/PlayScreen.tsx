@@ -17,7 +17,6 @@ import {
   frequencyOf,
   intervalName,
   noteLabel,
-  noteName,
   noteNameWithOctave,
   ratioLabel,
 } from '../theory/tuning';
@@ -26,16 +25,27 @@ import {
   MAX_TONE_GAP_BPM,
   MIN_TONE_GAP_BPM,
 } from '../store/songs';
-import { colors, radius, spacing } from '../theme';
+import { Palette, radius, spacing } from '../theme';
+import { useTheme, useThemedStyles } from '../ThemeContext';
 
 /** Knackningar som ligger längre isär än så här räknas som ett nytt tempo. */
 const TAP_RESET_MS = 2000;
+
+/** Kortnamn på underdelningarna, för sammanfattningen när taktarten är hopfälld. */
+const SUBDIVISION_LABELS: Record<number, string> = {
+  1: 'fjärdedelar',
+  2: 'åttondelar',
+  3: 'trioler',
+  4: 'sextondelar',
+};
 
 const LOWEST_MIDI = 24;
 const HIGHEST_START = 84;
 const KEYBOARD_SPAN = 24;
 
 export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
+  const t = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const {
     live,
     settings,
@@ -57,6 +67,7 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
   const [playedNote, setPlayedNote] = useState<number | null>(null);
   const [keyboardStart, setKeyboardStart] = useState(48);
   const [wheelDragging, setWheelDragging] = useState(false);
+  const [meterOpen, setMeterOpen] = useState(true);
   const taps = useRef<number[]>([]);
 
   const tapTempo = useCallback(() => {
@@ -75,7 +86,10 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
   }, [updateLive]);
 
   const displayedNote = playedNote;
-  const noTones = live.tones.length === 0;
+  const toneCount = live.tones.length;
+  // Tonikan går bara att sätta där den betyder något, så tipset följer
+  // markeringen i stället för att stå kvar och lova något som inte händer.
+  const markTonic = live.tuningSystem === 'just' || settings.markTonicInTempered;
   const cents = displayedNote === null ? 0 : centsFromTempered(displayedNote, tuning);
 
   return (
@@ -140,159 +154,90 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
           onPress={() => updateLive({ bpm: clampBpm(live.bpm + 1) })}
           style={styles.nudge}
         />
+        <Button
+          label="Knacka"
+          onPress={tapTempo}
+          variant="ghost"
+          style={styles.tapButton}
+        />
       </View>
 
-      <Button label="Knacka tempo" onPress={tapTempo} variant="ghost" />
-
       <Card>
-        <SectionTitle>Takt</SectionTitle>
-        <View style={styles.row}>
-          <Text style={styles.rowLabel}>Slag per takt</Text>
-          <Stepper
-            value={live.beatsPerBar}
-            min={1}
-            max={12}
-            onChange={(beatsPerBar) => updateLive({ beatsPerBar })}
-          />
-        </View>
-        <Text style={styles.rowLabel}>Underdelning</Text>
-        <SegmentedControl
-          value={live.subdivision}
-          onChange={(subdivision) => updateLive({ subdivision })}
-          options={[
-            {
-              value: 1,
-              label: 'Fjärdedelar',
-              renderIcon: (color) => <NoteValueIcon value="quarter" color={color} />,
-            },
-            {
-              value: 2,
-              label: 'Åttondelar',
-              renderIcon: (color) => <NoteValueIcon value="eighths" color={color} />,
-            },
-            {
-              value: 3,
-              label: 'Trioler',
-              renderIcon: (color) => <NoteValueIcon value="triplet" color={color} />,
-            },
-            {
-              value: 4,
-              label: 'Sextondelar',
-              renderIcon: (color) => (
-                <NoteValueIcon value="sixteenths" color={color} />
-              ),
-            },
-          ]}
-        />
-      </Card>
+        <Pressable
+          onPress={() => setMeterOpen((open) => !open)}
+          style={styles.cardHeader}
+        >
+          <SectionTitle>Taktart</SectionTitle>
+          <Text style={styles.cardHeaderNote}>
+            {/* Hopfälld visar kortet ändå vad som är inställt. */}
+            {meterOpen
+              ? '▾'
+              : `${live.beatsPerBar}/4 · ${SUBDIVISION_LABELS[live.subdivision] ?? ''}  ▸`}
+          </Text>
+        </Pressable>
 
-      <Card>
-        <SectionTitle>Stämning</SectionTitle>
-        <SegmentedControl
-          value={live.tuningSystem}
-          tint={live.tuningSystem === 'just' ? colors.pure : colors.accent}
-          onChange={(tuningSystem) => updateLive({ tuningSystem })}
-          options={[
-            { value: 'tempered' as const, label: 'Tempererad' },
-            { value: 'just' as const, label: 'Ren (svävningsfri)' },
-          ]}
-        />
-
-        {live.tuningSystem === 'just' ? (
-          <View style={styles.tonicBox}>
-            <View>
-              <Text style={styles.tonicLabel}>Tonika</Text>
-              <Text style={styles.tonicValue}>
-                {noteName(live.tonicPitchClass, settings.naming)}
-              </Text>
+        {meterOpen ? (
+          <>
+            <View style={styles.row}>
+              <Text style={styles.rowLabel}>Slag per takt</Text>
+              <Stepper
+                value={live.beatsPerBar}
+                min={1}
+                max={12}
+                onChange={(beatsPerBar) => updateLive({ beatsPerBar })}
+              />
             </View>
-            <Text style={styles.tonicHint}>
-              Dubbeltryck på en tangent för att välja referenston.
-            </Text>
-          </View>
-        ) : (
-          <Text style={styles.helpText}>
-            Alla halvtoner lika stora, som ett piano. Byt till ren stämning för
-            svävningsfria ackord.
-          </Text>
-        )}
-      </Card>
-
-      <Card>
-        <View style={styles.row}>
-          <SectionTitle>Tongivning</SectionTitle>
-          <Text style={styles.counter}>
-            {live.tones.length}/{MAX_TONES}
-          </Text>
-        </View>
-
-        {live.tones.length === 0 ? (
-          <Text style={styles.helpText}>
-            Slå på «Välj toner» och tryck på klaviaturen för att spara de toner
-            kören ska få.
-          </Text>
-        ) : (
-          <View style={styles.chips}>
-            {live.tones.map((midi) => (
-              <Pressable
-                key={midi}
-                onPress={() => toggleSongTone(midi)}
-                style={styles.chip}
-              >
-                <Text style={styles.chipText}>
-                  {noteNameWithOctave(midi, settings.naming)}
-                </Text>
-                <Text style={styles.chipRemove}>×</Text>
-              </Pressable>
-            ))}
-          </View>
-        )}
-
-        <Button
-          label="Spela ackordet"
-          variant="pure"
-          disabled={noTones}
-          onPress={() => playTones('chord')}
-        />
-        <View style={styles.toneButtons}>
-          <Button
-            label="↑ Nedifrån och upp"
-            disabled={noTones}
-            onPress={() => playTones('up')}
-            style={styles.toneButton}
-          />
-          <Button
-            label="↓ Uppifrån och ner"
-            disabled={noTones}
-            onPress={() => playTones('down')}
-            style={styles.toneButton}
-          />
-        </View>
-        <Button
-          label="⇢ I vald ordning"
-          disabled={noTones}
-          onPress={() => playTones('chosen')}
-        />
-        <View style={styles.row}>
-          <Text style={styles.rowLabel}>Hastighet en i taget</Text>
-          <Stepper
-            value={live.toneGapBpm}
-            min={MIN_TONE_GAP_BPM}
-            max={MAX_TONE_GAP_BPM}
-            step={5}
-            onChange={(toneGapBpm) => updateLive({ toneGapBpm })}
-            format={(value) => `${value} slag/min`}
-          />
-        </View>
-        <Text style={styles.toneHint}>
-          Hastigheten sparas med låten. Nya låtar börjar på{' '}
-          {settings.defaultToneGapBpm} slag/min, vilket går att ändra i
-          inställningarna.
-        </Text>
+            <Text style={styles.rowLabel}>Underdelning</Text>
+            <SegmentedControl
+              value={live.subdivision}
+              onChange={(subdivision) => updateLive({ subdivision })}
+              options={[
+                {
+                  value: 1,
+                  label: 'Fjärdedelar',
+                  renderIcon: (color) => (
+                    <NoteValueIcon value="quarter" color={color} />
+                  ),
+                },
+                {
+                  value: 2,
+                  label: 'Åttondelar',
+                  renderIcon: (color) => (
+                    <NoteValueIcon value="eighths" color={color} />
+                  ),
+                },
+                {
+                  value: 3,
+                  label: 'Trioler',
+                  renderIcon: (color) => (
+                    <NoteValueIcon value="triplet" color={color} />
+                  ),
+                },
+                {
+                  value: 4,
+                  label: 'Sextondelar',
+                  renderIcon: (color) => (
+                    <NoteValueIcon value="sixteenths" color={color} />
+                  ),
+                },
+              ]}
+            />
+          </>
+        ) : null}
       </Card>
 
       <Card style={styles.keyboardCard}>
-        <View style={styles.toggleRow}>
+        <View style={styles.keyboardHeader}>
+          <SegmentedControl
+            compact
+            value={live.tuningSystem}
+            tint={live.tuningSystem === 'just' ? t.pure : t.accent}
+            onChange={(tuningSystem) => updateLive({ tuningSystem })}
+            options={[
+              { value: 'tempered' as const, label: 'Tempererad' },
+              { value: 'just' as const, label: 'Ren' },
+            ]}
+          />
           <Pressable
             onPress={() => setSelectMode((current) => !current)}
             style={[styles.toggle, selectMode && styles.toggleOn]}
@@ -328,6 +273,9 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
           tuning={tuning}
           labels={labels}
           showLabels={settings.showNoteNames}
+          markTonic={
+            live.tuningSystem === 'just' || settings.markTonicInTempered
+          }
           selectedTones={live.tones}
           selectMode={selectMode}
           // Tonikan styr både den rena stämningen och solmisationen, så den
@@ -340,8 +288,8 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
         <View style={styles.readout}>
           {displayedNote === null ? (
             <Text style={styles.readoutIdle}>
-              Tryck på en tangent för att höra tonen. Dubbeltryck för att sätta
-              tonika.
+              Tryck på en tangent för att höra tonen.
+              {markTonic ? ' Dubbeltryck för att sätta tonika.' : ''}
             </Text>
           ) : (
             <>
@@ -376,6 +324,82 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
         </View>
       </Card>
 
+      {/* Utan sparade toner finns ingenting att ge kören, så kortet står över. */}
+      {toneCount > 0 ? (
+        <Card>
+          <View style={styles.row}>
+            <SectionTitle>Tongivning</SectionTitle>
+            <Text style={styles.counter}>
+              {toneCount}/{MAX_TONES}
+            </Text>
+          </View>
+
+          <View style={styles.chips}>
+            {live.tones.map((midi) => (
+              <Pressable
+                key={midi}
+                onPress={() => toggleSongTone(midi)}
+                style={styles.chip}
+              >
+                <Text style={styles.chipText}>
+                  {noteNameWithOctave(midi, settings.naming)}
+                </Text>
+                <Text style={styles.chipRemove}>×</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          {toneCount === 1 ? (
+            // En ensam ton har varken ackord eller ordning — bara sig själv.
+            <Button
+              label={`Spela ${noteNameWithOctave(live.tones[0], settings.naming)}`}
+              variant="pure"
+              onPress={() => playTones('chord')}
+            />
+          ) : (
+            <>
+              <Button
+                label="Spela ackordet"
+                variant="pure"
+                onPress={() => playTones('chord')}
+              />
+              <View style={styles.toneButtons}>
+                <Button
+                  label="↑ Nedifrån och upp"
+                  onPress={() => playTones('up')}
+                  style={styles.toneButton}
+                />
+                <Button
+                  label="↓ Uppifrån och ner"
+                  onPress={() => playTones('down')}
+                  style={styles.toneButton}
+                />
+              </View>
+              <Button
+                label="⇢ I vald ordning"
+                onPress={() => playTones('chosen')}
+              />
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>Tempo mellan tonerna</Text>
+                <Stepper
+                  value={live.toneGapBpm}
+                  min={MIN_TONE_GAP_BPM}
+                  max={MAX_TONE_GAP_BPM}
+                  step={5}
+                  onChange={(toneGapBpm) => updateLive({ toneGapBpm })}
+                  format={(value) => `${value} slag/min`}
+                />
+              </View>
+              <Text style={styles.toneHint}>
+                Tempot sparas med låten. Nya låtar börjar på{' '}
+                {settings.defaultToneGapBpm} slag/min, vilket går att ändra i
+                inställningarna.
+              </Text>
+            </>
+          )}
+        </Card>
+      ) : null}
+
       <Text style={styles.rangeHint}>
         Tempoområde {MIN_BPM}–{MAX_BPM} slag per minut. Kammarton A = {settings.a4} Hz.
       </Text>
@@ -383,10 +407,10 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (t: Palette) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: t.background,
   },
   content: {
     padding: spacing.md,
@@ -397,22 +421,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    backgroundColor: colors.surface,
+    backgroundColor: t.surface,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: t.border,
     padding: spacing.md,
   },
   songBarText: {
     flex: 1,
   },
   songTitle: {
-    color: colors.text,
+    color: t.text,
     fontSize: 19,
     fontWeight: '700',
   },
   songHint: {
-    color: colors.textMuted,
+    color: t.textMuted,
     fontSize: 12,
     marginTop: 2,
   },
@@ -443,43 +467,16 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   rowLabel: {
-    color: colors.text,
+    color: t.text,
     fontSize: 15,
   },
   helpText: {
-    color: colors.textMuted,
+    color: t.textMuted,
     fontSize: 13,
     lineHeight: 19,
   },
-  tonicBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    backgroundColor: colors.surfaceRaised,
-    borderRadius: radius.sm,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.pure,
-  },
-  tonicLabel: {
-    color: colors.textMuted,
-    fontSize: 11,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-  tonicValue: {
-    color: colors.pure,
-    fontSize: 30,
-    fontWeight: '800',
-  },
-  tonicHint: {
-    flex: 1,
-    color: colors.textMuted,
-    fontSize: 12,
-    lineHeight: 17,
-  },
   counter: {
-    color: colors.textMuted,
+    color: t.textMuted,
     fontSize: 12,
     fontVariant: ['tabular-nums'],
   },
@@ -492,20 +489,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: colors.surfaceRaised,
+    backgroundColor: t.surfaceRaised,
     borderWidth: 1,
-    borderColor: colors.tone,
+    borderColor: t.tone,
     borderRadius: radius.pill,
     paddingVertical: 7,
     paddingHorizontal: 12,
   },
   chipText: {
-    color: colors.text,
+    color: t.text,
     fontSize: 14,
     fontWeight: '600',
   },
   chipRemove: {
-    color: colors.textMuted,
+    color: t.textMuted,
     fontSize: 15,
   },
   toneButtons: {
@@ -516,35 +513,53 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   toneHint: {
-    color: colors.textMuted,
+    color: t.textMuted,
     fontSize: 12,
     lineHeight: 17,
   },
   keyboardCard: {
     paddingHorizontal: spacing.sm,
   },
-  toggleRow: {
+  cardHeader: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  cardHeaderNote: {
+    color: t.textMuted,
+    fontSize: 13,
+  },
+  /** Stämningsval i ena hörnet, tonvalsläget i det andra. */
+  keyboardHeader: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  tapButton: {
+    // Får ta plats efter finjusteringsknapparna men inte tränga undan Starta.
+    flexShrink: 1,
   },
   toggle: {
     paddingVertical: 7,
     paddingHorizontal: 12,
     borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: t.border,
   },
   toggleOn: {
-    backgroundColor: colors.tone,
-    borderColor: colors.tone,
+    backgroundColor: t.tone,
+    borderColor: t.tone,
   },
   toggleText: {
-    color: colors.textMuted,
+    color: t.textMuted,
     fontSize: 13,
     fontWeight: '600',
   },
   toggleTextOn: {
-    color: '#0c1630',
+    color: t.onTone,
   },
   octaveRow: {
     flexDirection: 'row',
@@ -552,7 +567,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   octaveLabel: {
-    color: colors.textMuted,
+    color: t.textMuted,
     fontSize: 13,
     fontWeight: '600',
   },
@@ -563,31 +578,31 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
   },
   readoutIdle: {
-    color: colors.textMuted,
+    color: t.textMuted,
     fontSize: 12,
     textAlign: 'center',
   },
   readoutNote: {
-    color: colors.text,
+    color: t.text,
     fontSize: 24,
     fontWeight: '700',
   },
   readoutDetail: {
-    color: colors.textMuted,
+    color: t.textMuted,
     fontSize: 13,
     fontVariant: ['tabular-nums'],
   },
   readoutCents: {
-    color: colors.pure,
+    color: t.pure,
     fontSize: 12,
     fontVariant: ['tabular-nums'],
     marginTop: 2,
   },
   readoutCentsNeutral: {
-    color: colors.textMuted,
+    color: t.textMuted,
   },
   rangeHint: {
-    color: colors.textMuted,
+    color: t.textMuted,
     fontSize: 11,
     textAlign: 'center',
   },

@@ -18,7 +18,10 @@ import React, {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { audioEngine } from '../audio/engine';
+import { DEFAULT_TIMBRE, TimbreId } from '../audio/timbres';
 import { metronome } from '../audio/metronome';
+import { ThemeProvider } from '../ThemeContext';
+import { DEFAULT_THEME, ThemeId, buildPalette } from '../theme';
 import {
   DEFAULT_A4,
   LabelConfig,
@@ -31,19 +34,25 @@ import {
 } from '../theory/tuning';
 import {
   DEFAULT_TONE_GAP_BPM,
+  Folder,
   PlayDirection,
   Song,
+  createFolder,
   createSong,
   orderTones,
+  parseFolders,
   parseLibrary,
+  sortFolders,
   sortSongs,
   toggleTone,
+  withValidFolders,
 } from '../store/songs';
 
 export type { PlayDirection } from '../store/songs';
 
 const SONGS_KEY = 'korapp.songs.v1';
 const SETTINGS_KEY = 'korapp.settings.v1';
+const FOLDERS_KEY = 'korapp.folders.v1';
 
 export interface Settings {
   /** Kammartonens frekvens. Många orglar och blåsorkestrar ligger på 442. */
@@ -61,6 +70,15 @@ export interface Settings {
   labelSystem: LabelSystem;
   /** Om solmisation och tonplatser räknas från C eller från tonikan. */
   labelReference: LabelReference;
+  /**
+   * Om tonikatangenten märks ut även i tempererad stämning. I ren stämning
+   * märks den alltid ut, eftersom allt annat stäms mot den.
+   */
+  markTonicInTempered: boolean;
+  /** Klangfärg för tongivningen och klaviaturen. */
+  toneTimbre: TimbreId;
+  /** Appens färgtema. */
+  themeId: ThemeId;
   /** Hur takten visas grafiskt i spelvyn. */
   metronomeVisual: MetronomeVisualStyle;
 }
@@ -76,6 +94,9 @@ const DEFAULT_SETTINGS: Settings = {
   showNoteNames: true,
   labelSystem: 'letters',
   labelReference: 'tonic',
+  markTonicInTempered: false,
+  toneTimbre: DEFAULT_TIMBRE,
+  themeId: DEFAULT_THEME,
   metronomeVisual: 'pendulum',
 };
 
@@ -176,6 +197,13 @@ interface AppStateValue {
 
   loadSong: (id: string) => void;
   saveToCurrentSong: () => void;
+  folders: Folder[];
+  addFolder: (name: string) => Folder;
+  renameFolder: (id: string, name: string) => void;
+  /** Tar bort mappen. Låtarna i den blir kvar men hamnar löst i listan. */
+  deleteFolder: (id: string) => void;
+  moveSongToFolder: (songId: string, folderId: string | null) => void;
+
   addSong: (title: string) => Song;
   updateSong: (id: string, patch: Partial<Song>) => void;
   deleteSong: (id: string) => void;
@@ -187,6 +215,7 @@ const AppStateContext = createContext<AppStateValue | null>(null);
 export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [loaded, setLoaded] = useState(false);
   const [songs, setSongs] = useState<Song[]>([]);
+  const [folders, setFolders] = useState<Folder[]>([]);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [live, setLive] = useState<LiveConfig>(DEFAULT_LIVE);
   const [currentSongId, setCurrentSongId] = useState<string | null>(null);
@@ -201,14 +230,18 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
 
     (async () => {
       try {
-        const [songsJson, settingsJson] = await Promise.all([
+        const [songsJson, settingsJson, foldersJson] = await Promise.all([
           AsyncStorage.getItem(SONGS_KEY),
           AsyncStorage.getItem(SETTINGS_KEY),
+          AsyncStorage.getItem(FOLDERS_KEY),
         ]);
         if (cancelled) {
           return;
         }
-        setSongs(sortSongs(parseLibrary(songsJson)));
+        const laddadeMappar = sortFolders(parseFolders(foldersJson));
+        setFolders(laddadeMappar);
+        // Låtar vars mapp saknas hamnar löst i listan i stället för att döljas.
+        setSongs(sortSongs(withValidFolders(parseLibrary(songsJson), laddadeMappar)));
         if (settingsJson) {
           try {
             const parsed = JSON.parse(settingsJson) as Partial<Settings>;
@@ -248,12 +281,23 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     if (!hydrated.current) {
       return;
     }
+    void AsyncStorage.setItem(FOLDERS_KEY, JSON.stringify(folders));
+  }, [folders]);
+
+  useEffect(() => {
+    if (!hydrated.current) {
+      return;
+    }
     void AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
   }, [settings]);
 
   useEffect(() => {
     audioEngine.setVolume(settings.volume);
   }, [settings.volume]);
+
+  useEffect(() => {
+    audioEngine.setTimbre(settings.toneTimbre);
+  }, [settings.toneTimbre]);
 
   useEffect(() => {
     metronome.update({
@@ -288,6 +332,9 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const hasUnsavedChanges = currentSong ? !liveMatchesSong(live, currentSong) : false;
 
   const activeBeat = pulse ? pulse.beat : null;
+
+  // Paletten byggs om bara när temat byts, inte vid varje omritning.
+  const palette = useMemo(() => buildPalette(settings.themeId), [settings.themeId]);
 
   const tuning = useMemo<TuningConfig>(
     () => ({
@@ -391,14 +438,52 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   }, [currentSongId, live]);
 
   const addSong = useCallback(
-    (title: string) => {
-      const song = createSong({ title: title.trim() || 'Ny låt', ...live });
+    (title: string, folderId: string | null = null) => {
+      const song = createSong({ title: title.trim() || 'Ny låt', ...live, folderId });
       setSongs((current) => sortSongs([...current, song]));
       setCurrentSongId(song.id);
       return song;
     },
     [live],
   );
+
+  const addFolder = useCallback((name: string) => {
+    const folder = createFolder(name);
+    setFolders((current) => sortFolders([...current, folder]));
+    return folder;
+  }, []);
+
+  const renameFolder = useCallback((id: string, name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      return;
+    }
+    setFolders((current) =>
+      sortFolders(
+        current.map((folder) =>
+          folder.id === id ? { ...folder, name: trimmed } : folder,
+        ),
+      ),
+    );
+  }, []);
+
+  const deleteFolder = useCallback((id: string) => {
+    setFolders((current) => current.filter((folder) => folder.id !== id));
+    // Låtarna följer inte med i fallet. De blir kvar, löst i listan.
+    setSongs((current) =>
+      current.map((song) =>
+        song.folderId === id ? { ...song, folderId: null } : song,
+      ),
+    );
+  }, []);
+
+  const moveSongToFolder = useCallback((songId: string, folderId: string | null) => {
+    setSongs((current) =>
+      current.map((song) =>
+        song.id === songId ? { ...song, folderId, updatedAt: Date.now() } : song,
+      ),
+    );
+  }, []);
 
   const updateSong = useCallback((id: string, patch: Partial<Song>) => {
     setSongs((current) =>
@@ -463,6 +548,11 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       toggleSongTone,
       loadSong,
       saveToCurrentSong,
+      folders,
+      addFolder,
+      renameFolder,
+      deleteFolder,
+      moveSongToFolder,
       addSong,
       updateSong,
       deleteSong,
@@ -490,6 +580,11 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       toggleSongTone,
       loadSong,
       saveToCurrentSong,
+      folders,
+      addFolder,
+      renameFolder,
+      deleteFolder,
+      moveSongToFolder,
       addSong,
       updateSong,
       deleteSong,
@@ -497,7 +592,11 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     ],
   );
 
-  return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;
+  return (
+    <AppStateContext.Provider value={value}>
+      <ThemeProvider palette={palette}>{children}</ThemeProvider>
+    </AppStateContext.Provider>
+  );
 }
 
 export function useAppState(): AppStateValue {

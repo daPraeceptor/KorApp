@@ -16,6 +16,7 @@ import {
   StyleSheet,
   Text,
   View,
+  ViewStyle,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 
@@ -30,7 +31,8 @@ import {
   octaveOf,
   pitchClass,
 } from '../theory/tuning';
-import { colors, radius } from '../theme';
+import { Palette, radius } from '../theme';
+import { useTheme, useThemedStyles } from '../ThemeContext';
 
 const WHITE_KEY_WIDTH = 52;
 const WHITE_KEY_HEIGHT = 184;
@@ -40,6 +42,22 @@ const BLACK_KEY_HEIGHT = 116;
 /** Längsta tiden mellan två tryck för att de ska räknas som ett dubbeltryck. */
 const DOUBLE_TAP_MS = 350;
 
+/**
+ * På webben markeras annars tonnamnen som text när man drar över tangenterna.
+ * Tangenter är knappar, inte text att markera.
+ *
+ * touchAction lämnas med flit orörd — klaviaturen ligger i en horisontell
+ * rullningsvy som måste gå att dra i sidled.
+ *
+ * Egenskapen finns bara i react-native-web, därför typkonverteringen. Prefixade
+ * varianter är meningslösa här: react-native-web släpper igenom userSelect men
+ * slänger WebkitUserSelect och WebkitTouchCallout.
+ */
+const WEB_NO_SELECT =
+  Platform.OS === 'web'
+    ? ({ userSelect: 'none' } as unknown as ViewStyle)
+    : undefined;
+
 interface Props {
   /** Lägsta och högsta MIDI-ton som visas. */
   fromMidi: number;
@@ -48,6 +66,8 @@ interface Props {
   labels: LabelConfig;
   /** När falskt lämnas tangenterna omärkta. */
   showLabels: boolean;
+  /** Om tonikatangenten ska markeras med etikett och färg. */
+  markTonic: boolean;
   /** MIDI-toner som är sparade till låten. */
   selectedTones: number[];
   /** När sant lägger ett tryck också till eller tar bort tonen ur låten. */
@@ -64,12 +84,15 @@ export function Keyboard({
   tuning,
   labels,
   showLabels,
+  markTonic,
   selectedTones,
   selectMode,
   onSetTonic,
   onToggleTone,
   onNotePlayed,
 }: Props) {
+  const t = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [pressed, setPressed] = useState<number[]>([]);
   const lastTap = useRef<{ midi: number; at: number } | null>(null);
 
@@ -132,14 +155,8 @@ export function Keyboard({
     [onNotePlayed],
   );
 
-  // Tonikan märks ut när den betyder något: som referens för den rena
-  // stämningen, eller som utgångspunkt för solmisation och tonplatser.
-  const tonicMatters =
-    tuning.system === 'just' ||
-    (labels.system !== 'letters' && labels.reference === 'tonic');
-
   const isTonic = (midi: number) =>
-    tonicMatters && pitchClass(midi) === tuning.tonicPitchClass;
+    markTonic && pitchClass(midi) === tuning.tonicPitchClass;
 
   const renderLabel = (midi: number, black: boolean) => {
     if (!showLabels) {
@@ -166,7 +183,13 @@ export function Keyboard({
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.scrollContent}
     >
-      <View style={[styles.keyboard, { width: whiteKeys.length * WHITE_KEY_WIDTH }]}>
+      <View
+        style={[
+          styles.keyboard,
+          { width: whiteKeys.length * WHITE_KEY_WIDTH },
+          WEB_NO_SELECT,
+        ]}
+      >
         {whiteKeys.map((midi) => {
           const active = pressed.includes(midi);
           const tonic = isTonic(midi);
@@ -235,7 +258,7 @@ export function Keyboard({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (t: Palette) => StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 2,
   },
@@ -247,9 +270,9 @@ const styles = StyleSheet.create({
   whiteKey: {
     width: WHITE_KEY_WIDTH,
     height: WHITE_KEY_HEIGHT,
-    backgroundColor: colors.keyWhite,
+    backgroundColor: t.keyWhite,
     borderWidth: 1,
-    borderColor: '#b9b9c8',
+    borderColor: t.keyWhiteBorder,
     borderBottomLeftRadius: radius.sm,
     borderBottomRightRadius: radius.sm,
     justifyContent: 'space-between',
@@ -257,16 +280,16 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   whiteKeyPressed: {
-    backgroundColor: colors.keyWhitePressed,
+    backgroundColor: t.keyWhitePressed,
   },
   blackKey: {
     position: 'absolute',
     top: 0,
     width: BLACK_KEY_WIDTH,
     height: BLACK_KEY_HEIGHT,
-    backgroundColor: colors.keyBlack,
+    backgroundColor: t.keyBlack,
     borderWidth: 1,
-    borderColor: '#0c0c14',
+    borderColor: t.keyBlackBorder,
     borderBottomLeftRadius: radius.sm,
     borderBottomRightRadius: radius.sm,
     justifyContent: 'space-between',
@@ -274,15 +297,15 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   blackKeyPressed: {
-    backgroundColor: colors.keyBlackPressed,
+    backgroundColor: t.keyBlackPressed,
   },
   tonicKey: {
-    backgroundColor: colors.pure,
-    borderColor: '#2f9c78',
+    backgroundColor: t.pure,
+    borderColor: t.tonicBorder,
   },
   tonicKeyBlack: {
-    backgroundColor: '#1f7a5e',
-    borderColor: colors.pure,
+    backgroundColor: t.tonicBlackBg,
+    borderColor: t.pure,
   },
   markers: {
     alignItems: 'center',
@@ -293,7 +316,7 @@ const styles = StyleSheet.create({
     width: 9,
     height: 9,
     borderRadius: radius.pill,
-    backgroundColor: colors.tone,
+    backgroundColor: t.tone,
   },
   /**
    * Nedre delen av tangenten. Tonika-etiketten hör hemma här och inte högre
@@ -310,8 +333,8 @@ const styles = StyleSheet.create({
     fontSize: 8,
     fontWeight: '800',
     letterSpacing: 0.2,
-    color: '#0d3b2e',
-    backgroundColor: '#a8f0d4',
+    color: t.onPure,
+    backgroundColor: t.tonicBadgeBg,
     paddingVertical: 1,
   },
   tonicBadgeBlack: {
@@ -319,8 +342,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 7,
     fontWeight: '800',
-    color: '#0d3b2e',
-    backgroundColor: colors.pure,
+    color: t.onPure,
+    backgroundColor: t.pure,
     paddingVertical: 1,
   },
   label: {
@@ -328,9 +351,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   labelWhite: {
-    color: colors.keyLabel,
+    color: t.keyLabel,
   },
   labelBlack: {
-    color: '#b9b9c8',
+    color: t.keyLabelBlack,
   },
 });

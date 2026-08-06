@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Körmetronom",
-    "slug": "KorApp",
+    "slug": "peter",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -11,7 +11,11 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.peterholmstrand.korapp",
       "infoPlist": {
-        "UIBackgroundModes": ["audio"]
+        "UIBackgroundModes": [
+          "audio",
+          "audio"
+        ],
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -22,13 +26,23 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "react-native-audio-api"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "b84c7c7e-9f5f-44c4-9de6-9d35777a3ac8"
+      }
+    },
+    "owner": "peterholmstrands-team"
   }
 }

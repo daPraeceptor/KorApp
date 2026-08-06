@@ -7,7 +7,8 @@ import { PlayScreen } from './src/screens/PlayScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { SongsScreen } from './src/screens/SongsScreen';
 import { AppStateProvider } from './src/state/AppState';
-import { colors, radius, spacing } from './src/theme';
+import { Palette, radius, spacing } from './src/theme';
+import { useTheme, useThemedStyles } from './src/ThemeContext';
 
 type Tab = 'play' | 'songs' | 'settings';
 
@@ -17,46 +18,61 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'settings', label: 'Inställningar' },
 ];
 
-export default function App() {
+/**
+ * Skalet ligger i en egen komponent eftersom App renderar temaleverantören —
+ * färgerna finns först innanför den, inte i samma komponent som skapar den.
+ */
+function Shell() {
+  const t = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [tab, setTab] = useState<Tab>('play');
 
   return (
+    <>
+      {/* Ljusa teman behöver mörk statusradstext, annars försvinner klockan. */}
+      <StatusBar style={t.dark ? 'light' : 'dark'} />
+      <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
+        <View style={styles.body}>
+          {tab === 'play' ? <PlayScreen onOpenSongs={() => setTab('songs')} /> : null}
+          {tab === 'songs' ? <SongsScreen onOpenPlay={() => setTab('play')} /> : null}
+          {tab === 'settings' ? <SettingsScreen /> : null}
+        </View>
+
+        <View style={styles.tabBar}>
+          {TABS.map(({ id, label }) => {
+            const active = tab === id;
+            return (
+              <Pressable
+                key={id}
+                onPress={() => setTab(id)}
+                style={[styles.tab, active && styles.tabActive]}
+              >
+                <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>
+                  {label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </SafeAreaView>
+    </>
+  );
+}
+
+export default function App() {
+  return (
     <SafeAreaProvider>
       <AppStateProvider>
-        <StatusBar style="light" />
-        <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
-          <View style={styles.body}>
-            {tab === 'play' ? <PlayScreen onOpenSongs={() => setTab('songs')} /> : null}
-            {tab === 'songs' ? <SongsScreen onOpenPlay={() => setTab('play')} /> : null}
-            {tab === 'settings' ? <SettingsScreen /> : null}
-          </View>
-
-          <View style={styles.tabBar}>
-            {TABS.map(({ id, label }) => {
-              const active = tab === id;
-              return (
-                <Pressable
-                  key={id}
-                  onPress={() => setTab(id)}
-                  style={[styles.tab, active && styles.tabActive]}
-                >
-                  <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>
-                    {label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </SafeAreaView>
+        <Shell />
       </AppStateProvider>
     </SafeAreaProvider>
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (t: Palette) => StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: t.background,
   },
   body: {
     flex: 1,
@@ -72,8 +88,8 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.surface,
+    borderTopColor: t.border,
+    backgroundColor: t.surface,
   },
   tab: {
     flex: 1,
@@ -82,14 +98,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tabActive: {
-    backgroundColor: colors.surfaceRaised,
+    backgroundColor: t.surfaceRaised,
   },
   tabLabel: {
-    color: colors.textMuted,
+    color: t.textMuted,
     fontSize: 14,
     fontWeight: '600',
   },
   tabLabelActive: {
-    color: colors.accent,
+    color: t.accent,
   },
 });

@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" fill="#5ee0b0"/>
+
+  <g transform="translate(256 256) scale(1.26) translate(-259 -280.6)">
+    <!-- Svängbågen antyder rörelsen, så formen läses som en pendel och inte
+         som en stämgaffel som bara står still. -->
+    <path d="M154 210 A 140 140 0 0 1 358 210"
+          fill="none" stroke="#101018" stroke-width="16" stroke-linecap="round" opacity="0.3"/>
+
+    <!-- Stämgaffeln, upprättstående i eget system och vriden kring axeltappen. -->
+    <g transform="translate(256 398) rotate(15)">
+      <!-- Skaftet slutar mitt i U-böjens tjocklek: rundningen lägger 11.5
+           enheter till, så toppen hamnar på -91.5 mot böjens mittlinje -92. -->
+      <line x1="0" y1="0" x2="0" y2="-80" stroke="#101018" stroke-width="23" stroke-linecap="round"/>
+      <!-- Klykan: två klor sammanbundna av en U-böj. Öppningen mellan klorna
+           är 45 enheter, vilket blir drygt 2,5 pixlar vid 29 punkter. Smalare
+           än så och klorna flyter ihop till ett streck på de minsta ikonerna. -->
+      <path d="M-33 -240 L-33 -128 Q-33 -92 0 -92 Q33 -92 33 -128 L33 -240"
+            fill="none" stroke="#101018" stroke-width="21"
+            stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+
+    <!-- Foten och axeltappen -->
+    <rect x="184" y="384" width="144" height="30" rx="15" fill="#101018"/>
+    <circle cx="256" cy="398" r="19" fill="#5ee0b0"/>
+  </g>
+</svg>

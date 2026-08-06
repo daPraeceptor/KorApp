@@ -26,6 +26,85 @@ export interface Song {
   toneGapBpm: number;
   notes: string;
   updatedAt: number;
+  /** Mappen låten ligger i. null betyder att den ligger löst i listan. */
+  folderId: string | null;
+}
+
+/** En mapp att samla låtar i, till exempel en konsert eller en termin. */
+export interface Folder {
+  id: string;
+  name: string;
+  createdAt: number;
+}
+
+export function createFolder(name: string): Folder {
+  return {
+    id: `f-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+    name: name.trim() || 'Ny mapp',
+    createdAt: Date.now(),
+  };
+}
+
+function normalizeFolder(raw: unknown): Folder | null {
+  if (typeof raw !== 'object' || raw === null) {
+    return null;
+  }
+  const value = raw as Record<string, unknown>;
+  if (typeof value.id !== 'string' || typeof value.name !== 'string') {
+    return null;
+  }
+  return {
+    id: value.id,
+    name: value.name,
+    createdAt:
+      typeof value.createdAt === 'number' && Number.isFinite(value.createdAt)
+        ? value.createdAt
+        : Date.now(),
+  };
+}
+
+export function parseFolders(json: string | null): Folder[] {
+  if (!json) {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(json);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed
+      .map(normalizeFolder)
+      .filter((folder): folder is Folder => folder !== null);
+  } catch {
+    return [];
+  }
+}
+
+export function sortFolders(folders: Folder[]): Folder[] {
+  return [...folders].sort((a, b) => a.name.localeCompare(b.name, 'sv'));
+}
+
+/**
+ * Låtar vars mapp inte längre finns läggs löst i listan i stället för att
+ * försvinna. Kan hända om lagringen skrivits av en äldre version, eller om en
+ * mapp tagits bort utan att låtarna hann flyttas.
+ */
+export function withValidFolders(songs: Song[], folders: Folder[]): Song[] {
+  const finns = new Set(folders.map((folder) => folder.id));
+  return songs.map((song) =>
+    song.folderId && !finns.has(song.folderId) ? { ...song, folderId: null } : song,
+  );
+}
+
+/** Filtrerar låtar på fritext i titeln. Tom sökning ger alla. */
+export function searchSongs(songs: Song[], query: string): Song[] {
+  const trimmed = query.trim().toLocaleLowerCase('sv');
+  if (!trimmed) {
+    return songs;
+  }
+  return songs.filter((song) =>
+    song.title.toLocaleLowerCase('sv').includes(trimmed),
+  );
 }
 
 export const MIN_TONE_GAP_BPM = 20;
@@ -47,6 +126,7 @@ export function createSong(partial: Partial<Song> = {}): Song {
     toneGapBpm: DEFAULT_TONE_GAP_BPM,
     notes: '',
     updatedAt: Date.now(),
+    folderId: null,
     ...partial,
   };
 }
@@ -95,6 +175,7 @@ export function normalizeSong(raw: unknown): Song | null {
     ),
     notes: typeof value.notes === 'string' ? value.notes : '',
     updatedAt: number(value.updatedAt, Date.now()),
+    folderId: typeof value.folderId === 'string' ? value.folderId : null,
   };
 }
 

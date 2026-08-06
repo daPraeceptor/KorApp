@@ -11,42 +11,23 @@ import {
   createAudioContext,
   unlockAudioContext,
 } from './context';
+import { DEFAULT_TIMBRE, TIMBRES, TimbreId } from './timbres';
 
 /** Nivå som exponentiella ramper går mot i stället för noll, som de inte klarar. */
 const SILENCE = 0.0001;
 
-/**
- * Övertoner för körtonen.
- *
- * Den femte övertonen är inte kosmetisk: svävningen i en stor ters uppstår
- * mellan grundtonens femte överton och tersens fjärde. Utan den finns
- * skillnaden mellan tempererad och ren stämning helt enkelt inte i ljudet,
- * hur rätt frekvenserna än är räknade. Samma sak gäller den sjätte övertonen
- * för sexter och kvinter.
- */
-const PARTIALS: ReadonlyArray<{ harmonic: number; gain: number }> = [
-  { harmonic: 1, gain: 1 },
-  { harmonic: 2, gain: 0.5 },
-  { harmonic: 3, gain: 0.35 },
-  { harmonic: 4, gain: 0.25 },
-  { harmonic: 5, gain: 0.22 },
-  { harmonic: 6, gain: 0.15 },
-];
-
-const PARTIAL_SUM = PARTIALS.reduce((sum, partial) => sum + partial.gain, 0);
-
 /** Sammanlagd toppnivå för en enskild ton, så att flera toner inte klipper. */
 const VOICE_PEAK = 0.5;
 
-const ATTACK = 0.015;
-const DECAY = 0.12;
-const SUSTAIN = 0.75;
-const RELEASE = 0.35;
+/** Deltoner ovanför hörselområdet hoppas över, de ger bara vikning. */
+const NYQUIST_GUARD = 18000;
 
 interface Voice {
   oscillators: OscillatorNodeLike[];
   envelope: GainNodeLike;
   stopTimer: ReturnType<typeof setTimeout> | null;
+  /** Utklingningstiden hör till klangen tonen startades med. */
+  release: number;
 }
 
 /** Taktens etta, en vanlig taktdel, eller en underdelning mellan taktdelarna. */
@@ -66,6 +47,7 @@ export class AudioEngine {
   private master: GainNodeLike | null = null;
   private voices = new Map<string, Voice>();
   private volume = 0.8;
+  private timbreId: TimbreId = DEFAULT_TIMBRE;
   /** Timers och röster som hör till en pågående tongivning, så den kan avbrytas. */
   private toneTimers = new Set<ReturnType<typeof setTimeout>>();
   private toneVoiceIds = new Set<string>();
@@ -88,6 +70,11 @@ export class AudioEngine {
 
   get currentTime(): number {
     return this.ctx ? this.ctx.currentTime : 0;
+  }
+
+  /** Klangen som nya toner startas med. Redan klingande toner behåller sin. */
+  setTimbre(id: TimbreId): void {
+    this.timbreId = TIMBRES[id] ? id : DEFAULT_TIMBRE;
   }
 
   setVolume(value: number): void {
@@ -148,28 +135,47 @@ export class AudioEngine {
 
     this.stopVoice(id, true);
 
+    const timbre = TIMBRES[this.timbreId] ?? TIMBRES[DEFAULT_TIMBRE];
+    const partials = timbre
+      .partials(frequency)
+      .filter((partial) => frequency * partial.ratio <= NYQUIST_GUARD);
+    // Normalisera mot summan så att tonens toppnivå blir densamma oavsett hur
+    // många deltoner klangen råkar bestå av.
+    const partialSum = partials.reduce((sum, partial) => sum + partial.gain, 0) || 1;
+
     const now = ctx.currentTime;
     const envelope = ctx.createGain();
     envelope.gain.setValueAtTime(SILENCE, now);
-    envelope.gain.linearRampToValueAtTime(1, now + ATTACK);
-    envelope.gain.linearRampToValueAtTime(SUSTAIN, now + ATTACK + DECAY);
+    envelope.gain.linearRampToValueAtTime(1, now + timbre.attack);
+    envelope.gain.linearRampToValueAtTime(
+      Math.max(timbre.sustain, SILENCE),
+      now + timbre.attack + timbre.decay,
+    );
     envelope.connect(master);
 
     const oscillators: OscillatorNodeLike[] = [];
-    for (const { harmonic, gain: level } of PARTIALS) {
-      const partialFrequency = frequency * harmonic;
-      // Hoppa över övertoner ovanför hörselområdet, de ger bara vikning.
-      if (partialFrequency > 18000) {
-        continue;
-      }
+    for (const partial of partials) {
       const osc = ctx.createOscillator();
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(partialFrequency, now);
+      osc.frequency.setValueAtTime(frequency * partial.ratio, now);
 
+      const level = (partial.gain * VOICE_PEAK) / partialSum;
       const partialGain = ctx.createGain();
-      // Normalisera mot summan av övertonerna så att tonens toppnivå blir densamma
-      // oavsett hur många övertoner spektrumet innehåller.
-      partialGain.gain.value = (level * VOICE_PEAK) / PARTIAL_SUM;
+      partialGain.gain.setValueAtTime(level, now);
+
+      // Anslagsklanger låter varje delton klinga av för sig, med de ljusa
+      // först. Det är den utvecklingen som skiljer ett anslag från en orgelton.
+      if (timbre.partialDecay) {
+        const span = timbre.partialDecay * (partial.decayScale ?? 1);
+        try {
+          partialGain.gain.exponentialRampToValueAtTime(
+            Math.max(level * 0.02, SILENCE),
+            now + span,
+          );
+        } catch {
+          // Klarar ljudmotorn inte rampen låter deltonen ligga kvar på sin nivå.
+        }
+      }
 
       osc.connect(partialGain);
       partialGain.connect(envelope);
@@ -177,7 +183,12 @@ export class AudioEngine {
       oscillators.push(osc);
     }
 
-    this.voices.set(id, { oscillators, envelope, stopTimer: null });
+    this.voices.set(id, {
+      oscillators,
+      envelope,
+      stopTimer: null,
+      release: timbre.release,
+    });
   }
 
   /** Släpper en ton med mjuk utklingning. */
@@ -194,7 +205,7 @@ export class AudioEngine {
     }
 
     const now = ctx.currentTime;
-    const release = immediate ? 0.01 : RELEASE;
+    const release = immediate ? 0.01 : voice.release;
 
     try {
       voice.envelope.gain.cancelScheduledValues(now);

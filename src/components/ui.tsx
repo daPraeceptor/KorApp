@@ -2,7 +2,35 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
 
-import { colors, radius, spacing } from '../theme';
+import { useTheme } from '../ThemeContext';
+import { Palette, ThemeId, radius, spacing } from '../theme';
+
+/**
+ * Stilarna cachas per tema. Appen ritar dussintals knappar, och utan cachen
+ * skulle var och en bygga en egen identisk uppsättning vid varje omritning.
+ */
+const stilCache = new Map<ThemeId, ReturnType<typeof makeStyles>>();
+const variantCache = new Map<ThemeId, ReturnType<typeof makeVariants>>();
+const etikettCache = new Map<ThemeId, ReturnType<typeof makeVariantLabels>>();
+
+function hämta<V>(cache: Map<ThemeId, V>, id: ThemeId, bygg: () => V): V {
+  let värde = cache.get(id);
+  if (!värde) {
+    värde = bygg();
+    cache.set(id, värde);
+  }
+  return värde;
+}
+
+function useStyles() {
+  const t = useTheme();
+  return {
+    t,
+    styles: hämta(stilCache, t.id, () => makeStyles(t)),
+    variants: hämta(variantCache, t.id, () => makeVariants(t)),
+    variantLabels: hämta(etikettCache, t.id, () => makeVariantLabels(t)),
+  };
+}
 
 export function Card({
   children,
@@ -11,10 +39,12 @@ export function Card({
   children: React.ReactNode;
   style?: ViewStyle;
 }) {
+  const { styles } = useStyles();
   return <View style={[styles.card, style]}>{children}</View>;
 }
 
 export function SectionTitle({ children }: { children: React.ReactNode }) {
+  const { styles } = useStyles();
   return <Text style={styles.sectionTitle}>{children}</Text>;
 }
 
@@ -31,19 +61,20 @@ export function Button({
   disabled?: boolean;
   style?: ViewStyle;
 }) {
+  const { styles, variants, variantLabels } = useStyles();
   return (
     <Pressable
       onPress={onPress}
       disabled={disabled}
       style={({ pressed }) => [
         styles.button,
-        variantStyles[variant],
+        variants[variant],
         pressed && styles.buttonPressed,
         disabled && styles.buttonDisabled,
         style,
       ]}
     >
-      <Text style={[styles.buttonLabel, variantLabelStyles[variant]]}>{label}</Text>
+      <Text style={[styles.buttonLabel, variantLabels[variant]]}>{label}</Text>
     </Pressable>
   );
 }
@@ -62,15 +93,21 @@ export function SegmentedControl<T extends string | number>({
   options,
   value,
   onChange,
-  tint = colors.accent,
+  tint,
+  compact = false,
 }: {
   options: SegmentOption<T>[];
   value: T;
   onChange: (value: T) => void;
+  /** Utan värde används temats accentfärg. */
   tint?: string;
+  /** Krymper kontrollen till innehållets bredd i stället för att fylla raden. */
+  compact?: boolean;
 }) {
+  const { t, styles } = useStyles();
+  const färg = tint ?? t.accent;
   return (
-    <View style={styles.segmented}>
+    <View style={[styles.segmented, compact && styles.segmentedCompact]}>
       {options.map((option) => {
         const selected = option.value === value;
         return (
@@ -79,11 +116,12 @@ export function SegmentedControl<T extends string | number>({
             onPress={() => onChange(option.value)}
             style={[
               styles.segment,
-              selected && { backgroundColor: tint, borderColor: tint },
+              compact && styles.segmentCompact,
+              selected && { backgroundColor: färg, borderColor: färg },
             ]}
           >
             {option.renderIcon
-              ? option.renderIcon(selected ? '#12121a' : colors.textMuted)
+              ? option.renderIcon(selected ? t.onAccent : t.textMuted)
               : null}
             <Text
               style={[
@@ -115,6 +153,7 @@ export function Stepper({
   step?: number;
   format?: (value: number) => string;
 }) {
+  const { styles } = useStyles();
   const change = (delta: number) =>
     onChange(Math.min(max, Math.max(min, value + delta)));
   return (
@@ -146,17 +185,21 @@ export function Stepper({
   );
 }
 
-const styles = StyleSheet.create({
+/**
+ * Stilarna byggs per palett i stället för en gång vid inladdning, annars fryses
+ * färgerna som gällde när modulen laddades och temabytet slår aldrig igenom.
+ */
+const makeStyles = (t: Palette) => StyleSheet.create({
   card: {
-    backgroundColor: colors.surface,
+    backgroundColor: t.surface,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: t.border,
     padding: spacing.md,
     gap: spacing.sm,
   },
   sectionTitle: {
-    color: colors.textMuted,
+    color: t.textMuted,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 1.2,
@@ -167,8 +210,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceRaised,
+    borderColor: t.border,
+    backgroundColor: t.surfaceRaised,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -179,7 +222,7 @@ const styles = StyleSheet.create({
     opacity: 0.35,
   },
   buttonLabel: {
-    color: colors.text,
+    color: t.text,
     fontSize: 15,
     fontWeight: '600',
   },
@@ -187,23 +230,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.xs,
   },
+  segmentedCompact: {
+    alignSelf: 'flex-start',
+  },
   segment: {
     flex: 1,
     paddingVertical: 10,
     paddingHorizontal: 8,
     borderRadius: radius.sm,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceRaised,
+    borderColor: t.border,
+    backgroundColor: t.surfaceRaised,
     alignItems: 'center',
   },
+  segmentCompact: {
+    // Inte flex: 0 — det ger grundbredd noll, så knappen krymper ihop och
+    // texten rinner över kanten. Storleken ska följa innehållet.
+    flexGrow: 0,
+    flexShrink: 0,
+    flexBasis: 'auto',
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+  },
   segmentLabel: {
-    color: colors.textMuted,
+    color: t.textMuted,
     fontSize: 14,
     fontWeight: '600',
   },
   segmentLabelSelected: {
-    color: '#12121a',
+    color: t.onAccent,
   },
   stepper: {
     flexDirection: 'row',
@@ -215,19 +270,19 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: radius.sm,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceRaised,
+    borderColor: t.border,
+    backgroundColor: t.surfaceRaised,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepperSymbol: {
-    color: colors.text,
+    color: t.text,
     fontSize: 22,
     fontWeight: '700',
     lineHeight: 26,
   },
   stepperValue: {
-    color: colors.text,
+    color: t.text,
     fontSize: 17,
     fontWeight: '600',
     minWidth: 78,
@@ -236,18 +291,18 @@ const styles = StyleSheet.create({
   },
 });
 
-const variantStyles: Record<string, ViewStyle> = {
+const makeVariants = (t: Palette): Record<string, ViewStyle> => ({
   default: {},
-  primary: { backgroundColor: colors.accent, borderColor: colors.accent },
-  pure: { backgroundColor: colors.pure, borderColor: colors.pure },
-  danger: { backgroundColor: 'transparent', borderColor: colors.danger },
+  primary: { backgroundColor: t.accent, borderColor: t.accent },
+  pure: { backgroundColor: t.pure, borderColor: t.pure },
+  danger: { backgroundColor: 'transparent', borderColor: t.danger },
   ghost: { backgroundColor: 'transparent' },
-};
+});
 
-const variantLabelStyles: Record<string, { color: string }> = {
-  default: { color: colors.text },
-  primary: { color: '#12121a' },
-  pure: { color: '#0d3b2e' },
-  danger: { color: colors.danger },
-  ghost: { color: colors.textMuted },
-};
+const makeVariantLabels = (t: Palette): Record<string, { color: string }> => ({
+  default: { color: t.text },
+  primary: { color: t.onAccent },
+  pure: { color: t.onPure },
+  danger: { color: t.danger },
+  ghost: { color: t.textMuted },
+});

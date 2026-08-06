@@ -10,7 +10,8 @@ import { LayoutChangeEvent, StyleSheet, View } from 'react-native';
 import Svg, { Circle, G, Line, Path } from 'react-native-svg';
 
 import { BeatPulse, MetronomeVisualStyle } from '../state/AppState';
-import { colors, radius } from '../theme';
+import { Palette, radius } from '../theme';
+import { useTheme, useThemedStyles } from '../ThemeContext';
 
 const HEIGHT = 150;
 
@@ -43,6 +44,8 @@ function bounceHeight(bpm: number): number {
 }
 
 export function MetronomeVisual({ style, running, bpm, pulse, activeBeat }: Props) {
+  const t = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [, setFrame] = useState(0);
   const [width, setWidth] = useState(0);
 
@@ -116,8 +119,8 @@ export function MetronomeVisual({ style, running, bpm, pulse, activeBeat }: Prop
       <Svg width="100%" height={HEIGHT} viewBox="0 0 200 150">
         <Path
           d="M74 140 L96 30 L104 30 L126 140 Z"
-          fill={colors.surfaceRaised}
-          stroke={colors.border}
+          fill={t.surfaceRaised}
+          stroke={t.border}
           strokeWidth={2}
         />
         <G transform={`rotate(${angle} ${pivotX} ${pivotY})`}>
@@ -126,7 +129,7 @@ export function MetronomeVisual({ style, running, bpm, pulse, activeBeat }: Prop
             y1={pivotY}
             x2={pivotX}
             y2={pivotY - rodLength}
-            stroke={colors.accent}
+            stroke={t.accent}
             strokeWidth={4}
             strokeLinecap="round"
           />
@@ -134,18 +137,18 @@ export function MetronomeVisual({ style, running, bpm, pulse, activeBeat }: Prop
             cx={pivotX}
             cy={pivotY - weightAt}
             r={11}
-            fill={onBeat ? colors.accent : colors.surfaceRaised}
-            stroke={colors.accent}
+            fill={onBeat ? t.accent : t.surfaceRaised}
+            stroke={t.accent}
             strokeWidth={3}
           />
         </G>
-        <Circle cx={pivotX} cy={pivotY} r={5} fill={colors.border} />
+        <Circle cx={pivotX} cy={pivotY} r={5} fill={t.border} />
       </Svg>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (t: Palette) => StyleSheet.create({
   container: {
     height: HEIGHT,
     justifyContent: 'flex-end',
@@ -163,16 +166,16 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: radius.pill,
-    backgroundColor: colors.accent,
+    backgroundColor: t.accent,
   },
   ballAccent: {
-    backgroundColor: colors.pure,
+    backgroundColor: t.pure,
   },
   ground: {
     height: 3,
     width: '70%',
     borderRadius: radius.pill,
-    backgroundColor: colors.border,
+    backgroundColor: t.border,
     marginBottom: 18,
   },
   track: {
@@ -181,7 +184,7 @@ const styles = StyleSheet.create({
     height: 3,
     width: '90%',
     borderRadius: radius.pill,
-    backgroundColor: colors.border,
+    backgroundColor: t.border,
   },
   marker: {
     position: 'absolute',
@@ -189,9 +192,9 @@ const styles = StyleSheet.create({
     width: 8,
     height: 54,
     borderRadius: radius.sm,
-    backgroundColor: colors.accent,
+    backgroundColor: t.accent,
   },
   markerAccent: {
-    backgroundColor: colors.pure,
+    backgroundColor: t.pure,
   },
 });
