@@ -6,9 +6,10 @@
       "runtimeExecutable": "cmd.exe",
       "runtimeArgs": [
         "/c",
-        "set PATH=C:\\PROGRA~1\\nodejs;%PATH%&& C:\\PROGRA~1\\nodejs\\npx.cmd expo start --web --port 8082"
+        "set PATH=C:\\PROGRA~1\\nodejs;%PATH%&& if defined PORT (C:\\PROGRA~1\\nodejs\\npx.cmd expo start --web --port %PORT%) else (C:\\PROGRA~1\\nodejs\\npx.cmd expo start --web)"
       ],
-      "port": 8082
+      "port": 8082,
+      "autoPort": true
     }
   ]
 }
