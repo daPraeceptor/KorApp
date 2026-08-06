@@ -2,7 +2,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  DEFAULT_TONE_GAP_BPM,
   MAX_TONES,
   createFolder,
   normalizeSong,
@@ -62,17 +61,12 @@ test('ogiltiga toner rensas bort utan att rubba ordningen', () => {
   assert.deepEqual(song.tones, [72, 60, 67]);
 });
 
-test('låt utan hastighet får standardvärdet', () => {
-  const song = normalizeSong({ id: 'x', title: 'Gammal låt' });
+test('hastigheten mellan tonerna följer inte längre med låten', () => {
+  // Låtar sparade förr bär fältet vidare i lagringen. Det ska inte läsas in
+  // igen, eftersom hastigheten numera är en inställning som gäller alla låtar.
+  const song = normalizeSong({ id: 'x', title: 'Gammal låt', toneGapBpm: 150 });
   assert.ok(song);
-  assert.equal(song.toneGapBpm, DEFAULT_TONE_GAP_BPM);
-});
-
-test('orimlig hastighet kläms till giltigt område', () => {
-  const snabb = normalizeSong({ id: 'x', title: 'Snabb', toneGapBpm: 9999 });
-  const langsam = normalizeSong({ id: 'y', title: 'Långsam', toneGapBpm: 1 });
-  assert.equal(snabb?.toneGapBpm, 200);
-  assert.equal(langsam?.toneGapBpm, 20);
+  assert.ok(!('toneGapBpm' in song));
 });
 
 test('trasiga poster sorteras bort utan att fälla inläsningen', () => {

@@ -55,18 +55,18 @@ test('klanger som utger sig för att visa stämningen bär femte och sjätte del
 });
 
 test('anslagsklanger klingar av, liggande klanger gör det inte', () => {
-  for (const id of ['piano', 'glockenspiel'] as const) {
+  for (const id of ['piano'] as const) {
     assert.ok(TIMBRES[id].partialDecay, `${id} ska klinga av`);
     assert.ok(TIMBRES[id].sustain < 0.2, `${id} ska inte ligga kvar`);
   }
-  for (const id of ['choir', 'flute', 'sine', 'square'] as const) {
+  for (const id of ['choir', 'flute', 'sine'] as const) {
     assert.equal(TIMBRES[id].partialDecay, undefined, `${id} ska ligga kvar`);
     assert.ok(TIMBRES[id].sustain > 0.5, `${id} ska ligga kvar`);
   }
 });
 
 test('anslagsklangernas ljusa deltoner dör före de mörka', () => {
-  for (const id of ['piano', 'glockenspiel'] as const) {
+  for (const id of ['piano'] as const) {
     const partials = TIMBRES[id].partials(C4);
     for (let i = 1; i < partials.length; i += 1) {
       const forra = partials[i - 1].decayScale ?? 1;
@@ -96,21 +96,11 @@ test('inga deltoner hamnar över hörselområdet för höga toner', () => {
   }
 });
 
-test('de rena vågformerna är ärligt märkta', () => {
-  // Sinus saknar övertoner helt. Fyrkantsvågen har bara udda, men både tersens
-  // och kvintens sammanfall sker på jämna deltoner — alltså ingen svävning.
-  for (const id of ['sine', 'square'] as const) {
-    assert.equal(TIMBRES[id].revealsTuning, false, `${id} ska vara märkt`);
-    const jämna = TIMBRES[id].partials(C4).filter((p) => p.ratio % 2 === 0);
-    assert.equal(jämna.length, 0, `${id} ska sakna jämna deltoner`);
-  }
-});
-
-test('fyrkantsvågen har udda deltoner med styrkan ett genom n', () => {
-  for (const p of TIMBRES.square.partials(C4)) {
-    assert.equal(p.ratio % 2, 1, 'bara udda deltoner');
-    assert.ok(Math.abs(p.gain - 1 / p.ratio) < 1e-9, `delton ${p.ratio} ska ha styrkan 1/${p.ratio}`);
-  }
+test('sinustonen är ärligt märkt', () => {
+  // Utan övertoner finns inga sammanfallande deltoner att sväva mot, alltså
+  // hörs inte skillnaden mellan tempererad och ren stämning.
+  assert.equal(TIMBRES.sine.revealsTuning, false);
+  assert.equal(TIMBRES.sine.partials(C4).length, 1);
 });
 
 test('en okänd klang faller tillbaka på standard i stället för att krascha', () => {

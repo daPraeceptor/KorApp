@@ -113,7 +113,6 @@ export interface LiveConfig {
   tuningSystem: TuningSystem;
   tonicPitchClass: number;
   tones: number[];
-  toneGapBpm: number;
 }
 
 const DEFAULT_LIVE: LiveConfig = {
@@ -123,7 +122,6 @@ const DEFAULT_LIVE: LiveConfig = {
   tuningSystem: 'tempered',
   tonicPitchClass: 0,
   tones: [],
-  toneGapBpm: DEFAULT_TONE_GAP_BPM,
 };
 
 function liveFromSong(song: Song): LiveConfig {
@@ -134,7 +132,6 @@ function liveFromSong(song: Song): LiveConfig {
     tuningSystem: song.tuningSystem,
     tonicPitchClass: song.tonicPitchClass,
     tones: [...song.tones],
-    toneGapBpm: song.toneGapBpm,
   };
 }
 
@@ -145,12 +142,11 @@ export interface BeatPulse {
   count: number;
 }
 
-/** Det som behövs för att kunna ge en uppsättning toner i rätt stämning och puls. */
+/** Det som behövs för att kunna ge en uppsättning toner i rätt stämning. */
 export interface ToneSource {
   tones: number[];
   tuningSystem: TuningSystem;
   tonicPitchClass: number;
-  toneGapBpm: number;
 }
 
 function liveMatchesSong(live: LiveConfig, song: Song): boolean {
@@ -160,7 +156,6 @@ function liveMatchesSong(live: LiveConfig, song: Song): boolean {
     live.subdivision === song.subdivision &&
     live.tuningSystem === song.tuningSystem &&
     live.tonicPitchClass === song.tonicPitchClass &&
-    live.toneGapBpm === song.toneGapBpm &&
     live.tones.length === song.tones.length &&
     live.tones.every((tone, index) => tone === song.tones[index])
   );
@@ -250,13 +245,6 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
           try {
             const parsed = JSON.parse(settingsJson) as Partial<Settings>;
             setSettings((current) => ({ ...current, ...parsed }));
-            // Utan laddad låt utgår spelvyn från standardhastigheten.
-            if (typeof parsed.defaultToneGapBpm === 'number') {
-              setLive((current) => ({
-                ...current,
-                toneGapBpm: parsed.defaultToneGapBpm as number,
-              }));
-            }
           } catch {
             // Trasiga inställningar ersätts av standardvärdena.
           }
@@ -380,11 +368,11 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         sequence.map((midi) => frequencyOf(midi, toneTuning)),
         {
           mode: direction === 'chord' ? 'together' : 'sequence',
-          spacing: 60 / from.toneGapBpm,
+          spacing: 60 / settings.defaultToneGapBpm,
         },
       );
     },
-    [live, settings.a4],
+    [live, settings.a4, settings.defaultToneGapBpm],
   );
 
   const stopTones = useCallback(() => audioEngine.stopTones(), []);

@@ -1,6 +1,15 @@
 /** Små återanvändbara byggstenar för appens vyer. */
-import React from 'react';
-import { Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import {
+  LayoutChangeEvent,
+  PanResponder,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  ViewStyle,
+} from 'react-native';
 
 import { useTheme } from '../ThemeContext';
 import { Palette, ThemeId, radius, spacing } from '../theme';
@@ -35,12 +44,19 @@ function useStyles() {
 export function Card({
   children,
   style,
+  onLayout,
 }: {
   children: React.ReactNode;
   style?: ViewStyle;
+  /** Behövs av vyer som måste veta när kortet ändrar höjd. */
+  onLayout?: (event: LayoutChangeEvent) => void;
 }) {
   const { styles } = useStyles();
-  return <View style={[styles.card, style]}>{children}</View>;
+  return (
+    <View style={[styles.card, style]} onLayout={onLayout}>
+      {children}
+    </View>
+  );
 }
 
 export function SectionTitle({ children }: { children: React.ReactNode }) {
@@ -189,6 +205,116 @@ export function Stepper({
 }
 
 /**
+ * Webbläsaren tolkar annars dragningen som en sidscroll och rullar vyn medan
+ * reglaget dras. Egenskaperna finns bara i react-native-web, därav konverteringen.
+ */
+const WEB_GESTURE_STYLE =
+  Platform.OS === 'web'
+    ? ({ touchAction: 'none', userSelect: 'none' } as unknown as ViewStyle)
+    : undefined;
+
+/**
+ * Skjutreglage för värden man vill kunna svepa igenom snabbt.
+ *
+ * Till skillnad från Stepper, som tar ett steg per tryck, går hela området att
+ * dra igenom i en rörelse — och ett tryck var som helst på banan hoppar dit.
+ */
+export function Slider({
+  value,
+  onChange,
+  min,
+  max,
+  step = 1,
+}: {
+  value: number;
+  onChange: (value: number) => void;
+  min: number;
+  max: number;
+  step?: number;
+}) {
+  const { t, styles } = useStyles();
+  const trackRef = useRef<View>(null);
+  /** Banans läge och bredd i fönstret, mätt när den ritats ut. */
+  const geometry = useRef({ x: 0, width: 0 });
+  const valueRef = useRef(value);
+  valueRef.current = value;
+  const [dragging, setDragging] = useState(false);
+
+  const measure = useCallback((sedan?: () => void) => {
+    trackRef.current?.measureInWindow((x, _y, width) => {
+      geometry.current = { x, width };
+      sedan?.();
+    });
+  }, []);
+
+  const valueAt = useCallback(
+    (pageX: number) => {
+      const { x, width } = geometry.current;
+      if (width <= 0) {
+        return valueRef.current;
+      }
+      const andel = Math.min(1, Math.max(0, (pageX - x) / width));
+      const rått = min + andel * (max - min);
+      return Math.min(max, Math.max(min, Math.round(rått / step) * step));
+    },
+    [min, max, step],
+  );
+
+  const panResponder = useMemo(() => {
+    const flytta = (pageX: number) => {
+      const next = valueAt(pageX);
+      if (next !== valueRef.current) {
+        valueRef.current = next;
+        onChange(next);
+      }
+    };
+    return PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderGrant: (event) => {
+        const { pageX } = event.nativeEvent;
+        setDragging(true);
+        // Mätningen är asynkron, så värdet sätts först när den kommit in.
+        // Annars tappas det allra första trycket, medan banans mått ännu är noll.
+        measure(() => flytta(pageX));
+      },
+      onPanResponderMove: (_event, gesture) => flytta(gesture.moveX),
+      onPanResponderRelease: () => setDragging(false),
+      onPanResponderTerminate: () => setDragging(false),
+    });
+  }, [measure, onChange, valueAt]);
+
+  const andel = Math.min(1, Math.max(0, (value - min) / (max - min)));
+
+  return (
+    <View
+      ref={trackRef}
+      onLayout={() => measure()}
+      style={[styles.sliderHit, WEB_GESTURE_STYLE]}
+      {...panResponder.panHandlers}
+    >
+      <View style={styles.sliderTrack}>
+        <View style={[styles.sliderFill, { width: `${andel * 100}%` }]} />
+      </View>
+      <View
+        style={[
+          styles.sliderKnob,
+          dragging && styles.sliderKnobActive,
+          // Knappen centreras över sitt läge utan att kunna hamna utanför banan.
+          { left: `${andel * 100}%`, marginLeft: -SLIDER_KNOB / 2 },
+        ]}
+        pointerEvents="none"
+      >
+        <View style={[styles.sliderKnobDot, { backgroundColor: t.accent }]} />
+      </View>
+    </View>
+  );
+}
+
+const SLIDER_KNOB = 28;
+
+/**
  * Stilarna byggs per palett i stället för en gång vid inladdning, annars fryses
  * färgerna som gällde när modulen laddades och temabytet slår aldrig igenom.
  */
@@ -262,6 +388,42 @@ const makeStyles = (t: Palette) => StyleSheet.create({
   },
   segmentLabelSelected: {
     color: t.onAccent,
+  },
+  // Banan är tunn men greppytan hög, så att fingret träffar utan att sikta.
+  sliderHit: {
+    height: SLIDER_KNOB + 12,
+    justifyContent: 'center',
+  },
+  sliderTrack: {
+    height: 6,
+    borderRadius: radius.pill,
+    backgroundColor: t.border,
+    overflow: 'hidden',
+  },
+  sliderFill: {
+    height: 6,
+    borderRadius: radius.pill,
+    backgroundColor: t.accent,
+  },
+  sliderKnob: {
+    position: 'absolute',
+    width: SLIDER_KNOB,
+    height: SLIDER_KNOB,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: t.border,
+    backgroundColor: t.surfaceRaised,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sliderKnobActive: {
+    borderColor: t.accent,
+    borderWidth: 2,
+  },
+  sliderKnobDot: {
+    width: 10,
+    height: 10,
+    borderRadius: radius.pill,
   },
   stepper: {
     flexDirection: 'row',

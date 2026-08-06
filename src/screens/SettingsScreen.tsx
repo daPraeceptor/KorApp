@@ -2,7 +2,14 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { Button, Card, SectionTitle, SegmentedControl, Stepper } from '../components/ui';
+import {
+  Button,
+  Card,
+  SectionTitle,
+  SegmentedControl,
+  Slider,
+  Stepper,
+} from '../components/ui';
 import { audioEngine } from '../audio/engine';
 import { useAppState } from '../state/AppState';
 import {
@@ -24,10 +31,30 @@ import {
 } from '../theme';
 import { useTheme, useThemedStyles } from '../ThemeContext';
 
+/** C-dur över en oktav: C4 i basen, E4, G4 och C5 överst. */
+const TEST_CHORD = [60, 64, 67, 72];
+
 export function SettingsScreen() {
   const t = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const { settings, updateSettings } = useAppState();
+  const { settings, updateSettings, live, playTones } = useAppState();
+
+  /**
+   * Provar tempot på riktiga toner. Med låtens egna toner hör man det man
+   * faktiskt ska ge kören; utan valda toner får man ett C-durackord med C både
+   * i basen och överst, så att hela spannet hörs.
+   */
+  const testToneGap = () => {
+    if (live.tones.length > 0) {
+      playTones('down');
+      return;
+    }
+    playTones('down', {
+      tones: TEST_CHORD,
+      tuningSystem: 'tempered',
+      tonicPitchClass: 0,
+    });
+  };
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
@@ -274,19 +301,23 @@ export function SettingsScreen() {
         </Text>
 
         <View style={styles.row}>
-          <Text style={styles.rowLabel}>Standardtempo</Text>
-          <Stepper
-            value={settings.defaultToneGapBpm}
-            min={MIN_TONE_GAP_BPM}
-            max={MAX_TONE_GAP_BPM}
-            step={5}
-            onChange={(defaultToneGapBpm) => updateSettings({ defaultToneGapBpm })}
-            format={(value) => `${value} slag/min`}
-          />
+          <Text style={styles.rowLabel}>Tempo mellan tonerna</Text>
+          <Text style={styles.rowValue}>
+            {settings.defaultToneGapBpm} slag/min
+          </Text>
         </View>
+        <Slider
+          value={settings.defaultToneGapBpm}
+          min={MIN_TONE_GAP_BPM}
+          max={MAX_TONE_GAP_BPM}
+          step={1}
+          onChange={(defaultToneGapBpm) => updateSettings({ defaultToneGapBpm })}
+        />
+        <Button label="Testa tempot" variant="pure" onPress={testToneGap} />
         <Text style={styles.help}>
-          Tempot mellan tonerna när de ges en i taget. Varje låt bär sitt eget
-          värde — det här är vad en ny låt börjar med.
+          Tempot mellan tonerna när de ges en i taget. Gäller alla låtar.
+          Testknappen spelar spelvyns toner, eller ett C-durackord uppifrån och
+          ner om inga är valda.
         </Text>
         <Text style={styles.footnote}>
           Tonerna sparas alltid i den ordning du väljer dem. Knapparna i spelvyn
@@ -378,6 +409,12 @@ const makeStyles = (t: Palette) => StyleSheet.create({
   rowLabel: {
     color: t.text,
     fontSize: 15,
+  },
+  rowValue: {
+    color: t.text,
+    fontSize: 15,
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
   },
   help: {
     color: t.textMuted,

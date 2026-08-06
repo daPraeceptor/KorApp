@@ -14,11 +14,9 @@
 export type TimbreId =
   | 'choir'
   | 'piano'
-  | 'glockenspiel'
   | 'tuningFork'
   | 'flute'
-  | 'sine'
-  | 'square';
+  | 'sine';
 
 export interface PartialSpec {
   /** Deltonens frekvens som multipel av grundtonen. */
@@ -48,9 +46,8 @@ export interface Timbre {
   partialDecay?: number;
   /**
    * Om klangen bär de deltoner som svävar mot varandra, och alltså kan visa
-   * skillnaden mellan tempererad och ren stämning. Falskt för de rena
-   * vågformerna: en sinuston saknar övertoner helt, och fyrkantsvågen har bara
-   * udda — men både tersens och kvintens sammanfall sker på jämna deltoner.
+   * skillnaden mellan tempererad och ren stämning. Falskt för sinustonen, som
+   * saknar övertoner helt och därför inte kan sväva mot något.
    */
   revealsTuning: boolean;
   partials: (fundamental: number) => PartialSpec[];
@@ -97,28 +94,6 @@ export const TIMBRES: Record<TimbreId, Timbre> = {
       { ratio: 5, gain: 0.16, decayScale: 0.5 },
       { ratio: 6, gain: 0.1, decayScale: 0.4 },
       { ratio: 8, gain: 0.05, decayScale: 0.3 },
-    ]),
-  },
-
-  glockenspiel: {
-    id: 'glockenspiel',
-    label: 'Klockspel',
-    description: 'Ljus metallklang med långt efterklang. Bär långt i en sal.',
-    attack: 0.002,
-    decay: 1.6,
-    sustain: 0.05,
-    release: 0.6,
-    revealsTuning: true,
-    partialDecay: 3.2,
-    partials: fixedPartials([
-      { ratio: 1, gain: 1, decayScale: 1.5 },
-      { ratio: 2, gain: 0.14, decayScale: 1 },
-      { ratio: 3, gain: 0.5, decayScale: 0.9 },
-      { ratio: 4, gain: 0.18, decayScale: 0.7 },
-      { ratio: 5, gain: 0.34, decayScale: 0.6 },
-      { ratio: 6, gain: 0.16, decayScale: 0.5 },
-      // Lätt orenstämd hög delton ger metallens skimmer.
-      { ratio: 8.24, gain: 0.1, decayScale: 0.35 },
     ]),
   },
 
@@ -172,38 +147,14 @@ export const TIMBRES: Record<TimbreId, Timbre> = {
     revealsTuning: false,
     partials: fixedPartials([{ ratio: 1, gain: 1 }]),
   },
-
-  square: {
-    id: 'square',
-    label: 'Fyrkant',
-    description:
-      'Ihålig och klarinettlik, byggd av enbart udda övertoner. Bär långt, men visar inte stämningsskillnaden.',
-    attack: 0.008,
-    decay: 0.15,
-    sustain: 0.8,
-    release: 0.3,
-    revealsTuning: false,
-    // Fyrkantsvåg: udda deltoner med styrkan 1/n. Just därför uteblir
-    // svävningen — tersens och kvintens sammanfall ligger på jämna deltoner.
-    partials: fixedPartials([
-      { ratio: 1, gain: 1 },
-      { ratio: 3, gain: 1 / 3 },
-      { ratio: 5, gain: 1 / 5 },
-      { ratio: 7, gain: 1 / 7 },
-      { ratio: 9, gain: 1 / 9 },
-      { ratio: 11, gain: 1 / 11 },
-    ]),
-  },
 };
 
 export const TIMBRE_ORDER: TimbreId[] = [
   'choir',
   'piano',
-  'glockenspiel',
   'tuningFork',
   'flute',
   'sine',
-  'square',
 ];
 
 export const DEFAULT_TIMBRE: TimbreId = 'choir';

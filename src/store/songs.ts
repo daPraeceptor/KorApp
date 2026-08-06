@@ -25,8 +25,6 @@ export interface Song {
   tonicPitchClass: number;
   /** MIDI-nummer för de toner kören ska få. Ordningen kan vara betydelsebärande. */
   tones: number[];
-  /** Hur snabbt tonerna ges en i taget, i slag per minut. */
-  toneGapBpm: number;
   notes: string;
   updatedAt: number;
   /** Mappen låten ligger i. null betyder att den ligger löst i listan. */
@@ -110,8 +108,12 @@ export function searchSongs(songs: Song[], query: string): Song[] {
   );
 }
 
-export const MIN_TONE_GAP_BPM = 20;
-export const MAX_TONE_GAP_BPM = 200;
+/**
+ * Hastigheten tonerna ges i en i taget. Den hör till körledarens arbetssätt och
+ * inte till låten, så den ligger i inställningarna och gäller alla låtar.
+ */
+export const MIN_TONE_GAP_BPM = 40;
+export const MAX_TONE_GAP_BPM = 360;
 export const DEFAULT_TONE_GAP_BPM = 80;
 
 export const MAX_TONES = 8;
@@ -126,7 +128,6 @@ export function createSong(partial: Partial<Song> = {}): Song {
     tuningSystem: 'tempered',
     tonicPitchClass: 0,
     tones: [],
-    toneGapBpm: DEFAULT_TONE_GAP_BPM,
     notes: '',
     updatedAt: Date.now(),
     folderId: null,
@@ -170,13 +171,6 @@ export function normalizeSong(raw: unknown): Song | null {
     tuningSystem: value.tuningSystem === 'just' ? 'just' : 'tempered',
     tonicPitchClass: ((Math.round(number(value.tonicPitchClass, 0)) % 12) + 12) % 12,
     tones,
-    toneGapBpm: Math.min(
-      MAX_TONE_GAP_BPM,
-      Math.max(
-        MIN_TONE_GAP_BPM,
-        Math.round(number(value.toneGapBpm, DEFAULT_TONE_GAP_BPM)),
-      ),
-    ),
     notes: typeof value.notes === 'string' ? value.notes : '',
     updatedAt: number(value.updatedAt, Date.now()),
     folderId: typeof value.folderId === 'string' ? value.folderId : null,

@@ -3,7 +3,16 @@
  * så att körledaren slipper byta vy mitt i en repetition.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  LayoutChangeEvent,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { Keyboard } from '../components/Keyboard';
 import { MetronomeVisual } from '../components/MetronomeVisual';
@@ -25,11 +34,7 @@ import {
   noteNameWithOctave,
   ratioLabel,
 } from '../theory/tuning';
-import {
-  MAX_TONES,
-  MAX_TONE_GAP_BPM,
-  MIN_TONE_GAP_BPM,
-} from '../store/songs';
+import { MAX_TONES } from '../store/songs';
 import { Palette, radius, spacing } from '../theme';
 import { useTheme, useThemedStyles } from '../ThemeContext';
 
@@ -70,16 +75,80 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
   const föregåendeAntalToner = useRef(live.tones.length);
 
   /**
+   * Tongivningskortet ligger ovanför klaviaturen, så allt under det flyttar sig
+   * när kortet växer eller krymper. Klaviaturen är det man siktar med fingret
+   * på — den får inte hoppa. Vyn rullas därför så att kortets underkant, och
+   * med den allt nedanför, hamnar tillbaka på samma ställe på skärmen.
+   */
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollY = useRef(0);
+  /** Kortets underkant i innehållets koordinater, från senaste mätningen. */
+  const tonesBottom = useRef(0);
+  /** Skärmläget underkanten ska återfå. null betyder att inget är på gång. */
+  const wantedBottomY = useRef<number | null>(null);
+  const armedUntil = useRef(0);
+
+  /**
+   * Låser fast var klaviaturen står, precis innan något ändrar kortets höjd.
+   *
+   * Läget mäts här och inte i layout-mätningen, för när innehållet krymper
+   * justerar webbläsaren själv rullningen innan mätningen kommer — räknar man
+   * på höjdskillnaden i stället blir den justeringen dubbelräknad.
+   */
+  const keepKeyboardStill = useCallback(() => {
+    // Utan tidigare mätning finns kortet inte ännu och har inget läge att hålla.
+    if (tonesBottom.current === 0) {
+      return;
+    }
+    wantedBottomY.current = tonesBottom.current - scrollY.current;
+    // En omflyttning kan kräva flera mätningar, men bara i direkt anslutning
+    // till trycket. Fönstret hindrar en långt senare mätning från att rycka
+    // tillbaka vyn efter att körledaren rullat själv.
+    armedUntil.current = Date.now() + 500;
+  }, []);
+
+  const onTonesLayout = useCallback((e: LayoutChangeEvent) => {
+    const { y, height } = e.nativeEvent.layout;
+    tonesBottom.current = y + height;
+    if (wantedBottomY.current === null) {
+      return;
+    }
+    if (Date.now() > armedUntil.current) {
+      wantedBottomY.current = null;
+      return;
+    }
+    const skillnad =
+      tonesBottom.current - scrollY.current - wantedBottomY.current;
+    if (Math.abs(skillnad) > 1) {
+      scrollRef.current?.scrollTo({ y: scrollY.current + skillnad, animated: false });
+    }
+  }, []);
+
+  const toggleTonesOpen = useCallback(() => {
+    keepKeyboardStill();
+    setTonesOpen((open) => !open);
+  }, [keepKeyboardStill]);
+
+  const toggleTone = useCallback(
+    (midi: number) => {
+      keepKeyboardStill();
+      toggleSongTone(midi);
+    },
+    [keepKeyboardStill, toggleSongTone],
+  );
+
+  /**
    * Tonvalet öppnar kortet hopfällt med en instruktion, så att klaviaturen
    * hamnar i blickfånget i stället för en tom knapprad. Första tonen fäller
    * upp det igen — då finns det något att se.
    */
   const toggleSelectMode = useCallback(() => {
+    keepKeyboardStill();
     if (!selectMode && live.tones.length === 0) {
       setTonesOpen(false);
     }
     setSelectMode((current) => !current);
-  }, [selectMode, live.tones.length]);
+  }, [keepKeyboardStill, selectMode, live.tones.length]);
 
   useEffect(() => {
     if (live.tones.length > 0 && föregåendeAntalToner.current === 0) {
@@ -121,11 +190,16 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
 
   return (
     <ScrollView
+      ref={scrollRef}
       style={styles.screen}
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
       // Vyn får inte rulla iväg under fingret medan tempohjulet vrids.
       scrollEnabled={!wheelDragging}
+      scrollEventThrottle={16}
+      onScroll={(e: NativeSyntheticEvent<NativeScrollEvent>) => {
+        scrollY.current = e.nativeEvent.contentOffset.y;
+      }}
     >
       <Pressable style={styles.songBar} onPress={onOpenSongs}>
         <View style={styles.songBarText}>
@@ -235,11 +309,8 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
       {/* Utan sparade toner finns ingenting att ge kören. Kortet väcks ändå
           så fort man slår på tonvalet, så att man ser var tonerna hamnar. */}
       {toneCount > 0 || selectMode ? (
-        <Card>
-          <Pressable
-            onPress={() => setTonesOpen((open) => !open)}
-            style={styles.cardHeader}
-          >
+        <Card onLayout={onTonesLayout}>
+          <Pressable onPress={toggleTonesOpen} style={styles.cardHeader}>
             <SectionTitle>Tongivning</SectionTitle>
             <Text style={styles.cardHeaderNote}>
               {/* Hopfälld visar kortet ändå vilka toner som ligger sparade. */}
@@ -253,19 +324,19 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
             </Text>
           </Pressable>
 
-          {!tonesOpen && toneCount === 0 ? (
+          {/* Utan toner finns inget att spela. Då visas instruktionen i stället
+              för knappar som ändå inte gör något. */}
+          {toneCount === 0 ? (
             <Text style={styles.helpText}>
               Tryck på en tangent på klaviaturen för att lägga till en ton.
             </Text>
-          ) : null}
-
-          {tonesOpen ? (
+          ) : tonesOpen ? (
           <>
           <View style={styles.chips}>
             {live.tones.map((midi) => (
               <Pressable
                 key={midi}
-                onPress={() => toggleSongTone(midi)}
+                onPress={() => toggleTone(midi)}
                 style={styles.chip}
               >
                 <Text style={styles.chipText}>
@@ -285,43 +356,30 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
             />
           ) : (
             <>
+              {/* Den valda ordningen är den vanligaste tongivningen och får
+                  därför egen rad överst. */}
               <Button
-                label="Spela ackordet"
+                label="⇢ I vald ordning"
                 variant="pure"
-                onPress={() => playTones('chord')}
+                onPress={() => playTones('chosen')}
               />
               <View style={styles.toneButtons}>
                 <Button
-                  label="↑ Nedifrån och upp"
+                  label="Ackord"
+                  onPress={() => playTones('chord')}
+                  style={styles.toneButton}
+                />
+                <Button
+                  label="↑ Upp"
                   onPress={() => playTones('up')}
                   style={styles.toneButton}
                 />
                 <Button
-                  label="↓ Uppifrån och ner"
+                  label="↓ Ner"
                   onPress={() => playTones('down')}
                   style={styles.toneButton}
                 />
               </View>
-              <Button
-                label="⇢ I vald ordning"
-                onPress={() => playTones('chosen')}
-              />
-              <View style={styles.row}>
-                <Text style={styles.rowLabel}>Tempo mellan tonerna</Text>
-                <Stepper
-                  value={live.toneGapBpm}
-                  min={MIN_TONE_GAP_BPM}
-                  max={MAX_TONE_GAP_BPM}
-                  step={5}
-                  onChange={(toneGapBpm) => updateLive({ toneGapBpm })}
-                  format={(value) => `${value} slag/min`}
-                />
-              </View>
-              <Text style={styles.toneHint}>
-                Tempot sparas med låten. Nya låtar börjar på{' '}
-                {settings.defaultToneGapBpm} slag/min, vilket går att ändra i
-                inställningarna.
-              </Text>
             </>
           )}
           </>
@@ -384,7 +442,7 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
           // Tonikan styr både den rena stämningen och solmisationen, så den
           // sätts utan att stämningssystemet ändras med.
           onSetTonic={(pitchClass) => updateLive({ tonicPitchClass: pitchClass })}
-          onToggleTone={toggleSongTone}
+          onToggleTone={toggleTone}
           onNotePlayed={setPlayedNote}
         />
 
@@ -539,11 +597,6 @@ const makeStyles = (t: Palette) => StyleSheet.create({
   },
   toneButton: {
     flex: 1,
-  },
-  toneHint: {
-    color: t.textMuted,
-    fontSize: 12,
-    lineHeight: 17,
   },
   keyboardCard: {
     paddingHorizontal: spacing.sm,
