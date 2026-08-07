@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import Svg, { Circle, Line } from 'react-native-svg';
 
 import { PlayScreen } from './src/screens/PlayScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
@@ -12,12 +13,39 @@ import { useTheme, useThemedStyles } from './src/ThemeContext';
 
 type Tab = 'play' | 'songs' | 'settings';
 
+/** Punktlista: punkt och rad, tre gånger. Unicode har ingen sådan glyf. */
+function ListIcon({ color }: { color: string }) {
+  return (
+    <Svg width={20} height={19} viewBox="0 0 20 19">
+      {[3, 9.5, 16].map((y) => (
+        <React.Fragment key={y}>
+          <Circle cx={2.2} cy={y} r={1.7} fill={color} />
+          <Line
+            x1={7.2}
+            y1={y}
+            x2={18.5}
+            y2={y}
+            stroke={color}
+            strokeWidth={2.4}
+            strokeLinecap="round"
+          />
+        </React.Fragment>
+      ))}
+    </Svg>
+  );
+}
+
 // Spelvyn är där man skapar en ny låt, därav plustecknet. Kugghjulet skrivs
 // med variantväljaren U+FE0E så att det ritas som glyf i textens färg och
 // inte som färgglad emoji.
-const TABS: { id: Tab; label: string; symbol?: boolean }[] = [
+const TABS: {
+  id: Tab;
+  label?: string;
+  symbol?: boolean;
+  icon?: (color: string) => React.ReactNode;
+}[] = [
   { id: 'play', label: '+', symbol: true },
-  { id: 'songs', label: '☰', symbol: true },
+  { id: 'songs', icon: (color) => <ListIcon color={color} /> },
   { id: 'settings', label: '⚙︎', symbol: true },
 ];
 
@@ -42,7 +70,7 @@ function Shell() {
         </View>
 
         <View style={styles.tabBar}>
-          {TABS.map(({ id, label, symbol }) => {
+          {TABS.map(({ id, label, symbol, icon }) => {
             const active = tab === id;
             return (
               <Pressable
@@ -50,15 +78,19 @@ function Shell() {
                 onPress={() => setTab(id)}
                 style={[styles.tab, active && styles.tabActive]}
               >
-                <Text
-                  style={[
-                    styles.tabLabel,
-                    symbol && styles.tabSymbol,
-                    active && styles.tabLabelActive,
-                  ]}
-                >
-                  {label}
-                </Text>
+                {icon ? (
+                  icon(active ? t.onAccent : t.textMuted)
+                ) : (
+                  <Text
+                    style={[
+                      styles.tabLabel,
+                      symbol && styles.tabSymbol,
+                      active && styles.tabLabelActive,
+                    ]}
+                  >
+                    {label}
+                  </Text>
+                )}
               </Pressable>
             );
           })}
