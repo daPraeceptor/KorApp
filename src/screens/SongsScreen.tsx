@@ -213,15 +213,15 @@ export function SongsScreen({
     return (
       <Card
         key={song.id}
-        // Låten som just nu hörs lyser upp hela sin ruta — den laddade
-        // markeras svagare, med bara ramen.
-        style={
-          isPlayingTempo
-            ? styles.playingCard
-            : isCurrent
-              ? styles.currentCard
-              : undefined
-        }
+        // Den valda låten får accentramen — samma ram som när metronomen går.
+        style={isCurrent ? styles.currentCard : undefined}
+        // Ett tryck var som helst i rutan väljer låten och fäller upp
+        // pianot. Ren uppspelning, därför tillåtet även i konsertläget —
+        // knapparna i rutan tar sina egna tryck som vanligt.
+        onPress={() => {
+          loadSong(song.id);
+          setExpandedId((current) => (current === song.id ? null : song.id));
+        }}
       >
         {isEditing ? (
           <View style={styles.editRow}>
@@ -236,13 +236,7 @@ export function SongsScreen({
             <Button label="Klart" variant="primary" onPress={commitRename} />
           </View>
         ) : (
-          <Pressable
-            // Trycket fäller upp kortet med ett spelbart piano — ren
-            // uppspelning, därför tillåtet även i konsertläget.
-            onPress={() =>
-              setExpandedId((current) => (current === song.id ? null : song.id))
-            }
-          >
+          <View>
             <View style={styles.titleRow}>
               <MiniMetronome
                 bpm={song.bpm}
@@ -269,7 +263,7 @@ export function SongsScreen({
             ) : (
               <Text style={styles.tonesEmpty}>Inga sparade toner</Text>
             )}
-          </Pressable>
+          </View>
         )}
 
         <View style={styles.quickRow}>
@@ -743,11 +737,10 @@ const makeStyles = (t: Palette) => StyleSheet.create({
   folderBody: {
     gap: spacing.sm,
   },
+  // Den valda låtens ruta lyser med accentram och tonad botten — samma
+  // markering vare sig den valdes med ett tryck eller genom att tempot
+  // startades.
   currentCard: {
-    borderColor: t.accent,
-  },
-  // Hela rutan lyser när låtens tempo hörs, inte bara ramen.
-  playingCard: {
     borderColor: t.accent,
     backgroundColor: t.accentSurface,
   },

@@ -46,13 +46,26 @@ export function Card({
   children,
   style,
   onLayout,
+  onPress,
 }: {
   children: React.ReactNode;
   style?: ViewStyle;
   /** Behövs av vyer som måste veta när kortet ändrar höjd. */
   onLayout?: (event: LayoutChangeEvent) => void;
+  /**
+   * Gör hela kortet tryckbart. Knappar inne i kortet tar sina egna tryck
+   * som vanligt — bara ytan mellan dem faller igenom hit.
+   */
+  onPress?: () => void;
 }) {
   const { styles } = useStyles();
+  if (onPress) {
+    return (
+      <Pressable style={[styles.card, style]} onLayout={onLayout} onPress={onPress}>
+        {children}
+      </Pressable>
+    );
+  }
   return (
     <View style={[styles.card, style]} onLayout={onLayout}>
       {children}
