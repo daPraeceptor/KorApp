@@ -201,24 +201,26 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
         scrollY.current = e.nativeEvent.contentOffset.y;
       }}
     >
-      <Pressable style={styles.songBar} onPress={onOpenSongs}>
-        <View style={styles.songBarText}>
-          <Text style={styles.songTitle} numberOfLines={1}>
-            {currentSong ? currentSong.title : 'Ingen låt vald'}
-          </Text>
-          <Text style={styles.songHint}>
-            {currentSong ? 'Tryck för att byta låt' : 'Tryck för att välja eller skapa en låt'}
-          </Text>
-        </View>
-        {hasUnsavedChanges ? (
-          <Button
-            label="Spara"
-            variant="primary"
-            onPress={saveToCurrentSong}
-            style={styles.saveButton}
-          />
-        ) : null}
-      </Pressable>
+      {/* Utan laddad låt finns inget att visa här — listfliken är vägen till
+          låtarna, och en ruta som bara säger "ingen låt" tar plats i onödan. */}
+      {currentSong ? (
+        <Pressable style={styles.songBar} onPress={onOpenSongs}>
+          <View style={styles.songBarText}>
+            <Text style={styles.songTitle} numberOfLines={1}>
+              {currentSong.title}
+            </Text>
+            <Text style={styles.songHint}>Tryck för att byta låt</Text>
+          </View>
+          {hasUnsavedChanges ? (
+            <Button
+              label="Spara"
+              variant="primary"
+              onPress={saveToCurrentSong}
+              style={styles.saveButton}
+            />
+          ) : null}
+        </Pressable>
+      ) : null}
 
       <MetronomeVisual
         style={settings.metronomeVisual}
