@@ -17,6 +17,7 @@ import {
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 
 import { Button, Card, SectionTitle, SlideToConfirm } from '../components/ui';
+import { Keyboard } from '../components/Keyboard';
 import { BeatPulse, useAppState } from '../state/AppState';
 import { Song, searchSongs } from '../store/songs';
 import { noteName, noteNameWithOctave } from '../theory/tuning';
@@ -158,6 +159,8 @@ export function SongsScreen({
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [movingId, setMovingId] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<string[]>([]);
+  /** Låten vars kort är uppfällt med spelbart piano. */
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [draftFolderName, setDraftFolderName] = useState('');
   const [confirmDeleteFolderId, setConfirmDeleteFolderId] = useState<string | null>(
@@ -205,6 +208,7 @@ export function SongsScreen({
     const isConfirming = confirmDeleteId === song.id;
     const isMoving = movingId === song.id;
     const isPlayingTempo = isCurrent && metronomeRunning;
+    const isExpanded = expandedId === song.id;
 
     return (
       <Card
@@ -233,11 +237,11 @@ export function SongsScreen({
           </View>
         ) : (
           <Pressable
-            disabled={locked}
-            onPress={() => {
-              loadSong(song.id);
-              onOpenPlay();
-            }}
+            // Trycket fäller upp kortet med ett spelbart piano — ren
+            // uppspelning, därför tillåtet även i konsertläget.
+            onPress={() =>
+              setExpandedId((current) => (current === song.id ? null : song.id))
+            }
           >
             <View style={styles.titleRow}>
               <MiniMetronome
@@ -308,6 +312,39 @@ export function SongsScreen({
             style={styles.quickButton}
           />
         </View>
+
+        {/* Uppfällt kort: piano där bara låtens toner går att spela, i låtens
+            egen stämning. Ren uppspelning — inget går att ändra härifrån. */}
+        {isExpanded ? (
+          song.tones.length > 0 ? (
+            <Keyboard
+              fromMidi={Math.max(0, Math.min(...song.tones) - 2)}
+              toMidi={Math.min(127, Math.max(...song.tones) + 2)}
+              tuning={{
+                system: song.tuningSystem,
+                tonicPitchClass: song.tonicPitchClass,
+                a4: settings.a4,
+              }}
+              labels={{
+                system: settings.labelSystem,
+                naming: settings.naming,
+                reference: settings.labelReference,
+                tonicPitchClass: song.tonicPitchClass,
+              }}
+              showLabels={settings.showNoteNames}
+              markTonic={song.tuningSystem === 'just'}
+              selectedTones={song.tones}
+              selectMode={false}
+              playableTones={song.tones}
+              onSetTonic={() => {}}
+              onToggleTone={() => {}}
+            />
+          ) : (
+            <Text style={styles.help}>
+              Inga sparade toner att spela. Lägg till toner via «Ändra».
+            </Text>
+          )
+        ) : null}
 
         {isMoving ? (
           <View style={styles.moveBox}>

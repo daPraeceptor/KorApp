@@ -76,6 +76,12 @@ interface Props {
   onToggleTone: (midi: number) => void;
   /** Anropas med tonen som spelas, och med null när den släpps. */
   onNotePlayed?: (midi: number | null) => void;
+  /**
+   * Om satt går bara de här tonerna att spela — resten dämpas och tiger.
+   * Klaviaturen blir då ren uppspelning: varken tonika eller tonval går
+   * att ändra från den.
+   */
+  playableTones?: number[];
 }
 
 export function Keyboard({
@@ -90,6 +96,7 @@ export function Keyboard({
   onSetTonic,
   onToggleTone,
   onNotePlayed,
+  playableTones,
 }: Props) {
   const t = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -126,6 +133,19 @@ export function Keyboard({
 
   const press = useCallback(
     async (midi: number) => {
+      // I uppspelningsläget tiger allt utom de förvalda tonerna, och varken
+      // tonika eller tonval går att röra.
+      if (playableTones) {
+        if (!playableTones.includes(midi)) {
+          return;
+        }
+        setPressed((current) => [...current, midi]);
+        onNotePlayed?.(midi);
+        await audioEngine.ensure();
+        audioEngine.startVoice(`key-${midi}`, frequencyOf(midi, tuning));
+        return;
+      }
+
       const now = Date.now();
       const previous = lastTap.current;
       if (previous && previous.midi === midi && now - previous.at < DOUBLE_TAP_MS) {
@@ -143,7 +163,7 @@ export function Keyboard({
         onToggleTone(midi);
       }
     },
-    [onNotePlayed, onToggleTone, selectMode, setTonic, tuning],
+    [onNotePlayed, onToggleTone, playableTones, selectMode, setTonic, tuning],
   );
 
   const release = useCallback(
@@ -194,6 +214,7 @@ export function Keyboard({
           const active = pressed.includes(midi);
           const tonic = isTonic(midi);
           const saved = selectedTones.includes(midi);
+          const muted = playableTones ? !playableTones.includes(midi) : false;
           return (
             <Pressable
               key={midi}
@@ -203,6 +224,7 @@ export function Keyboard({
                 styles.whiteKey,
                 active && styles.whiteKeyPressed,
                 tonic && styles.tonicKey,
+                muted && styles.keyMuted,
               ]}
             >
               <View style={styles.markers}>
@@ -224,6 +246,7 @@ export function Keyboard({
           const active = pressed.includes(midi);
           const tonic = isTonic(midi);
           const saved = selectedTones.includes(midi);
+          const muted = playableTones ? !playableTones.includes(midi) : false;
           return (
             <Pressable
               key={midi}
@@ -237,6 +260,7 @@ export function Keyboard({
                 },
                 active && styles.blackKeyPressed,
                 tonic && styles.tonicKeyBlack,
+                muted && styles.keyMuted,
               ]}
             >
               <View style={styles.markers}>
@@ -298,6 +322,11 @@ const makeStyles = (t: Palette) => StyleSheet.create({
   },
   blackKeyPressed: {
     backgroundColor: t.keyBlackPressed,
+  },
+  // Ospelbara tangenter i uppspelningsläget: kvar för orienteringen, men
+  // tydligt avsidesställda.
+  keyMuted: {
+    opacity: 0.35,
   },
   tonicKey: {
     backgroundColor: t.pure,
