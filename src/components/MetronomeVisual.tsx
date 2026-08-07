@@ -92,7 +92,9 @@ export function MetronomeVisual({ style, running, bpm, pulse, activeBeat }: Prop
 
   if (style === 'bar') {
     const travel = Math.max(width / 2 - 18, 0);
-    const offset = running ? direction * travel * Math.cos(Math.PI * phase) : 0;
+    // Linjär färd från kant till kant, med vändning exakt på slaget — som
+    // bollen i gamla tv-spel, inte som en pendel som saktar in mot kanterna.
+    const offset = running ? direction * travel * (2 * phase - 1) : 0;
     return (
       <View style={styles.container} onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width)}>
         <View style={styles.track} />

@@ -432,6 +432,14 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
 
       <Card style={styles.keyboardCard}>
         <View style={styles.keyboardHeader}>
+          <Pressable
+            onPress={toggleSelectMode}
+            style={[styles.toggle, selectMode && styles.toggleOn]}
+          >
+            <Text style={[styles.toggleText, selectMode && styles.toggleTextOn]}>
+              Välj toner för tongivning
+            </Text>
+          </Pressable>
           <SegmentedControl
             compact
             value={live.tuningSystem}
@@ -442,14 +450,6 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
               { value: 'just' as const, label: 'Ren' },
             ]}
           />
-          <Pressable
-            onPress={toggleSelectMode}
-            style={[styles.toggle, selectMode && styles.toggleOn]}
-          >
-            <Text style={[styles.toggleText, selectMode && styles.toggleTextOn]}>
-              Välj toner för tongivning
-            </Text>
-          </Pressable>
         </View>
 
         <View style={styles.octaveRow}>
@@ -490,12 +490,9 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
         />
 
         <View style={styles.readout}>
-          {displayedNote === null ? (
-            <Text style={styles.readoutIdle}>
-              Tryck på en tangent för att höra tonen.
-              {markTonic ? ' Dubbeltryck för att sätta tonika.' : ''}
-            </Text>
-          ) : (
+          {/* Tom i vila — ytan behåller sin höjd så att inget hoppar när en
+              ton spelas och avläsningen dyker upp. */}
+          {displayedNote === null ? null : (
             <>
               <Text style={styles.readoutNote}>
                 {noteNameWithOctave(displayedNote, settings.naming)}
@@ -735,21 +732,25 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     // Får ta plats efter finjusteringsknapparna men inte tränga undan Starta.
     flexShrink: 1,
   },
+  // Accentfärgad även i vila — det här är vägen in till tonvalet och ska
+  // synas. Påslaget läge byter till tonfärgen, samma färg som tonernas
+  // markeringar på tangenterna.
   toggle: {
     paddingVertical: 7,
     paddingHorizontal: 12,
     borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: t.border,
+    borderColor: t.accent,
+    backgroundColor: t.accent,
   },
   toggleOn: {
     backgroundColor: t.tone,
     borderColor: t.tone,
   },
   toggleText: {
-    color: t.textMuted,
+    color: t.onAccent,
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   toggleTextOn: {
     color: t.onTone,
