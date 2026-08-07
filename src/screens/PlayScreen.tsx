@@ -65,10 +65,36 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
     toggleSongTone,
     saveToCurrentSong,
     addSong,
+    updateSong,
   } = useAppState();
 
   const [selectMode, setSelectMode] = useState(false);
   const [titleDraft, setTitleDraft] = useState('');
+
+  /**
+   * Namnrutan följer den laddade låten, så att namnet står där när man
+   * uppdaterar — och kan ändras i samma veva. Utan låt töms rutan inför
+   * nästa nya låt.
+   */
+  useEffect(() => {
+    setTitleDraft(currentSong ? currentSong.title : '');
+  }, [currentSong?.id, currentSong?.title]);
+
+  const titleChanged =
+    currentSong !== null &&
+    titleDraft.trim() !== '' &&
+    titleDraft.trim() !== currentSong.title;
+
+  const updateCurrent = useCallback(() => {
+    if (!currentSong) {
+      return;
+    }
+    const namn = titleDraft.trim();
+    if (namn && namn !== currentSong.title) {
+      updateSong(currentSong.id, { title: namn });
+    }
+    saveToCurrentSong();
+  }, [currentSong, titleDraft, updateSong, saveToCurrentSong]);
   const [playedNote, setPlayedNote] = useState<number | null>(null);
   const [keyboardStart, setKeyboardStart] = useState(48);
   const [wheelDragging, setWheelDragging] = useState(false);
@@ -501,16 +527,13 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
         <TextInput
           value={titleDraft}
           onChangeText={setTitleDraft}
-          placeholder={
-            currentSong ? 'Namn om du sparar som ny' : 'Namn på låten'
-          }
+          placeholder="Namn på låten"
           placeholderTextColor={t.textMuted}
           style={styles.titleInput}
           returnKeyType="done"
           onSubmitEditing={() => {
             if (!currentSong) {
               addSong(titleDraft);
-              setTitleDraft('');
             }
           }}
         />
@@ -519,17 +542,20 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
             <Button
               label="Uppdatera"
               variant="primary"
-              disabled={!hasUnsavedChanges}
-              onPress={saveToCurrentSong}
+              // Ett ändrat namn är också en ändring värd att spara, även om
+              // tempot och tonerna står orörda.
+              disabled={!hasUnsavedChanges && !titleChanged}
+              onPress={updateCurrent}
               style={styles.saveRowButton}
             />
             <Button
               label="Spara som ny"
               onPress={() => {
-                // Utan namn får kopian ett eget namn i stället för "Ny låt",
-                // så att den går att hitta bland de andra.
-                addSong(titleDraft.trim() || `${currentSong.title} (kopia)`);
-                setTitleDraft('');
+                // Med orört namn får kopian ett eget, annars krockar två
+                // likadana titlar i listan.
+                addSong(
+                  titleChanged ? titleDraft : `${currentSong.title} (kopia)`,
+                );
               }}
               style={styles.saveRowButton}
             />
@@ -538,10 +564,7 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
           <Button
             label="Skapa ny låt"
             variant="primary"
-            onPress={() => {
-              addSong(titleDraft);
-              setTitleDraft('');
-            }}
+            onPress={() => addSong(titleDraft)}
           />
         )}
       </Card>
