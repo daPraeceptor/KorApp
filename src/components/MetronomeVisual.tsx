@@ -6,7 +6,7 @@
  * att glida ur fas med det man hör.
  */
 import React, { useEffect, useState } from 'react';
-import { LayoutChangeEvent, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import Svg, { Circle, G, Line, Path } from 'react-native-svg';
 
 import { BeatPulse, MetronomeVisualStyle } from '../state/AppState';
@@ -47,7 +47,6 @@ export function MetronomeVisual({ style, running, bpm, pulse, activeBeat }: Prop
   const t = useTheme();
   const styles = useThemedStyles(makeStyles);
   const [, setFrame] = useState(0);
-  const [width, setWidth] = useState(0);
 
   useEffect(() => {
     if (!running || style === 'none') {
@@ -91,18 +90,21 @@ export function MetronomeVisual({ style, running, bpm, pulse, activeBeat }: Prop
   }
 
   if (style === 'bar') {
-    const travel = Math.max(width / 2 - 18, 0);
     // Linjär färd från kant till kant, med vändning exakt på slaget — som
     // bollen i gamla tv-spel, inte som en pendel som saktar in mot kanterna.
-    const offset = running ? direction * travel * (2 * phase - 1) : 0;
+    //
+    // Läget anges i procent av banan i stället för uppmätta pixlar: den gamla
+    // mätningen via onLayout kunde bli stående på noll, och då stod markören
+    // blickstilla mitt på banan oavsett takt.
+    const andel = running ? direction * (2 * phase - 1) : 0;
     return (
-      <View style={styles.container} onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width)}>
+      <View style={styles.container}>
         <View style={styles.track} />
         <View
           style={[
             styles.marker,
             onBeat && styles.markerAccent,
-            { transform: [{ translateX: offset }] },
+            { left: `${50 + andel * 44}%` },
           ]}
         />
       </View>
@@ -195,6 +197,9 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     height: 54,
     borderRadius: radius.sm,
     backgroundColor: t.accent,
+    // Procentläget pekar på markörens vänsterkant — halva bredden tillbaka
+    // ställer mittlinjen på rätt punkt.
+    marginLeft: -4,
   },
   markerAccent: {
     backgroundColor: t.pure,
