@@ -43,6 +43,12 @@ const BLACK_KEY_HEIGHT = 116;
 const DOUBLE_TAP_MS = 350;
 
 /**
+ * Pricken som märker ut låtens sparade toner. Måste synas på de smala svarta
+ * tangenterna också, som bara är 34 enheter breda.
+ */
+const SAVED_DOT = 14;
+
+/**
  * På webben markeras annars tonnamnen som text när man drar över tangenterna.
  * Tangenter är knappar, inte text att markera.
  *
@@ -214,7 +220,6 @@ export function Keyboard({
           const active = pressed.includes(midi);
           const tonic = isTonic(midi);
           const saved = selectedTones.includes(midi);
-          const playable = playableTones?.includes(midi) ?? false;
           return (
             <Pressable
               key={midi}
@@ -222,11 +227,7 @@ export function Keyboard({
               onPressOut={() => release(midi)}
               style={[
                 styles.whiteKey,
-                playable && styles.whiteKeyPlayable,
-                // En markerad ton behåller sin gulton nedtryckt — annars
-                // bleknar markeringen bort just medan man håller i tangenten.
-                active &&
-                  (playable ? styles.whiteKeyPlayablePressed : styles.whiteKeyPressed),
+                active && styles.whiteKeyPressed,
                 tonic && styles.tonicKey,
               ]}
             >
@@ -249,7 +250,6 @@ export function Keyboard({
           const active = pressed.includes(midi);
           const tonic = isTonic(midi);
           const saved = selectedTones.includes(midi);
-          const playable = playableTones?.includes(midi) ?? false;
           return (
             <Pressable
               key={midi}
@@ -261,9 +261,7 @@ export function Keyboard({
                   left:
                     (whiteIndex + 1) * WHITE_KEY_WIDTH - BLACK_KEY_WIDTH / 2,
                 },
-                playable && styles.blackKeyPlayable,
-                active &&
-                  (playable ? styles.blackKeyPlayablePressed : styles.blackKeyPressed),
+                active && styles.blackKeyPressed,
                 tonic && styles.tonicKeyBlack,
               ]}
             >
@@ -327,24 +325,6 @@ const makeStyles = (t: Palette) => StyleSheet.create({
   blackKeyPressed: {
     backgroundColor: t.keyBlackPressed,
   },
-  /**
-   * Spelbara toner i uppspelningsläget markeras med gult i stället för att
-   * resten dämpas — ett nedtonat klaviatur slutar se ut som ett piano.
-   * Gulten är avsiktligt inte tema-härledd: tangenter är vita och svarta
-   * oavsett tema, och markeringen ska läsas mot dem.
-   */
-  whiteKeyPlayable: {
-    backgroundColor: '#f6d566',
-  },
-  blackKeyPlayable: {
-    backgroundColor: '#b8973a',
-  },
-  whiteKeyPlayablePressed: {
-    backgroundColor: '#e0bb45',
-  },
-  blackKeyPlayablePressed: {
-    backgroundColor: '#9c7d29',
-  },
   tonicKey: {
     backgroundColor: t.pure,
     borderColor: t.tonicBorder,
@@ -353,14 +333,19 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     backgroundColor: t.tonicBlackBg,
     borderColor: t.pure,
   },
+  /**
+   * Prickens plats högst upp på tangenten. Höjden är exakt prickens, annars
+   * sitter den snett i sitt eget utrymme. Bredden sträcks över tangenten så
+   * att centreringen räknas mot tangentens mitt och inte mot prickens.
+   */
   markers: {
+    alignSelf: 'stretch',
     alignItems: 'center',
-    gap: 3,
-    minHeight: 10,
+    height: SAVED_DOT,
   },
   savedDot: {
-    width: 9,
-    height: 9,
+    width: SAVED_DOT,
+    height: SAVED_DOT,
     borderRadius: radius.pill,
     backgroundColor: t.tone,
   },
