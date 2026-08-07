@@ -543,6 +543,7 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
           onSubmitEditing={() => {
             if (!currentSong) {
               addSong(titleDraft);
+              onOpenSongs();
             }
           }}
         />
@@ -554,7 +555,12 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
               // Ett ändrat namn är också en ändring värd att spara, även om
               // tempot och tonerna står orörda.
               disabled={!hasUnsavedChanges && !titleChanged}
-              onPress={updateCurrent}
+              // Sparandet är slutet på arbetet med låten, så vyn följer med
+              // till listan där resultatet syns.
+              onPress={() => {
+                updateCurrent();
+                onOpenSongs();
+              }}
               style={styles.saveRowButton}
             />
             <Button
@@ -565,6 +571,7 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
                 addSong(
                   titleChanged ? titleDraft : `${currentSong.title} (kopia)`,
                 );
+                onOpenSongs();
               }}
               style={styles.saveRowButton}
             />
@@ -573,7 +580,10 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
           <Button
             label="Skapa ny låt"
             variant="primary"
-            onPress={() => addSong(titleDraft)}
+            onPress={() => {
+              addSong(titleDraft);
+              onOpenSongs();
+            }}
           />
         )}
       </Card>

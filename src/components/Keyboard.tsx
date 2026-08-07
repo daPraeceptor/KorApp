@@ -223,7 +223,10 @@ export function Keyboard({
               style={[
                 styles.whiteKey,
                 playable && styles.whiteKeyPlayable,
-                active && styles.whiteKeyPressed,
+                // En markerad ton behåller sin gulton nedtryckt — annars
+                // bleknar markeringen bort just medan man håller i tangenten.
+                active &&
+                  (playable ? styles.whiteKeyPlayablePressed : styles.whiteKeyPressed),
                 tonic && styles.tonicKey,
               ]}
             >
@@ -259,7 +262,8 @@ export function Keyboard({
                     (whiteIndex + 1) * WHITE_KEY_WIDTH - BLACK_KEY_WIDTH / 2,
                 },
                 playable && styles.blackKeyPlayable,
-                active && styles.blackKeyPressed,
+                active &&
+                  (playable ? styles.blackKeyPlayablePressed : styles.blackKeyPressed),
                 tonic && styles.tonicKeyBlack,
               ]}
             >
@@ -334,6 +338,12 @@ const makeStyles = (t: Palette) => StyleSheet.create({
   },
   blackKeyPlayable: {
     backgroundColor: '#b8973a',
+  },
+  whiteKeyPlayablePressed: {
+    backgroundColor: '#e0bb45',
+  },
+  blackKeyPlayablePressed: {
+    backgroundColor: '#9c7d29',
   },
   tonicKey: {
     backgroundColor: t.pure,

@@ -11,7 +11,11 @@ import {
   Stepper,
 } from '../components/ui';
 import { audioEngine } from '../audio/engine';
-import { useAppState } from '../state/AppState';
+import {
+  MAX_AUTO_STOP_BEATS,
+  MIN_AUTO_STOP_BEATS,
+  useAppState,
+} from '../state/AppState';
 import {
   DEFAULT_A4,
   INTERVAL_NAMES,
@@ -72,6 +76,41 @@ export function SettingsScreen() {
         <Text style={styles.help}>
           Automatisk öppnar låtlistan när det finns sparade låtar, annars
           skapandet.
+        </Text>
+      </Card>
+
+      <Card>
+        <SectionTitle>Tempo från låtlistan</SectionTitle>
+        <View style={styles.row}>
+          <Text style={styles.rowLabel}>Stoppa av sig själv</Text>
+          <SegmentedControl
+            compact
+            value={settings.autoStopFromList ? 'på' : 'av'}
+            onChange={(val) => updateSettings({ autoStopFromList: val === 'på' })}
+            options={[
+              { value: 'av' as const, label: 'Av' },
+              { value: 'på' as const, label: 'På' },
+            ]}
+          />
+        </View>
+        {settings.autoStopFromList ? (
+          <View style={styles.row}>
+            <Text style={styles.rowLabel}>Efter</Text>
+            <Stepper
+              value={settings.autoStopBeats}
+              min={MIN_AUTO_STOP_BEATS}
+              max={MAX_AUTO_STOP_BEATS}
+              step={2}
+              onChange={(autoStopBeats) => updateSettings({ autoStopBeats })}
+              format={(value) => `${value} taktslag`}
+            />
+          </View>
+        ) : null}
+        <Text style={styles.help}>
+          Tempoknappen i låtlistan stoppar metronomen av sig själv efter
+          {settings.autoStopFromList ? ` ${settings.autoStopBeats}` : ' ett antal'}{' '}
+          taktslag. Gäller bara starter från listan — i spelvyn går metronomen
+          tills du stoppar den.
         </Text>
       </Card>
 

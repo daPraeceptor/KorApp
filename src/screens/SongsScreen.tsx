@@ -18,6 +18,7 @@ import Svg, { Circle, Line, Path } from 'react-native-svg';
 
 import { Button, Card, SectionTitle, SlideToConfirm } from '../components/ui';
 import { Keyboard } from '../components/Keyboard';
+import { MetronomeVisual } from '../components/MetronomeVisual';
 import { BeatPulse, useAppState } from '../state/AppState';
 import { Song, searchSongs } from '../store/songs';
 import { noteName, noteNameWithOctave } from '../theory/tuning';
@@ -223,6 +224,19 @@ export function SongsScreen({
           setExpandedId((current) => (current === song.id ? null : song.id));
         }}
       >
+        {/* Uppfälld låt får taktvisaren överst, i den stil som valts i
+            spelvyn. Samma bild på båda ställena — man ska inte behöva lära
+            om vad man tittar på. */}
+        {isExpanded ? (
+          <MetronomeVisual
+            style={settings.metronomeVisual}
+            running={isPlayingTempo}
+            bpm={song.bpm}
+            pulse={isPlayingTempo ? pulse : null}
+            activeBeat={isPlayingTempo && pulse ? pulse.beat : null}
+          />
+        ) : null}
+
         {isEditing ? (
           <View style={styles.editRow}>
             <TextInput
@@ -307,8 +321,9 @@ export function SongsScreen({
           />
         </View>
 
-        {/* Uppfällt kort: piano där bara låtens toner går att spela, i låtens
-            egen stämning. Ren uppspelning — inget går att ändra härifrån. */}
+        {/* Uppfällt kort: stor taktvisare och ett piano där bara låtens toner
+            går att spela, i låtens egen stämning. Ren uppspelning — inget går
+            att ändra härifrån. */}
         {isExpanded ? (
           song.tones.length > 0 ? (
             <Keyboard
@@ -326,7 +341,11 @@ export function SongsScreen({
                 tonicPitchClass: song.tonicPitchClass,
               }}
               showLabels={settings.showNoteNames}
-              markTonic={song.tuningSystem === 'just'}
+              // Tonikan färgas inte här. Den är en av låtens toner, och med
+              // grön tonika mitt bland de gula såg de fyra tonerna olika ut
+              // fast de är samma sorts ton. Vilken tonikan är står i raden
+              // ovanför klaviaturen.
+              markTonic={false}
               selectedTones={song.tones}
               selectMode={false}
               playableTones={song.tones}

@@ -89,6 +89,14 @@ export interface Settings {
    * låtar och skapandet annars — utan låtar finns ingen lista att visa.
    */
   startTab: StartTab;
+  /**
+   * Stoppar metronomen av sig själv efter ett antal taktslag, men bara när
+   * den startats från låtlistan. Där vill man oftast bara känna tempot en
+   * stund; i spelvyn ska den gå tills man säger till.
+   */
+  autoStopFromList: boolean;
+  /** Antal taktslag innan automatstoppet slår till. */
+  autoStopBeats: number;
 }
 
 export type StartTab = 'auto' | 'play' | 'songs';
@@ -110,7 +118,12 @@ const DEFAULT_SETTINGS: Settings = {
   showAdvancedSubdivisions: false,
   metronomeVisual: 'ball',
   startTab: 'auto',
+  autoStopFromList: false,
+  autoStopBeats: 16,
 };
+
+export const MIN_AUTO_STOP_BEATS = 2;
+export const MAX_AUTO_STOP_BEATS = 64;
 
 
 /** De värden spelvyn arbetar med just nu. */
@@ -231,6 +244,11 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
 
   // Undviker att skriva tillbaka det inlästa värdet direkt efter start.
   const hydrated = useRef(false);
+  /**
+   * Taktslag kvar innan metronomen stoppar sig själv, eller null när den ska
+   * gå tills någon säger till. Armeras bara av starter från låtlistan.
+   */
+  const autoStopLeft = useRef<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -308,7 +326,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   }, [live.bpm, live.beatsPerBar, live.subdivision]);
 
   useEffect(() => {
-    metronome.onBeat = (beat) =>
+    metronome.onBeat = (beat) => {
       setPulse((previous) => ({
         beat,
         at: Date.now(),
@@ -316,6 +334,21 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         // Pendeln behöver veta åt vilket håll den ska svänga.
         count: (previous?.count ?? -1) + 1,
       }));
+
+      // Automatstoppet räknar bara när starten kom från låtlistan. Gränsen
+      // och påslaget läses ur refar: onBeat sätts en gång och skulle annars
+      // frysa fast de värden inställningarna hade vid starten.
+      if (autoStopLeft.current === null) {
+        return;
+      }
+      autoStopLeft.current -= 1;
+      if (autoStopLeft.current <= 0) {
+        autoStopLeft.current = null;
+        metronome.stop();
+        setMetronomeRunning(false);
+        setPulse(null);
+      }
+    };
     return () => {
       metronome.onBeat = null;
       metronome.stop();
@@ -346,6 +379,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   );
 
   const toggleMetronome = useCallback(async () => {
+    // Starter härifrån kommer från spelvyn och ska gå tills man säger till.
+    autoStopLeft.current = null;
     const running = await metronome.toggle();
     setMetronomeRunning(running);
     if (!running) {
@@ -354,6 +389,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const stopMetronome = useCallback(() => {
+    autoStopLeft.current = null;
     metronome.stop();
     setMetronomeRunning(false);
     setPulse(null);
@@ -519,10 +555,14 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       if (metronome.isRunning) {
         metronome.stop();
       }
+      // Nedräkningen armeras bara här, alltså bara för starter från listan.
+      autoStopLeft.current = settings.autoStopFromList
+        ? settings.autoStopBeats
+        : null;
       await metronome.start();
       setMetronomeRunning(true);
     },
-    [],
+    [settings.autoStopFromList, settings.autoStopBeats],
   );
 
   const value = useMemo<AppStateValue>(
