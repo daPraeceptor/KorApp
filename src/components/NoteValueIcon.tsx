@@ -8,7 +8,14 @@
 import React from 'react';
 
 import { SubdivisionId } from '../audio/subdivisions';
-import Svg, { Circle, Ellipse, Line, Rect, Text as SvgText } from 'react-native-svg';
+import Svg, {
+  Circle,
+  Ellipse,
+  Line,
+  Path,
+  Rect,
+  Text as SvgText,
+} from 'react-native-svg';
 
 const WIDTH = 48;
 const HEIGHT = 34;
@@ -22,6 +29,9 @@ const SPACING = 9;
 const BEAM_Y = 10.3;
 const BEAM_THICKNESS = 3;
 const BEAM_GAP = 5;
+
+/** Fanans bredd åt höger. Behövs för att kunna centrera bilden. */
+const FLAG_WIDTH = 6;
 
 export type NoteValue = SubdivisionId;
 
@@ -55,6 +65,11 @@ interface Shape {
   spanUnits?: number;
   /** Deltoner som får en extra balk, för punkterade figurer. */
   extraBeamOn?: number[];
+  /**
+   * Deltoner som får en fana i stället för balk. En ensam åttondel kan inte
+   * balkas ihop med en fjärdedel — den bär sin fana själv.
+   */
+  flagOn?: number[];
   /** Punkt efter noten, som i punkterad åttondel. */
   dotOn?: number[];
 }
@@ -65,14 +80,22 @@ const SHAPES: Record<NoteValue, Shape> = {
   triplet: { count: 3, beams: 1, numerals: [{ text: '3', notes: [0, 1, 2] }] },
   sixteenth: { count: 4, beams: 2 },
 
-  // Swing ritas som två åttondelar där den andra sitter där triolens tredje
-  // del ligger — samma lägen som klicken faktiskt hörs på.
+  /**
+   * Fjärdedel plus åttondel under en trea — så skrivs gungande åttondelar.
+   *
+   * Första noten varar två tredjedelar av slaget och andra en tredjedel, precis
+   * vad triolfjärdedelen och trioláttondelen betyder. Två balkade åttondelar
+   * hade sagt att slaget delas jämnt, alltså motsatsen till swing.
+   *
+   * Utan balk mellan noterna bär åttondelen sin egen fana.
+   */
   swing8: {
     count: 2,
-    beams: 1,
+    beams: 0,
     numerals: [{ text: '3', notes: [0, 1] }],
     positions: [0, 2 / 3],
     spanUnits: 2.4,
+    flagOn: [1],
   },
   // Punkterad åttondel plus sextondel: punkt efter första, extra balk på andra.
   dotted8: {
@@ -121,13 +144,24 @@ export function NoteValueIcon({
   value: NoteValue;
   color: string;
 }) {
-  const { count, beams, numerals, positions, spanUnits, extraBeamOn, dotOn } =
-    SHAPES[value];
+  const {
+    count,
+    beams,
+    numerals,
+    positions,
+    spanUnits,
+    extraBeamOn,
+    dotOn,
+    flagOn,
+  } = SHAPES[value];
 
   // Jämna figurer fördelas jämnt över gruppen, ojämna följer sina egna lägen
   // så att bilden speglar när klicken faktiskt hörs.
   const span = (spanUnits ?? count - 1) * SPACING;
-  const startCx = (WIDTH - span - HEAD_RX * 2) / 2 + HEAD_RX;
+  // Fanan sticker ut åt höger och räknas med, annars hamnar figuren för långt
+  // åt det hållet i rutan.
+  const fanBredd = flagOn?.includes(count - 1) ? FLAG_WIDTH : 0;
+  const startCx = (WIDTH - span - HEAD_RX * 2 - fanBredd) / 2 + HEAD_RX;
   const andelar =
     positions ?? Array.from({ length: count }, (_, i) => (count > 1 ? i / (count - 1) : 0));
   const heads = andelar.map((andel) => startCx + andel * span);
@@ -175,6 +209,18 @@ export function NoteValueIcon({
             stroke={color}
             strokeWidth={1.4}
           />
+          {/* Fanan svänger ut från stjälkens topp och tillbaka in, som på en
+              handskriven åttondel. */}
+          {flagOn?.includes(i) ? (
+            <Path
+              d={
+                `M ${stemX(cx)} ${BEAM_Y}` +
+                ' c 4.6 1.4, 6 3.6, 4.6 7.4' +
+                ' c 0.4 -3.4, -1.6 -4.8, -4.6 -5.6 z'
+              }
+              fill={color}
+            />
+          ) : null}
         </React.Fragment>
       ))}
 
