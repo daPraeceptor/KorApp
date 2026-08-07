@@ -125,6 +125,35 @@ function GearIcon({ color }: { color: string }) {
   );
 }
 
+/** Penna på ett papper: spelvyn redigerar den laddade låten. */
+function EditIcon({ color }: { color: string }) {
+  return (
+    <Svg width={21} height={20} viewBox="0 0 21 20">
+      <Rect
+        x={3}
+        y={3.5}
+        width={13}
+        height={14}
+        rx={2}
+        stroke={color}
+        strokeWidth={2}
+        fill="none"
+      />
+      {/* Pennan skriver på papperet och sticker ut över hörnet. */}
+      <Line
+        x1={8.5}
+        y1={12.5}
+        x2={17.6}
+        y2={3.4}
+        stroke={color}
+        strokeWidth={2.4}
+        strokeLinecap="round"
+      />
+      <Path d="M8.3 12.7 l-1.5 3 3 -1.5 z" fill={color} />
+    </Svg>
+  );
+}
+
 /** Punktlista: punkt och rad, tre gånger. Unicode har ingen sådan glyf. */
 function ListIcon({ color }: { color: string }) {
   return (
@@ -206,6 +235,13 @@ function Shell() {
           {tab === 'settings' ? <SettingsScreen /> : null}
         </View>
 
+        {/* Låset flyter över innehållet så att det syns var man än rullat. */}
+        {locked ? (
+          <View style={styles.lockBadge} pointerEvents="none">
+            <LockIcon color={t.accent} />
+          </View>
+        ) : null}
+
         {locked ? (
           <UnlockBar onUnlock={() => setLocked(false)} />
         ) : (
@@ -213,9 +249,11 @@ function Shell() {
           {TABS.map(({ id, label, symbol, icon, compact }) => {
             const active = tab === id;
             // Med en laddad låt redigerar spelvyn den låten i stället för att
-            // skapa en ny — pennan säger det, plusset skulle ljuga.
-            const shownLabel =
-              id === 'play' && currentSong ? '✎︎' : label;
+            // skapa en ny — pennan på papperet säger det, plusset skulle ljuga.
+            const shownIcon =
+              id === 'play' && currentSong
+                ? (color: string) => <EditIcon color={color} />
+                : icon;
             return (
               <Pressable
                 key={id}
@@ -226,8 +264,8 @@ function Shell() {
                   active && styles.tabActive,
                 ]}
               >
-                {icon ? (
-                  icon(active ? t.onAccent : t.textMuted)
+                {shownIcon ? (
+                  shownIcon(active ? t.onAccent : t.textMuted)
                 ) : (
                   <Text
                     style={[
@@ -236,7 +274,7 @@ function Shell() {
                       active && styles.tabLabelActive,
                     ]}
                   >
-                    {shownLabel}
+                    {label}
                   </Text>
                 )}
               </Pressable>
@@ -296,6 +334,19 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     color: t.textMuted,
     fontSize: 14,
     fontWeight: '600',
+  },
+  lockBadge: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.md,
+    backgroundColor: t.surfaceRaised,
+    borderWidth: 1,
+    borderColor: t.border,
+    borderRadius: radius.pill,
+    padding: 9,
+    // Utan lyft glider listan över märket i stället för under det.
+    zIndex: 10,
+    elevation: 4,
   },
   unlockTrack: {
     flex: 1,

@@ -318,7 +318,7 @@ export function SongsScreen({
         ) : (
           <View style={styles.actions}>
             <Button
-              label="Ladda"
+              label="Ändra"
               onPress={() => {
                 loadSong(song.id);
                 onOpenPlay();
