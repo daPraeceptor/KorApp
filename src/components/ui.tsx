@@ -10,6 +10,7 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
+import Svg, { Path, Rect } from 'react-native-svg';
 
 import { useTheme } from '../ThemeContext';
 import { Palette, ThemeId, radius, spacing } from '../theme';
@@ -314,6 +315,82 @@ export function Slider({
 
 const SLIDER_KNOB = 28;
 
+/** Hänglås till draglåsen. */
+export function LockGlyph({ color }: { color: string }) {
+  return (
+    <Svg width={18} height={20} viewBox="0 0 18 20">
+      <Path
+        d="M5 9 V5.5 a4 4 0 0 1 8 0 V9"
+        stroke={color}
+        strokeWidth={2.2}
+        fill="none"
+        strokeLinecap="round"
+      />
+      <Rect x={3} y={9} width={12} height={9} rx={2.2} fill={color} />
+    </Svg>
+  );
+}
+
+const SLIDE_KNOB_WIDTH = 64;
+
+/**
+ * Bekräftelse genom att dra hänglåset till högerkanten.
+ *
+ * Ett tryck räcker med flit inte: gesten ska tåla en tumme som råkar landa
+ * på skärmen när telefonen ligger framme på notstället.
+ */
+export function SlideToConfirm({
+  hint,
+  onConfirm,
+}: {
+  hint: string;
+  onConfirm: () => void;
+}) {
+  const { t, styles } = useStyles();
+  const [dragX, setDragX] = useState(0);
+  const trackWidth = useRef(0);
+
+  const pan = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderTerminationRequest: () => false,
+        onPanResponderMove: (_event, gesture) => {
+          const max = Math.max(0, trackWidth.current - SLIDE_KNOB_WIDTH - 6);
+          setDragX(Math.min(max, Math.max(0, gesture.dx)));
+        },
+        onPanResponderRelease: (_event, gesture) => {
+          const max = Math.max(0, trackWidth.current - SLIDE_KNOB_WIDTH - 6);
+          // Nästan framme räknas som framme — men halvvägs gör det inte.
+          if (max > 0 && gesture.dx >= max * 0.85) {
+            onConfirm();
+          }
+          setDragX(0);
+        },
+        onPanResponderTerminate: () => setDragX(0),
+      }),
+    [onConfirm],
+  );
+
+  return (
+    <View
+      style={styles.slideTrack}
+      onLayout={(e) => {
+        trackWidth.current = e.nativeEvent.layout.width;
+      }}
+    >
+      <Text style={styles.slideHint}>{hint}</Text>
+      <View
+        style={[styles.slideKnob, WEB_GESTURE_STYLE, { left: 3 + dragX }]}
+        {...pan.panHandlers}
+      >
+        <LockGlyph color={t.onAccent} />
+      </View>
+    </View>
+  );
+}
+
 /**
  * Stilarna byggs per palett i stället för en gång vid inladdning, annars fryses
  * färgerna som gällde när modulen laddades och temabytet slår aldrig igenom.
@@ -388,6 +465,31 @@ const makeStyles = (t: Palette) => StyleSheet.create({
   },
   segmentLabelSelected: {
     color: t.onAccent,
+  },
+  slideTrack: {
+    flex: 1,
+    height: 48,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: t.border,
+    backgroundColor: t.surfaceRaised,
+    justifyContent: 'center',
+  },
+  slideHint: {
+    color: t.textMuted,
+    fontSize: 13,
+    textAlign: 'center',
+    paddingLeft: SLIDE_KNOB_WIDTH / 2,
+  },
+  slideKnob: {
+    position: 'absolute',
+    top: 3,
+    width: SLIDE_KNOB_WIDTH,
+    height: 40,
+    borderRadius: radius.pill,
+    backgroundColor: t.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   // Banan är tunn men greppytan hög, så att fingret träffar utan att sikta.
   sliderHit: {

@@ -1,17 +1,10 @@
-import React, { useMemo, useRef, useState } from 'react';
-import {
-  PanResponder,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  ViewStyle,
-} from 'react-native';
+import React, { useState } from 'react';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Line, Path } from 'react-native-svg';
 
+import { LockGlyph, SlideToConfirm } from './src/components/ui';
 import { PlayScreen } from './src/screens/PlayScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { SongsScreen } from './src/screens/SongsScreen';
@@ -21,81 +14,18 @@ import { useTheme, useThemedStyles } from './src/ThemeContext';
 
 type Tab = 'play' | 'songs' | 'settings';
 
-/** Hänglås till upplåsningsdragaren. */
-function LockIcon({ color }: { color: string }) {
-  return (
-    <Svg width={18} height={20} viewBox="0 0 18 20">
-      <Path
-        d="M5 9 V5.5 a4 4 0 0 1 8 0 V9"
-        stroke={color}
-        strokeWidth={2.2}
-        fill="none"
-        strokeLinecap="round"
-      />
-      <Rect x={3} y={9} width={12} height={9} rx={2.2} fill={color} />
-    </Svg>
-  );
-}
-
-/** Webben tolkar annars draget som scroll eller textmarkering. */
-const WEB_DRAG_STYLE =
-  Platform.OS === 'web'
-    ? ({ touchAction: 'none', userSelect: 'none' } as unknown as ViewStyle)
-    : undefined;
-
-const UNLOCK_KNOB_WIDTH = 64;
-
 /**
- * Upplåsning genom att dra låset till högerkanten.
- *
- * Ett tryck räcker med flit inte: i konsertläget ligger telefonen framme på
- * notstället, och låset ska tåla en tumme som råkar landa på skärmen.
+ * Upplåsningen bor där flikraden brukar vara. Samma draggest som låsningen i
+ * listan, så att båda hållen tål en tumme som råkar landa på skärmen.
  */
 function UnlockBar({ onUnlock }: { onUnlock: () => void }) {
-  const t = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const [dragX, setDragX] = useState(0);
-  const trackWidth = useRef(0);
-
-  const pan = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: () => true,
-        onPanResponderTerminationRequest: () => false,
-        onPanResponderMove: (_event, gesture) => {
-          const max = Math.max(0, trackWidth.current - UNLOCK_KNOB_WIDTH - 6);
-          setDragX(Math.min(max, Math.max(0, gesture.dx)));
-        },
-        onPanResponderRelease: (_event, gesture) => {
-          const max = Math.max(0, trackWidth.current - UNLOCK_KNOB_WIDTH - 6);
-          // Nästan framme räknas som framme — men halvvägs gör det inte.
-          if (max > 0 && gesture.dx >= max * 0.85) {
-            onUnlock();
-          }
-          setDragX(0);
-        },
-        onPanResponderTerminate: () => setDragX(0),
-      }),
-    [onUnlock],
-  );
-
   return (
     <View style={styles.tabBar}>
-      <View
-        style={styles.unlockTrack}
-        onLayout={(e) => {
-          trackWidth.current = e.nativeEvent.layout.width;
-        }}
-      >
-        <Text style={styles.unlockHint}>Dra låset åt höger för att låsa upp</Text>
-        <View
-          style={[styles.unlockKnob, WEB_DRAG_STYLE, { left: 3 + dragX }]}
-          {...pan.panHandlers}
-        >
-          <LockIcon color={t.onAccent} />
-        </View>
-      </View>
+      <SlideToConfirm
+        hint="Dra låset åt höger för att låsa upp"
+        onConfirm={onUnlock}
+      />
     </View>
   );
 }
@@ -221,7 +151,7 @@ function Shell() {
         {/* Låset flyter över innehållet så att det syns var man än rullat. */}
         {locked ? (
           <View style={styles.lockBadge} pointerEvents="none">
-            <LockIcon color={t.accent} />
+            <LockGlyph color={t.accent} />
           </View>
         ) : null}
 
@@ -330,31 +260,6 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     // Utan lyft glider listan över märket i stället för under det.
     zIndex: 10,
     elevation: 4,
-  },
-  unlockTrack: {
-    flex: 1,
-    height: 48,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: t.border,
-    backgroundColor: t.surfaceRaised,
-    justifyContent: 'center',
-  },
-  unlockHint: {
-    color: t.textMuted,
-    fontSize: 13,
-    textAlign: 'center',
-    paddingLeft: UNLOCK_KNOB_WIDTH / 2,
-  },
-  unlockKnob: {
-    position: 'absolute',
-    top: 3,
-    width: UNLOCK_KNOB_WIDTH,
-    height: 40,
-    borderRadius: radius.pill,
-    backgroundColor: t.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   // Kugghjulet delar inte raden med de andra — en liten knapp till höger
   // räcker för något man sällan öppnar.

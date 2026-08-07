@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 
-import { Button, Card, SectionTitle } from '../components/ui';
+import { Button, Card, SectionTitle, SlideToConfirm } from '../components/ui';
 import { BeatPulse, useAppState } from '../state/AppState';
 import { Song, searchSongs } from '../store/songs';
 import { noteName, noteNameWithOctave } from '../theory/tuning';
@@ -210,7 +210,6 @@ export function SongsScreen({
               <Text style={styles.title} numberOfLines={2}>
                 {song.title}
               </Text>
-              {isCurrent ? <Text style={styles.badge}>Laddad</Text> : null}
             </View>
             <Text style={styles.meta}>
               {song.bpm} slag/min · {song.beatsPerBar}/4 ·{' '}
@@ -556,8 +555,7 @@ export function SongsScreen({
 
       {loose.map(renderSong)}
 
-      {/* Låsningen kräver bara ett tryck — att låsa av misstag är ofarligt.
-          Det är upplåsningen som är skyddad, med draget i låsikonen. */}
+      {/* Samma draggest åt båda hållen: in i konsertläget och ut ur det. */}
       {!locked && songs.length > 0 ? (
         <Card>
           <SectionTitle>Konsertläge</SectionTitle>
@@ -566,7 +564,12 @@ export function SongsScreen({
             att ändra, och bara listan visas. Bra när telefonen ligger framme
             på notstället.
           </Text>
-          <Button label="Lås i konsertläge" onPress={onLock ?? (() => {})} />
+          <View style={styles.lockRow}>
+            <SlideToConfirm
+              hint="Dra låset åt höger för att låsa"
+              onConfirm={onLock ?? (() => {})}
+            />
+          </View>
         </Card>
       ) : null}
     </ScrollView>
@@ -587,6 +590,10 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     color: t.textMuted,
     fontSize: 13,
     lineHeight: 18,
+  },
+  // Dragbanan fyller radens bredd — utan raden runt om har flex ingen riktning.
+  lockRow: {
+    flexDirection: 'row',
   },
   input: {
     backgroundColor: t.surfaceRaised,
@@ -667,13 +674,6 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
     flex: 1,
-  },
-  badge: {
-    color: t.accent,
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
   meta: {
     color: t.textMuted,
