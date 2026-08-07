@@ -5,7 +5,7 @@
  * behöver. Mappar är avsiktligt platta: en nivå räcker för ett repertoarregister,
  * och slipper man undermappar slipper man också fundera på var en låt tog vägen.
  */
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useReducer, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -14,6 +14,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import Svg, { Circle, Line, Path } from 'react-native-svg';
 
 import { Button, Card, SectionTitle } from '../components/ui';
 import { useAppState } from '../state/AppState';
@@ -22,7 +23,63 @@ import { noteName, noteNameWithOctave } from '../theory/tuning';
 import { Palette, radius, spacing } from '../theme';
 import { useTheme, useThemedStyles } from '../ThemeContext';
 
-export function SongsScreen({ onOpenPlay }: { onOpenPlay: () => void }) {
+/**
+ * Liten metronom som pendlar i låtens eget tempo. En blick över listan visar
+ * hur låtarnas tempon förhåller sig till varandra, utan siffror.
+ */
+function MiniMetronome({ bpm, color }: { bpm: number; color: string }) {
+  const [, tick] = useReducer((count: number) => count + 1, 0);
+
+  useEffect(() => {
+    let raf = 0;
+    const loop = () => {
+      tick();
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  // Ett slag per svängning från kant till kant, som på en riktig metronom.
+  const beats = (Date.now() / 1000) * (bpm / 60);
+  const vinkel = Math.sin(Math.PI * beats) * 0.42;
+  const längd = 13;
+  const toppX = 11 + längd * Math.sin(vinkel);
+  const toppY = 17.5 - längd * Math.cos(vinkel);
+
+  return (
+    <Svg width={22} height={20} viewBox="0 0 22 20">
+      {/* Kroppen: en låg trapets som antyder metronomlådan. */}
+      <Path d="M7 19 L9.2 12 h3.6 L15 19 z" fill={color} opacity={0.35} />
+      <Line
+        x1={11}
+        y1={17.5}
+        x2={toppX}
+        y2={toppY}
+        stroke={color}
+        strokeWidth={1.8}
+        strokeLinecap="round"
+      />
+      <Circle
+        cx={11 + (längd - 4) * Math.sin(vinkel)}
+        cy={17.5 - (längd - 4) * Math.cos(vinkel)}
+        r={2.1}
+        fill={color}
+      />
+    </Svg>
+  );
+}
+
+export function SongsScreen({
+  onOpenPlay,
+  locked = false,
+  onLock,
+}: {
+  onOpenPlay: () => void;
+  /** I konsertläget går det bara att spela upp — inget går att ändra. */
+  locked?: boolean;
+  onLock?: () => void;
+}) {
   const t = useTheme();
   const styles = useThemedStyles(makeStyles);
   const {
@@ -59,6 +116,18 @@ export function SongsScreen({ onOpenPlay }: { onOpenPlay: () => void }) {
   const searching = query.trim().length > 0;
   const matches = useMemo(() => searchSongs(songs, query), [songs, query]);
   const loose = matches.filter((song) => song.folderId === null);
+
+  // Halvfärdiga redigeringar stängs när låset slår till, annars står en
+  // öppen namnruta kvar och går att skriva i fast läget är låst.
+  useEffect(() => {
+    if (locked) {
+      setEditingId(null);
+      setConfirmDeleteId(null);
+      setMovingId(null);
+      setEditingFolderId(null);
+      setConfirmDeleteFolderId(null);
+    }
+  }, [locked]);
 
   const beginRename = (id: string, title: string) => {
     setEditingId(id);
@@ -102,12 +171,17 @@ export function SongsScreen({ onOpenPlay }: { onOpenPlay: () => void }) {
           </View>
         ) : (
           <Pressable
+            disabled={locked}
             onPress={() => {
               loadSong(song.id);
               onOpenPlay();
             }}
           >
             <View style={styles.titleRow}>
+              <MiniMetronome
+                bpm={song.bpm}
+                color={isPlayingTempo ? t.accent : t.textMuted}
+              />
               <Text style={styles.title} numberOfLines={2}>
                 {song.title}
               </Text>
@@ -224,7 +298,7 @@ export function SongsScreen({ onOpenPlay }: { onOpenPlay: () => void }) {
           </View>
         ) : null}
 
-        {isConfirming ? (
+        {locked ? null : isConfirming ? (
           <View style={styles.actions}>
             <Text style={styles.confirmText}>Ta bort «{song.title}»?</Text>
             <Button
@@ -280,6 +354,16 @@ export function SongsScreen({ onOpenPlay }: { onOpenPlay: () => void }) {
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
+      {locked ? (
+        <Card>
+          <Text style={styles.help}>
+            Appen är låst i konsertläge: bara uppspelning är möjlig. Lås upp
+            genom att dra låset längst ner åt höger.
+          </Text>
+        </Card>
+      ) : null}
+
+      {locked ? null : (
       <Card>
         <SectionTitle>Ny mapp</SectionTitle>
         <View style={styles.editRow}>
@@ -307,6 +391,7 @@ export function SongsScreen({ onOpenPlay }: { onOpenPlay: () => void }) {
           />
         </View>
       </Card>
+      )}
 
       {songs.length > 0 ? (
         <TextInput
@@ -386,7 +471,7 @@ export function SongsScreen({ onOpenPlay }: { onOpenPlay: () => void }) {
               </Pressable>
             )}
 
-            {isConfirmingFolder ? (
+            {locked ? null : isConfirmingFolder ? (
               <View style={styles.actions}>
                 <Text style={styles.confirmText}>
                   Ta bort mappen «{folder.name}»? Låtarna blir kvar.
@@ -445,6 +530,20 @@ export function SongsScreen({ onOpenPlay }: { onOpenPlay: () => void }) {
       ) : null}
 
       {loose.map(renderSong)}
+
+      {/* Låsningen kräver bara ett tryck — att låsa av misstag är ofarligt.
+          Det är upplåsningen som är skyddad, med draget i låsikonen. */}
+      {!locked && songs.length > 0 ? (
+        <Card>
+          <SectionTitle>Konsertläge</SectionTitle>
+          <Text style={styles.help}>
+            Låser appen till uppspelning: inga låtar eller inställningar går
+            att ändra, och bara listan visas. Bra när telefonen ligger framme
+            på notstället.
+          </Text>
+          <Button label="Lås i konsertläge" onPress={onLock ?? (() => {})} />
+        </Card>
+      ) : null}
     </ScrollView>
   );
 }
