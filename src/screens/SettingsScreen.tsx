@@ -59,6 +59,23 @@ export function SettingsScreen() {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <Card>
+        <SectionTitle>Startvy</SectionTitle>
+        <SegmentedControl
+          value={settings.startTab}
+          onChange={(startTab) => updateSettings({ startTab })}
+          options={[
+            { value: 'auto' as const, label: 'Automatisk' },
+            { value: 'play' as const, label: '+' },
+            { value: 'songs' as const, label: 'Låtlistan' },
+          ]}
+        />
+        <Text style={styles.help}>
+          Automatisk öppnar låtlistan när det finns sparade låtar, annars
+          skapandet.
+        </Text>
+      </Card>
+
+      <Card>
         <SectionTitle>Kammarton</SectionTitle>
         <View style={styles.row}>
           <Text style={styles.rowLabel}>A =</Text>

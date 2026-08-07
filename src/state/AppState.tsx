@@ -84,7 +84,14 @@ export interface Settings {
   showAdvancedSubdivisions: boolean;
   /** Hur takten visas grafiskt i spelvyn. */
   metronomeVisual: MetronomeVisualStyle;
+  /**
+   * Vilken flik appen öppnar i. "auto" väljer listan när det finns sparade
+   * låtar och skapandet annars — utan låtar finns ingen lista att visa.
+   */
+  startTab: StartTab;
 }
+
+export type StartTab = 'auto' | 'play' | 'songs';
 
 /** Klassisk pendel, streck fram och tillbaka, studsande boll, eller ingen alls. */
 export type MetronomeVisualStyle = 'pendulum' | 'bar' | 'ball' | 'none';
@@ -102,6 +109,7 @@ const DEFAULT_SETTINGS: Settings = {
   themeId: DEFAULT_THEME,
   showAdvancedSubdivisions: false,
   metronomeVisual: 'ball',
+  startTab: 'auto',
 };
 
 

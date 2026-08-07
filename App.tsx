@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -112,8 +112,27 @@ const TABS: {
 function Shell() {
   const t = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const { currentSong } = useAppState();
+  const { currentSong, settings, songs, loaded } = useAppState();
   const [tab, setTab] = useState<Tab>('play');
+
+  /**
+   * Startfliken väljs först när lagringen är inläst — innan dess vet appen
+   * varken vad som är valt eller om det finns låtar. Bara en gång: byter
+   * användaren flik själv ska ingen sen inläsning rycka tillbaka vyn.
+   */
+  const startApplied = useRef(false);
+  useEffect(() => {
+    if (loaded && !startApplied.current) {
+      startApplied.current = true;
+      const start =
+        settings.startTab === 'auto'
+          ? songs.length > 0
+            ? 'songs'
+            : 'play'
+          : settings.startTab;
+      setTab(start);
+    }
+  }, [loaded, settings.startTab, songs.length]);
   /**
    * Konsertläget låser appen till låtlistan och uppspelning. Låset sparas
    * med flit inte: en omstart låser upp, så att ingen blir kvar utestängd.
