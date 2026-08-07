@@ -17,7 +17,7 @@ import {
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 
 import { Button, Card, SectionTitle } from '../components/ui';
-import { useAppState } from '../state/AppState';
+import { BeatPulse, useAppState } from '../state/AppState';
 import { Song, searchSongs } from '../store/songs';
 import { noteName, noteNameWithOctave } from '../theory/tuning';
 import { Palette, radius, spacing } from '../theme';
@@ -27,7 +27,20 @@ import { useTheme, useThemedStyles } from '../ThemeContext';
  * Liten metronom som pendlar i låtens eget tempo. En blick över listan visar
  * hur låtarnas tempon förhåller sig till varandra, utan siffror.
  */
-function MiniMetronome({ bpm, color }: { bpm: number; color: string }) {
+function MiniMetronome({
+  bpm,
+  color,
+  pulse,
+}: {
+  bpm: number;
+  color: string;
+  /**
+   * Senaste hörda taktslaget när den här låtens tempo spelas. Med det ankras
+   * pendeln i ljudet och vänder precis på klicket — en fristående klocka
+   * glider annars ur fas med det man hör.
+   */
+  pulse?: BeatPulse | null;
+}) {
   const [, tick] = useReducer((count: number) => count + 1, 0);
 
   useEffect(() => {
@@ -41,8 +54,18 @@ function MiniMetronome({ bpm, color }: { bpm: number; color: string }) {
   }, []);
 
   // Ett slag per svängning från kant till kant, som på en riktig metronom.
-  const beats = (Date.now() / 1000) * (bpm / 60);
-  const vinkel = Math.sin(Math.PI * beats) * 0.42;
+  const beatMs = 60000 / bpm;
+  let vinkel: number;
+  if (pulse) {
+    // Samma räkning som stora taktvisaren: andel av slaget sedan klicket,
+    // med vändning i ytterläget precis på slaget.
+    const fas = Math.min(Math.max((Date.now() - pulse.at) / beatMs, 0), 1);
+    const riktning = pulse.count % 2 === 1 ? -1 : 1;
+    vinkel = riktning * 0.42 * Math.cos(Math.PI * fas);
+  } else {
+    const beats = (Date.now() / 1000) * (bpm / 60);
+    vinkel = Math.sin(Math.PI * beats) * 0.42;
+  }
   const längd = 13;
   const toppX = 11 + längd * Math.sin(vinkel);
   const toppY = 17.5 - längd * Math.cos(vinkel);
@@ -88,6 +111,7 @@ export function SongsScreen({
     currentSong,
     settings,
     metronomeRunning,
+    pulse,
     loadSong,
     updateSong,
     deleteSong,
@@ -181,6 +205,7 @@ export function SongsScreen({
               <MiniMetronome
                 bpm={song.bpm}
                 color={isPlayingTempo ? t.accent : t.textMuted}
+                pulse={isPlayingTempo ? pulse : null}
               />
               <Text style={styles.title} numberOfLines={2}>
                 {song.title}
