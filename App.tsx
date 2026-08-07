@@ -97,8 +97,10 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     borderRadius: radius.sm,
     alignItems: 'center',
   },
+  // Vald flik fylls med accentfärgen, som appens huvudknappar. En tonad botten
+  // med färgad text syntes inte i ögonvrån.
   tabActive: {
-    backgroundColor: t.surfaceRaised,
+    backgroundColor: t.accent,
   },
   tabLabel: {
     color: t.textMuted,
@@ -106,6 +108,7 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     fontWeight: '600',
   },
   tabLabelActive: {
-    color: t.accent,
+    color: t.onAccent,
+    fontWeight: '700',
   },
 });
