@@ -71,12 +71,15 @@ export function Button({
   variant = 'default',
   disabled = false,
   style,
+  renderIcon,
 }: {
   label: string;
   onPress: () => void;
   variant?: 'default' | 'primary' | 'pure' | 'danger' | 'ghost';
   disabled?: boolean;
   style?: ViewStyle;
+  /** Ritas i stället för etiketten, i dess färg. Etiketten blir då bara namn. */
+  renderIcon?: (color: string) => React.ReactNode;
 }) {
   const { styles, variants, variantLabels } = useStyles();
   return (
@@ -91,7 +94,11 @@ export function Button({
         style,
       ]}
     >
-      <Text style={[styles.buttonLabel, variantLabels[variant]]}>{label}</Text>
+      {renderIcon ? (
+        renderIcon(variantLabels[variant].color)
+      ) : (
+        <Text style={[styles.buttonLabel, variantLabels[variant]]}>{label}</Text>
+      )}
     </Pressable>
   );
 }

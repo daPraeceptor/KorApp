@@ -93,6 +93,33 @@ function MiniMetronome({
   );
 }
 
+/** Överstruken högtalare: tystnad — trycket stoppar det som spelas. */
+function MutedSpeakerIcon({ color }: { color: string }) {
+  return (
+    <Svg width={20} height={20} viewBox="0 0 20 20">
+      <Path d="M3 7.4 h3 L10.6 4 v12 L6 12.6 H3 z" fill={color} />
+      <Line
+        x1={13}
+        y1={7.5}
+        x2={17.5}
+        y2={12.5}
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+      />
+      <Line
+        x1={17.5}
+        y1={7.5}
+        x2={13}
+        y2={12.5}
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
 export function SongsScreen({
   onOpenPlay,
   locked = false,
@@ -180,7 +207,18 @@ export function SongsScreen({
     const isPlayingTempo = isCurrent && metronomeRunning;
 
     return (
-      <Card key={song.id} style={isCurrent ? styles.currentCard : undefined}>
+      <Card
+        key={song.id}
+        // Låten som just nu hörs lyser upp hela sin ruta — den laddade
+        // markeras svagare, med bara ramen.
+        style={
+          isPlayingTempo
+            ? styles.playingCard
+            : isCurrent
+              ? styles.currentCard
+              : undefined
+        }
+      >
         {isEditing ? (
           <View style={styles.editRow}>
             <TextInput
@@ -232,8 +270,13 @@ export function SongsScreen({
 
         <View style={styles.quickRow}>
           <Button
-            label={isPlayingTempo ? '■ Stoppa tempo' : '▶ Tempo'}
-            variant={isPlayingTempo ? 'default' : 'primary'}
+            label={isPlayingTempo ? 'Stoppa tempo' : '▶ Tempo'}
+            renderIcon={
+              isPlayingTempo
+                ? (color) => <MutedSpeakerIcon color={color} />
+                : undefined
+            }
+            variant="primary"
             onPress={() =>
               isPlayingTempo ? stopMetronome() : void playSongTempo(song)
             }
@@ -387,36 +430,6 @@ export function SongsScreen({
         </Card>
       ) : null}
 
-      {locked ? null : (
-      <Card>
-        <SectionTitle>Ny mapp</SectionTitle>
-        <View style={styles.editRow}>
-          <TextInput
-            value={newFolderName}
-            onChangeText={setNewFolderName}
-            placeholder="Namn på mappen"
-            placeholderTextColor={t.textMuted}
-            style={[styles.input, styles.editInput]}
-            returnKeyType="done"
-            onSubmitEditing={() => {
-              if (newFolderName.trim()) {
-                addFolder(newFolderName);
-                setNewFolderName('');
-              }
-            }}
-          />
-          <Button
-            label="Skapa"
-            disabled={!newFolderName.trim()}
-            onPress={() => {
-              addFolder(newFolderName);
-              setNewFolderName('');
-            }}
-          />
-        </View>
-      </Card>
-      )}
-
       {songs.length > 0 ? (
         <TextInput
           value={query}
@@ -555,6 +568,38 @@ export function SongsScreen({
 
       {loose.map(renderSong)}
 
+      {/* Mappskapandet ligger under låtarna: det används sällan och ska inte
+          stå i vägen för listan man faktiskt kom för. Göms i låst läge. */}
+      {locked ? null : (
+        <Card>
+          <SectionTitle>Ny mapp</SectionTitle>
+          <View style={styles.editRow}>
+            <TextInput
+              value={newFolderName}
+              onChangeText={setNewFolderName}
+              placeholder="Namn på mappen"
+              placeholderTextColor={t.textMuted}
+              style={[styles.input, styles.editInput]}
+              returnKeyType="done"
+              onSubmitEditing={() => {
+                if (newFolderName.trim()) {
+                  addFolder(newFolderName);
+                  setNewFolderName('');
+                }
+              }}
+            />
+            <Button
+              label="Skapa"
+              disabled={!newFolderName.trim()}
+              onPress={() => {
+                addFolder(newFolderName);
+                setNewFolderName('');
+              }}
+            />
+          </View>
+        </Card>
+      )}
+
       {/* Samma draggest åt båda hållen: in i konsertläget och ut ur det. */}
       {!locked && songs.length > 0 ? (
         <Card>
@@ -663,6 +708,11 @@ const makeStyles = (t: Palette) => StyleSheet.create({
   },
   currentCard: {
     borderColor: t.accent,
+  },
+  // Hela rutan lyser när låtens tempo hörs, inte bara ramen.
+  playingCard: {
+    borderColor: t.accent,
+    backgroundColor: t.accentSurface,
   },
   titleRow: {
     flexDirection: 'row',

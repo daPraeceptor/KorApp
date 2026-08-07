@@ -213,6 +213,9 @@ export interface Palette extends ThemeCore {
   onPure: string;
   onTone: string;
 
+  /** Kortbotten för det som just nu spelas: ytan med en skvätt accent i. */
+  accentSurface: string;
+
   keyWhitePressed: string;
   keyWhiteBorder: string;
   keyBlackPressed: string;
@@ -249,6 +252,8 @@ export function buildPalette(id: ThemeId): Palette {
     onAccent: ovanpa(c.accent),
     onPure: ovanpa(c.pure),
     onTone: ovanpa(c.tone),
+
+    accentSurface: blanda(c.surface, c.accent, 0.18),
 
     keyWhitePressed: blanda(c.keyWhite, c.dark ? '#000000' : c.text, 0.16),
     keyWhiteBorder: blanda(c.keyWhite, c.text, 0.22),
