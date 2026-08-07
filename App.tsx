@@ -17,7 +17,7 @@ type Tab = 'play' | 'songs' | 'settings';
 // inte som färgglad emoji.
 const TABS: { id: Tab; label: string; symbol?: boolean }[] = [
   { id: 'play', label: '+', symbol: true },
-  { id: 'songs', label: 'Låtar' },
+  { id: 'songs', label: '☰', symbol: true },
   { id: 'settings', label: '⚙︎', symbol: true },
 ];
 
