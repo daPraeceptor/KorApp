@@ -12,10 +12,13 @@ import { useTheme, useThemedStyles } from './src/ThemeContext';
 
 type Tab = 'play' | 'songs' | 'settings';
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'play', label: 'Spela' },
+// Spelvyn är där man skapar en ny låt, därav plustecknet. Kugghjulet skrivs
+// med variantväljaren U+FE0E så att det ritas som glyf i textens färg och
+// inte som färgglad emoji.
+const TABS: { id: Tab; label: string; symbol?: boolean }[] = [
+  { id: 'play', label: '+', symbol: true },
   { id: 'songs', label: 'Låtar' },
-  { id: 'settings', label: 'Inställningar' },
+  { id: 'settings', label: '⚙︎', symbol: true },
 ];
 
 /**
@@ -39,7 +42,7 @@ function Shell() {
         </View>
 
         <View style={styles.tabBar}>
-          {TABS.map(({ id, label }) => {
+          {TABS.map(({ id, label, symbol }) => {
             const active = tab === id;
             return (
               <Pressable
@@ -47,7 +50,13 @@ function Shell() {
                 onPress={() => setTab(id)}
                 style={[styles.tab, active && styles.tabActive]}
               >
-                <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>
+                <Text
+                  style={[
+                    styles.tabLabel,
+                    symbol && styles.tabSymbol,
+                    active && styles.tabLabelActive,
+                  ]}
+                >
                   {label}
                 </Text>
               </Pressable>
@@ -106,6 +115,12 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     color: t.textMuted,
     fontSize: 14,
     fontWeight: '600',
+  },
+  // Ensamma tecken ritas större än orden, annars ser de förkrympta ut.
+  // Radhöjden hålls nere så att flikarna inte blir högre av det.
+  tabSymbol: {
+    fontSize: 19,
+    lineHeight: 19,
   },
   tabLabelActive: {
     color: t.onAccent,
