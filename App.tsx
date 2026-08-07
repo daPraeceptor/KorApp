@@ -125,31 +125,14 @@ function GearIcon({ color }: { color: string }) {
   );
 }
 
-/** Penna på ett papper: spelvyn redigerar den laddade låten. */
+/** Den klassiska redigeringspennan: spelvyn redigerar den laddade låten. */
 function EditIcon({ color }: { color: string }) {
   return (
-    <Svg width={21} height={20} viewBox="0 0 21 20">
-      <Rect
-        x={3}
-        y={3.5}
-        width={13}
-        height={14}
-        rx={2}
-        stroke={color}
-        strokeWidth={2}
-        fill="none"
+    <Svg width={20} height={20} viewBox="0 0 24 24">
+      <Path
+        d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+        fill={color}
       />
-      {/* Pennan skriver på papperet och sticker ut över hörnet. */}
-      <Line
-        x1={8.5}
-        y1={12.5}
-        x2={17.6}
-        y2={3.4}
-        stroke={color}
-        strokeWidth={2.4}
-        strokeLinecap="round"
-      />
-      <Path d="M8.3 12.7 l-1.5 3 3 -1.5 z" fill={color} />
     </Svg>
   );
 }

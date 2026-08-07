@@ -101,7 +101,7 @@ const DEFAULT_SETTINGS: Settings = {
   toneTimbre: DEFAULT_TIMBRE,
   themeId: DEFAULT_THEME,
   showAdvancedSubdivisions: false,
-  metronomeVisual: 'pendulum',
+  metronomeVisual: 'ball',
 };
 
 

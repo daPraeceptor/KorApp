@@ -26,7 +26,7 @@ import {
 import { TempoWheel } from '../components/TempoWheel';
 import { Button, Card, SectionTitle, SegmentedControl, Stepper } from '../components/ui';
 import { MAX_BPM, MIN_BPM, clampBpm, tempoFromTaps } from '../audio/tempo';
-import { useAppState } from '../state/AppState';
+import { MetronomeVisualStyle, useAppState } from '../state/AppState';
 import {
   centsFromTempered,
   frequencyOf,
@@ -66,6 +66,7 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
     saveToCurrentSong,
     addSong,
     updateSong,
+    updateSettings,
   } = useAppState();
 
   const [selectMode, setSelectMode] = useState(false);
@@ -84,6 +85,13 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
     currentSong !== null &&
     titleDraft.trim() !== '' &&
     titleDraft.trim() !== currentSong.title;
+
+  const cycleVisual = useCallback(() => {
+    const ordning: MetronomeVisualStyle[] = ['ball', 'pendulum', 'bar'];
+    const index = ordning.indexOf(settings.metronomeVisual);
+    // En avstängd visare ("none", index -1) börjar om från bollen.
+    updateSettings({ metronomeVisual: ordning[(index + 1) % ordning.length] });
+  }, [settings.metronomeVisual, updateSettings]);
 
   const updateCurrent = useCallback(() => {
     if (!currentSong) {
@@ -251,13 +259,17 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
         </Pressable>
       ) : null}
 
-      <MetronomeVisual
-        style={settings.metronomeVisual}
-        running={metronomeRunning}
-        bpm={live.bpm}
-        pulse={pulse}
-        activeBeat={activeBeat}
-      />
+      {/* Ett tryck på taktvisaren bläddrar till nästa stil. "Ingen" ingår
+          inte i bläddringen — en osynlig visare går inte att trycka på. */}
+      <Pressable onPress={cycleVisual}>
+        <MetronomeVisual
+          style={settings.metronomeVisual}
+          running={metronomeRunning}
+          bpm={live.bpm}
+          pulse={pulse}
+          activeBeat={activeBeat}
+        />
+      </Pressable>
 
       <View style={styles.wheelArea}>
         <TempoWheel
