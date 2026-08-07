@@ -7,7 +7,7 @@ import Svg, { Circle, Line } from 'react-native-svg';
 import { PlayScreen } from './src/screens/PlayScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { SongsScreen } from './src/screens/SongsScreen';
-import { AppStateProvider } from './src/state/AppState';
+import { AppStateProvider, useAppState } from './src/state/AppState';
 import { Palette, radius, spacing } from './src/theme';
 import { useTheme, useThemedStyles } from './src/ThemeContext';
 
@@ -43,10 +43,12 @@ const TABS: {
   label?: string;
   symbol?: boolean;
   icon?: (color: string) => React.ReactNode;
+  /** Kryper ihop till innehållets bredd i stället för att dela raden. */
+  compact?: boolean;
 }[] = [
   { id: 'play', label: '+', symbol: true },
   { id: 'songs', icon: (color) => <ListIcon color={color} /> },
-  { id: 'settings', label: '⚙︎', symbol: true },
+  { id: 'settings', label: '⚙︎', symbol: true, compact: true },
 ];
 
 /**
@@ -56,6 +58,7 @@ const TABS: {
 function Shell() {
   const t = useTheme();
   const styles = useThemedStyles(makeStyles);
+  const { currentSong } = useAppState();
   const [tab, setTab] = useState<Tab>('play');
 
   return (
@@ -70,13 +73,21 @@ function Shell() {
         </View>
 
         <View style={styles.tabBar}>
-          {TABS.map(({ id, label, symbol, icon }) => {
+          {TABS.map(({ id, label, symbol, icon, compact }) => {
             const active = tab === id;
+            // Med en laddad låt redigerar spelvyn den låten i stället för att
+            // skapa en ny — pennan säger det, plusset skulle ljuga.
+            const shownLabel =
+              id === 'play' && currentSong ? '✎︎' : label;
             return (
               <Pressable
                 key={id}
                 onPress={() => setTab(id)}
-                style={[styles.tab, active && styles.tabActive]}
+                style={[
+                  styles.tab,
+                  compact && styles.tabCompact,
+                  active && styles.tabActive,
+                ]}
               >
                 {icon ? (
                   icon(active ? t.onAccent : t.textMuted)
@@ -88,7 +99,7 @@ function Shell() {
                       active && styles.tabLabelActive,
                     ]}
                   >
-                    {label}
+                    {shownLabel}
                   </Text>
                 )}
               </Pressable>
@@ -147,6 +158,14 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     color: t.textMuted,
     fontSize: 14,
     fontWeight: '600',
+  },
+  // Kugghjulet delar inte raden med de andra — en liten knapp till höger
+  // räcker för något man sällan öppnar.
+  tabCompact: {
+    flexGrow: 0,
+    flexShrink: 0,
+    flexBasis: 'auto',
+    paddingHorizontal: spacing.md,
   },
   // Ensamma tecken ritas större än orden, annars ser de förkrympta ut.
   // Radhöjden hålls nere så att flikarna inte blir högre av det.

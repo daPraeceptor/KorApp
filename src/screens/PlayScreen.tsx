@@ -11,6 +11,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 
@@ -63,9 +64,11 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
     updateLive,
     toggleSongTone,
     saveToCurrentSong,
+    addSong,
   } = useAppState();
 
   const [selectMode, setSelectMode] = useState(false);
+  const [titleDraft, setTitleDraft] = useState('');
   const [playedNote, setPlayedNote] = useState<number | null>(null);
   const [keyboardStart, setKeyboardStart] = useState(48);
   const [wheelDragging, setWheelDragging] = useState(false);
@@ -487,6 +490,61 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
         </View>
       </Card>
 
+      {/* Sparandet bor längst ner: här skapas en ny låt av det som är inställt
+          ovan, eller uppdateras den laddade. */}
+      <Card>
+        <SectionTitle>{currentSong ? 'Spara' : 'Ny låt'}</SectionTitle>
+        <Text style={styles.helpText}>
+          Låten sparas med tempot, taktarten, stämningen och tonerna som är
+          inställda ovan.
+        </Text>
+        <TextInput
+          value={titleDraft}
+          onChangeText={setTitleDraft}
+          placeholder={
+            currentSong ? 'Namn om du sparar som ny' : 'Namn på låten'
+          }
+          placeholderTextColor={t.textMuted}
+          style={styles.titleInput}
+          returnKeyType="done"
+          onSubmitEditing={() => {
+            if (!currentSong) {
+              addSong(titleDraft);
+              setTitleDraft('');
+            }
+          }}
+        />
+        {currentSong ? (
+          <View style={styles.saveRow}>
+            <Button
+              label="Uppdatera"
+              variant="primary"
+              disabled={!hasUnsavedChanges}
+              onPress={saveToCurrentSong}
+              style={styles.saveRowButton}
+            />
+            <Button
+              label="Spara som ny"
+              onPress={() => {
+                // Utan namn får kopian ett eget namn i stället för "Ny låt",
+                // så att den går att hitta bland de andra.
+                addSong(titleDraft.trim() || `${currentSong.title} (kopia)`);
+                setTitleDraft('');
+              }}
+              style={styles.saveRowButton}
+            />
+          </View>
+        ) : (
+          <Button
+            label="Skapa ny låt"
+            variant="primary"
+            onPress={() => {
+              addSong(titleDraft);
+              setTitleDraft('');
+            }}
+          />
+        )}
+      </Card>
 
       <Text style={styles.rangeHint}>
         Tempoområde {MIN_BPM}–{MAX_BPM} slag per minut. Kammarton A = {settings.a4} Hz.
@@ -602,6 +660,23 @@ const makeStyles = (t: Palette) => StyleSheet.create({
   },
   keyboardCard: {
     paddingHorizontal: spacing.sm,
+  },
+  titleInput: {
+    backgroundColor: t.surfaceRaised,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: t.border,
+    color: t.text,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
+    fontSize: 15,
+  },
+  saveRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  saveRowButton: {
+    flex: 1,
   },
   cardHeader: {
     flexDirection: 'row',

@@ -29,11 +29,9 @@ export function SongsScreen({ onOpenPlay }: { onOpenPlay: () => void }) {
     songs,
     folders,
     currentSong,
-    live,
     settings,
     metronomeRunning,
     loadSong,
-    addSong,
     updateSong,
     deleteSong,
     addFolder,
@@ -45,7 +43,6 @@ export function SongsScreen({ onOpenPlay }: { onOpenPlay: () => void }) {
     stopMetronome,
   } = useAppState();
 
-  const [newTitle, setNewTitle] = useState('');
   const [newFolderName, setNewFolderName] = useState('');
   const [query, setQuery] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -62,12 +59,6 @@ export function SongsScreen({ onOpenPlay }: { onOpenPlay: () => void }) {
   const searching = query.trim().length > 0;
   const matches = useMemo(() => searchSongs(songs, query), [songs, query]);
   const loose = matches.filter((song) => song.folderId === null);
-
-  const create = () => {
-    addSong(newTitle);
-    setNewTitle('');
-    onOpenPlay();
-  };
 
   const beginRename = (id: string, title: string) => {
     setEditingId(id);
@@ -289,31 +280,6 @@ export function SongsScreen({ onOpenPlay }: { onOpenPlay: () => void }) {
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
-      <Card>
-        <SectionTitle>Ny låt</SectionTitle>
-        <Text style={styles.help}>
-          Den nya låten sparas med tempot, taktarten, stämningen och tonerna som
-          just nu är inställda i spelvyn: {live.bpm} slag/min,{' '}
-          {live.tuningSystem === 'just'
-            ? `ren stämning med ${noteName(live.tonicPitchClass, settings.naming)} som tonika`
-            : 'tempererad stämning'}
-          {live.tones.length > 0
-            ? `, ${live.tones.length} ${live.tones.length === 1 ? 'ton' : 'toner'}`
-            : ''}
-          .
-        </Text>
-        <TextInput
-          value={newTitle}
-          onChangeText={setNewTitle}
-          placeholder="Namn på låten"
-          placeholderTextColor={t.textMuted}
-          style={styles.input}
-          returnKeyType="done"
-          onSubmitEditing={create}
-        />
-        <Button label="Lägg till låt" variant="primary" onPress={create} />
-      </Card>
-
       <Card>
         <SectionTitle>Ny mapp</SectionTitle>
         <View style={styles.editRow}>
