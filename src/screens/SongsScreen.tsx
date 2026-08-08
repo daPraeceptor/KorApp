@@ -208,13 +208,43 @@ export function SongsScreen({
   const dragGroup = useRef<string[]>([]);
   /** Hur långt de redan gjorda bytena flyttat kortet. */
   const dragCommitted = useRef(0);
+  /** Varje låts grannar, uppdaterad vid utritningen och läst vid greppet. */
+  const groupIds = useRef(new Map<string, string[]>());
+  /**
+   * En bestående responder per låt.
+   *
+   * Den får inte skapas om vid varje utritning: dragningen uppdaterar läget
+   * för varje rörelse, och en ny responder mitt i greppet gör att gesten
+   * tappas. Allt föränderligt läses därför ur refar i stället för att fångas
+   * i slutningen.
+   */
+  const responders = useRef(
+    new Map<string, ReturnType<typeof PanResponder.create>>(),
+  );
 
-  const makeDragResponder = (songId: string, group: string[]) =>
-    PanResponder.create({
+  /** Grannens höjd, mätt på plats om måttet ännu inte hunnit fram. */
+  const grannHöjd = (id: string) => {
+    const känd = heights.current.get(id) ?? 0;
+    if (känd > 0) {
+      return känd;
+    }
+    cardRefs.current
+      .get(id)
+      ?.measureInWindow((_x, _y, _w, h) => heights.current.set(id, h));
+    return 0;
+  };
+
+  const dragResponderFor = (songId: string) => {
+    const redan = responders.current.get(songId);
+    if (redan) {
+      return redan;
+    }
+    const responder = PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       onPanResponderTerminationRequest: () => false,
       onPanResponderGrant: () => {
+        const group = groupIds.current.get(songId) ?? [];
         // Mät hela gruppen nu: höjderna kan ha ändrats sedan sist, och de
         // behövs redan vid första rörelsen.
         group.forEach((id) =>
@@ -235,7 +265,7 @@ export function SongsScreen({
         // båda håll, så att kortet inte fastnar mellan två lägen.
         const granne =
           kvar > 0 ? dragGroup.current[plats + 1] : dragGroup.current[plats - 1];
-        const höjd = granne ? heights.current.get(granne) ?? 0 : 0;
+        const höjd = granne ? grannHöjd(granne) : 0;
 
         if (granne && höjd > 0 && Math.abs(kvar) > höjd / 2) {
           const riktning: -1 | 1 = kvar > 0 ? 1 : -1;
@@ -256,6 +286,9 @@ export function SongsScreen({
         setDragOffset(0);
       },
     });
+    responders.current.set(songId, responder);
+    return responder;
+  };
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [draftFolderName, setDraftFolderName] = useState('');
   const [confirmDeleteFolderId, setConfirmDeleteFolderId] = useState<string | null>(
@@ -309,7 +342,11 @@ export function SongsScreen({
     const isPlayingTempo = isCurrent && metronomeRunning;
     const isExpanded = expandedId === song.id;
 
-    const tempoKnapp = (
+    /**
+     * I knappraden delar tempot bredden med tongivningen. Uppe i rubriken
+     * ska det bara ta sin egen plats, så att taktvisaren får resten.
+     */
+    const tempoKnapp = (style: ViewStyle) => (
       <Button
         label={isPlayingTempo ? 'Stoppa tempo' : '▶ Tempo'}
         renderIcon={
@@ -321,7 +358,7 @@ export function SongsScreen({
         onPress={() =>
           isPlayingTempo ? stopMetronome() : void playSongTempo(song)
         }
-        style={styles.quickButton}
+        style={style}
       />
     );
 
@@ -372,6 +409,30 @@ export function SongsScreen({
     const isDragging = draggingId === song.id;
     // Bara en grupp med flera låtar går att ordna om, och inte i konsertläget.
     const kanDras = !locked && grupp.length > 1;
+    // Grannarna läses ur refen när greppet tas, så att respondern slipper
+    // skapas om varje gång listan ritas.
+    groupIds.current.set(song.id, grupp.map((s) => s.id));
+
+    const underrubriker = (
+      <>
+        <Text style={styles.meta}>
+          {song.bpm} slag/min · {song.beatsPerBar}/4 ·{' '}
+          {song.tuningSystem === 'just'
+            ? `ren, grundton ${noteName(song.tonicPitchClass, settings.naming)}`
+            : 'tempererad'}
+        </Text>
+        {song.tones.length > 0 ? (
+          <Text style={styles.tones}>
+            Toner:{' '}
+            {song.tones
+              .map((midi) => noteNameWithOctave(midi, settings.naming))
+              .join('  ')}
+          </Text>
+        ) : (
+          <Text style={styles.tonesEmpty}>Inga sparade toner</Text>
+        )}
+      </>
+    );
 
     return (
       /**
@@ -417,55 +478,43 @@ export function SongsScreen({
             <Button label="Klart" variant="primary" onPress={commitRename} />
           </View>
         ) : (
-          <View>
-            <View style={styles.titleRow}>
-              {kanDras ? (
-                <View
-                  style={[styles.grip, WEB_DRAG_STYLE]}
-                  {...makeDragResponder(song.id, grupp.map((s) => s.id))
-                    .panHandlers}
-                >
-                  <GripIcon color={isDragging ? t.accent : t.textMuted} />
-                </View>
-              ) : null}
-              {/* Uppfälld visar den stora taktvisaren i stället — då säger den
-                  lilla ingenting nytt. */}
-              {isExpanded ? null : (
-                <MiniMetronome
-                  bpm={song.bpm}
-                  color={isPlayingTempo ? t.accent : t.textMuted}
-                  pulse={isPlayingTempo ? pulse : null}
-                />
-              )}
-              <Text style={styles.title} numberOfLines={2}>
-                {song.title}
-              </Text>
-              {/* Uppfälld: taktvisaren mitt i raden och tempot ytterst till
-                  höger. Titeln och knappen tar sina bredder, taktvisaren
-                  resten — då hamnar den så nära mitten som raden tillåter. */}
-              {isExpanded ? (
-                <>
-                  <View style={styles.headerMetronome}>{taktvisare}</View>
-                  {tempoKnapp}
-                </>
-              ) : null}
+          /**
+           * Uppfälld ligger texten i en egen spalt till vänster: rubriken
+           * högst upp med underrubrikerna direkt under. Taktvisaren tar
+           * platsen som blir över och tempot står ytterst till höger.
+           */
+          <View style={isExpanded ? styles.expandedHeader : undefined}>
+            <View style={isExpanded ? styles.headerText : undefined}>
+              <View style={styles.titleRow}>
+                {kanDras ? (
+                  <View
+                    style={[styles.grip, WEB_DRAG_STYLE]}
+                    {...dragResponderFor(song.id).panHandlers}
+                  >
+                    <GripIcon color={isDragging ? t.accent : t.textMuted} />
+                  </View>
+                ) : null}
+                {/* Uppfälld visar den stora taktvisaren i stället — då säger
+                    den lilla ingenting nytt. */}
+                {isExpanded ? null : (
+                  <MiniMetronome
+                    bpm={song.bpm}
+                    color={isPlayingTempo ? t.accent : t.textMuted}
+                    pulse={isPlayingTempo ? pulse : null}
+                  />
+                )}
+                <Text style={styles.title} numberOfLines={2}>
+                  {song.title}
+                </Text>
+              </View>
+              {underrubriker}
             </View>
-            <Text style={styles.meta}>
-              {song.bpm} slag/min · {song.beatsPerBar}/4 ·{' '}
-              {song.tuningSystem === 'just'
-                ? `ren, grundton ${noteName(song.tonicPitchClass, settings.naming)}`
-                : 'tempererad'}
-            </Text>
-            {song.tones.length > 0 ? (
-              <Text style={styles.tones}>
-                Toner:{' '}
-                {song.tones
-                  .map((midi) => noteNameWithOctave(midi, settings.naming))
-                  .join('  ')}
-              </Text>
-            ) : (
-              <Text style={styles.tonesEmpty}>Inga sparade toner</Text>
-            )}
+            {isExpanded ? (
+              <>
+                <View style={styles.headerMetronome}>{taktvisare}</View>
+                {tempoKnapp(styles.headerTempo)}
+              </>
+            ) : null}
           </View>
         )}
 
@@ -512,7 +561,7 @@ export function SongsScreen({
           {/* Tempot sist i raden: tongivningen hör ihop och ska stå samlad,
               och metronomen är det enda som fortsätter låta efter trycket.
               Uppfälld har knappen flyttat upp till taktvisaren i stället. */}
-          {isExpanded ? null : tempoKnapp}
+          {isExpanded ? null : tempoKnapp(styles.quickButton)}
         </View>
 
         {/* Uppfällt kort: ett piano där bara låtens toner går att spela, i
@@ -859,6 +908,26 @@ const makeStyles = (t: Palette) => StyleSheet.create({
   headerMetronome: {
     flex: 1,
     minWidth: 120,
+  },
+  expandedHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  // Texten tar sin naturliga bredd men får krympa när titeln är lång.
+  headerText: {
+    flexShrink: 1,
+  },
+  /**
+   * Tempot i rubriken: bara så stort som texten kräver. Det växer inte med
+   * raden, eftersom överflödet hör till taktvisaren bredvid.
+   */
+  headerTempo: {
+    flexGrow: 0,
+    flexShrink: 0,
+    flexBasis: 'auto',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   /** Greppet: liten yta, men hög nog att träffa med tummen. */
   grip: {
