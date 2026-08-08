@@ -19,6 +19,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { audioEngine } from '../audio/engine';
 import { DEFAULT_TIMBRE, TimbreId } from '../audio/timbres';
+import { DEFAULT_SONGS } from '../store/defaultSongs';
 import { metronome } from '../audio/metronome';
 import { DEFAULT_SUBDIVISION, SubdivisionId } from '../audio/subdivisions';
 import { ThemeProvider } from '../ThemeContext';
@@ -265,8 +266,15 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         }
         const laddadeMappar = sortFolders(parseFolders(foldersJson));
         setFolders(laddadeMappar);
+        /**
+         * Bara en orörd lagring får de medföljande låtarna. Har appen skrivit
+         * en gång står det "[]" här, och ett tomt bibliotek betyder att man
+         * tagit bort dem med flit — då ska de inte komma tillbaka.
+         */
+        const laddadeLatar =
+          songsJson === null ? DEFAULT_SONGS : parseLibrary(songsJson);
         // Låtar vars mapp saknas hamnar löst i listan i stället för att döljas.
-        setSongs(sortSongs(withValidFolders(parseLibrary(songsJson), laddadeMappar)));
+        setSongs(sortSongs(withValidFolders(laddadeLatar, laddadeMappar)));
         if (settingsJson) {
           try {
             const parsed = JSON.parse(settingsJson) as Partial<Settings>;

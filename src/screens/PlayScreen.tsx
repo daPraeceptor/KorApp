@@ -243,10 +243,11 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
       {currentSong ? (
         <Pressable style={styles.songBar} onPress={onOpenSongs}>
           <View style={styles.songBarText}>
+            {/* Bara titeln. Listfliken är den självklara vägen till låtarna,
+                så raden behöver inte förklara sig. */}
             <Text style={styles.songTitle} numberOfLines={1}>
               {currentSong.title}
             </Text>
-            <Text style={styles.songHint}>Tryck för att byta låt</Text>
           </View>
           {hasUnsavedChanges ? (
             <Button
@@ -622,11 +623,6 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     color: t.text,
     fontSize: 19,
     fontWeight: '700',
-  },
-  songHint: {
-    color: t.textMuted,
-    fontSize: 12,
-    marginTop: 2,
   },
   saveButton: {
     paddingVertical: 9,

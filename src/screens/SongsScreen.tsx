@@ -294,31 +294,45 @@ export function SongsScreen({
             }
             style={styles.quickButton}
           />
-          <Button
-            label="♪ Ackord"
-            variant="pure"
-            disabled={song.tones.length === 0}
-            onPress={() => playTones('chord', song)}
-            style={styles.quickButton}
-          />
-          <Button
-            label="♪ ↑"
-            disabled={song.tones.length === 0}
-            onPress={() => playTones('up', song)}
-            style={styles.quickButton}
-          />
-          <Button
-            label="♪ ↓"
-            disabled={song.tones.length === 0}
-            onPress={() => playTones('down', song)}
-            style={styles.quickButton}
-          />
-          <Button
-            label="♪ ⇢"
-            disabled={song.tones.length === 0}
-            onPress={() => playTones('chosen', song)}
-            style={styles.quickButton}
-          />
+          {/* En ensam ton har varken ackord eller ordning — bara sig själv,
+              och behöver därför bara en knapp. */}
+          {song.tones.length > 1 ? (
+            <>
+              <Button
+                label="♪ Ackord"
+                variant="pure"
+                onPress={() => playTones('chord', song)}
+                style={styles.quickButton}
+              />
+              <Button
+                label="♪ ↑"
+                onPress={() => playTones('up', song)}
+                style={styles.quickButton}
+              />
+              <Button
+                label="♪ ↓"
+                onPress={() => playTones('down', song)}
+                style={styles.quickButton}
+              />
+              <Button
+                label="♪ ⇢"
+                onPress={() => playTones('chosen', song)}
+                style={styles.quickButton}
+              />
+            </>
+          ) : (
+            <Button
+              label={
+                song.tones.length === 1
+                  ? `♪ ${noteNameWithOctave(song.tones[0], settings.naming)}`
+                  : '♪ Inga toner'
+              }
+              variant="pure"
+              disabled={song.tones.length === 0}
+              onPress={() => playTones('chord', song)}
+              style={styles.quickButton}
+            />
+          )}
         </View>
 
         {/* Uppfällt kort: stor taktvisare och ett piano där bara låtens toner
