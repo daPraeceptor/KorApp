@@ -5,14 +5,23 @@
  * behöver. Mappar är avsiktligt platta: en nivå räcker för ett repertoarregister,
  * och slipper man undermappar slipper man också fundera på var en låt tog vägen.
  */
-import React, { useEffect, useMemo, useReducer, useState } from 'react';
+import React, {
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from 'react';
 import {
+  PanResponder,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
+  ViewStyle,
 } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 
@@ -95,6 +104,26 @@ function MiniMetronome({
   );
 }
 
+/** Greppet man drar i för att flytta en låt i ordningen. */
+function GripIcon({ color }: { color: string }) {
+  return (
+    <Svg width={20} height={20} viewBox="0 0 20 20">
+      {[6, 10, 14].map((y) => (
+        <React.Fragment key={y}>
+          <Circle cx={7} cy={y} r={1.7} fill={color} />
+          <Circle cx={13} cy={y} r={1.7} fill={color} />
+        </React.Fragment>
+      ))}
+    </Svg>
+  );
+}
+
+/** Webbläsaren tolkar annars dragningen som en sidscroll. */
+const WEB_DRAG_STYLE =
+  Platform.OS === 'web'
+    ? ({ touchAction: 'none', userSelect: 'none' } as unknown as ViewStyle)
+    : undefined;
+
 /** Överstruken högtalare: tystnad — trycket stoppar det som spelas. */
 function MutedSpeakerIcon({ color }: { color: string }) {
   return (
@@ -148,6 +177,7 @@ export function SongsScreen({
     renameFolder,
     deleteFolder,
     moveSongToFolder,
+    moveSongInFolder,
     playTones,
     playSongTempo,
     stopMetronome,
@@ -163,10 +193,69 @@ export function SongsScreen({
   /** Låten vars kort är uppfällt med spelbart piano. */
   const [expandedId, setExpandedId] = useState<string | null>(null);
   /**
-   * Kortens bredd, mätt på det uppfällda. Alla kort är lika breda, så ett
-   * mått räcker för att avgöra om taktvisaren ryms bredvid klaviaturen.
+   * Omflyttning genom dragning.
+   *
+   * Kortens höjder skiljer sig åt — ett uppfällt kort med piano är mångdubbelt
+   * högre än ett hopfällt — och utan dem går det inte att veta när fingret
+   * passerat en granne. Måtten tas med measureInWindow när greppet tas, inte
+   * med onLayout: den senare avfyras aldrig för de här korten.
    */
-  const [cardWidth, setCardWidth] = useState(0);
+  const cardRefs = useRef(new Map<string, View | null>());
+  const heights = useRef(new Map<string, number>());
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOffset, setDragOffset] = useState(0);
+  /** Grannarnas ordning just nu, så att dragningen ser sina egna byten. */
+  const dragGroup = useRef<string[]>([]);
+  /** Hur långt de redan gjorda bytena flyttat kortet. */
+  const dragCommitted = useRef(0);
+
+  const makeDragResponder = (songId: string, group: string[]) =>
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderGrant: () => {
+        // Mät hela gruppen nu: höjderna kan ha ändrats sedan sist, och de
+        // behövs redan vid första rörelsen.
+        group.forEach((id) =>
+          cardRefs.current
+            .get(id)
+            ?.measureInWindow((_x, _y, _w, h) => heights.current.set(id, h)),
+        );
+        dragGroup.current = group;
+        dragCommitted.current = 0;
+        setDragOffset(0);
+        setDraggingId(songId);
+      },
+      onPanResponderMove: (_event, gesture) => {
+        const plats = dragGroup.current.indexOf(songId);
+        const kvar = gesture.dy - dragCommitted.current;
+
+        // Bytet sker när fingret passerat halva grannen — samma tröskel åt
+        // båda håll, så att kortet inte fastnar mellan två lägen.
+        const granne =
+          kvar > 0 ? dragGroup.current[plats + 1] : dragGroup.current[plats - 1];
+        const höjd = granne ? heights.current.get(granne) ?? 0 : 0;
+
+        if (granne && höjd > 0 && Math.abs(kvar) > höjd / 2) {
+          const riktning: -1 | 1 = kvar > 0 ? 1 : -1;
+          moveSongInFolder(songId, riktning);
+          const ny = [...dragGroup.current];
+          [ny[plats], ny[plats + riktning]] = [ny[plats + riktning], ny[plats]];
+          dragGroup.current = ny;
+          dragCommitted.current += riktning * höjd;
+        }
+        setDragOffset(gesture.dy - dragCommitted.current);
+      },
+      onPanResponderRelease: () => {
+        setDraggingId(null);
+        setDragOffset(0);
+      },
+      onPanResponderTerminate: () => {
+        setDraggingId(null);
+        setDragOffset(0);
+      },
+    });
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [draftFolderName, setDraftFolderName] = useState('');
   const [confirmDeleteFolderId, setConfirmDeleteFolderId] = useState<string | null>(
@@ -208,7 +297,11 @@ export function SongsScreen({
       current.includes(id) ? current.filter((x) => x !== id) : [...current, id],
     );
 
-  const renderSong = (song: Song) => {
+  /**
+   * @param grupp låtarna i samma mapp, i visad ordning. Dragningen behöver
+   *              känna sina grannar för att veta vad den byter plats med.
+   */
+  const renderSong = (song: Song, grupp: Song[] = []) => {
     const isCurrent = currentSong?.id === song.id;
     const isEditing = editingId === song.id;
     const isConfirming = confirmDeleteId === song.id;
@@ -216,12 +309,21 @@ export function SongsScreen({
     const isPlayingTempo = isCurrent && metronomeRunning;
     const isExpanded = expandedId === song.id;
 
-    /**
-     * Bredvid klaviaturen ryms taktvisaren bara på breda skärmar. På en telefon
-     * skulle den tränga ihop tangenterna, och då står den kvar uppe vid
-     * rubriken i stället — men skjuten åt höger, inte mitt i vägen.
-     */
-    const rumBredvid = cardWidth >= 520;
+    const tempoKnapp = (
+      <Button
+        label={isPlayingTempo ? 'Stoppa tempo' : '▶ Tempo'}
+        renderIcon={
+          isPlayingTempo
+            ? (color) => <MutedSpeakerIcon color={color} />
+            : undefined
+        }
+        variant="primary"
+        onPress={() =>
+          isPlayingTempo ? stopMetronome() : void playSongTempo(song)
+        }
+        style={styles.quickButton}
+      />
+    );
 
     const taktvisare = (
       <MetronomeVisual
@@ -267,11 +369,32 @@ export function SongsScreen({
         </Text>
       );
 
+    const isDragging = draggingId === song.id;
+    // Bara en grupp med flera låtar går att ordna om, och inte i konsertläget.
+    const kanDras = !locked && grupp.length > 1;
+
     return (
-      <Card
+      /**
+       * Höjden mäts på omslaget och inte på kortet: react-native-webs Pressable
+       * skickar inte vidare onLayout, och kortet är en Pressable så fort det
+       * går att trycka på. Utan måttet vet dragningen inte när fingret passerat
+       * en granne.
+       */
+      <View
         key={song.id}
+        ref={(el) => {
+          cardRefs.current.set(song.id, el);
+        }}
+      >
+      <Card
         // Den valda låten får accentramen — samma ram som när metronomen går.
-        style={isCurrent ? styles.currentCard : undefined}
+        // Den dragna lyfts ur listan så att man ser vad man håller i.
+        style={[
+          isCurrent ? styles.currentCard : undefined,
+          isDragging
+            ? { ...styles.draggingCard, transform: [{ translateY: dragOffset }] }
+            : undefined,
+        ].reduce((a, b) => ({ ...a, ...b }), {})}
         // Ett tryck var som helst i rutan väljer låten och fäller upp pianot.
         // Trycket fäller aldrig ihop igen — den uppfällda rutan är full av
         // knappar och tangenter, och ett tryck bredvid dem skulle rycka undan
@@ -280,15 +403,7 @@ export function SongsScreen({
           loadSong(song.id);
           setExpandedId(song.id);
         }}
-        onLayout={(e) => setCardWidth(e.nativeEvent.layout.width)}
       >
-        {/* Utan plats bredvid klaviaturen står taktvisaren uppe vid rubriken,
-            skjuten åt höger. Stilen är den som valts i spelvyn — samma bild på
-            båda ställena, så man slipper lära om vad man tittar på. */}
-        {isExpanded && !rumBredvid ? (
-          <View style={styles.metronomeCorner}>{taktvisare}</View>
-        ) : null}
-
         {isEditing ? (
           <View style={styles.editRow}>
             <TextInput
@@ -304,14 +419,36 @@ export function SongsScreen({
         ) : (
           <View>
             <View style={styles.titleRow}>
-              <MiniMetronome
-                bpm={song.bpm}
-                color={isPlayingTempo ? t.accent : t.textMuted}
-                pulse={isPlayingTempo ? pulse : null}
-              />
+              {kanDras ? (
+                <View
+                  style={[styles.grip, WEB_DRAG_STYLE]}
+                  {...makeDragResponder(song.id, grupp.map((s) => s.id))
+                    .panHandlers}
+                >
+                  <GripIcon color={isDragging ? t.accent : t.textMuted} />
+                </View>
+              ) : null}
+              {/* Uppfälld visar den stora taktvisaren i stället — då säger den
+                  lilla ingenting nytt. */}
+              {isExpanded ? null : (
+                <MiniMetronome
+                  bpm={song.bpm}
+                  color={isPlayingTempo ? t.accent : t.textMuted}
+                  pulse={isPlayingTempo ? pulse : null}
+                />
+              )}
               <Text style={styles.title} numberOfLines={2}>
                 {song.title}
               </Text>
+              {/* Uppfälld: taktvisaren mitt i raden och tempot ytterst till
+                  höger. Titeln och knappen tar sina bredder, taktvisaren
+                  resten — då hamnar den så nära mitten som raden tillåter. */}
+              {isExpanded ? (
+                <>
+                  <View style={styles.headerMetronome}>{taktvisare}</View>
+                  {tempoKnapp}
+                </>
+              ) : null}
             </View>
             <Text style={styles.meta}>
               {song.bpm} slag/min · {song.beatsPerBar}/4 ·{' '}
@@ -373,35 +510,15 @@ export function SongsScreen({
             />
           )}
           {/* Tempot sist i raden: tongivningen hör ihop och ska stå samlad,
-              och metronomen är det enda som fortsätter låta efter trycket. */}
-          <Button
-            label={isPlayingTempo ? 'Stoppa tempo' : '▶ Tempo'}
-            renderIcon={
-              isPlayingTempo
-                ? (color) => <MutedSpeakerIcon color={color} />
-                : undefined
-            }
-            variant="primary"
-            onPress={() =>
-              isPlayingTempo ? stopMetronome() : void playSongTempo(song)
-            }
-            style={styles.quickButton}
-          />
+              och metronomen är det enda som fortsätter låta efter trycket.
+              Uppfälld har knappen flyttat upp till taktvisaren i stället. */}
+          {isExpanded ? null : tempoKnapp}
         </View>
 
         {/* Uppfällt kort: ett piano där bara låtens toner går att spela, i
             låtens egen stämning. Ren uppspelning — inget går att ändra
             härifrån. Med plats står taktvisaren till höger om klaviaturen. */}
-        {isExpanded ? (
-          rumBredvid ? (
-            <View style={styles.expandedRow}>
-              <View style={styles.expandedKeyboard}>{klaviatur}</View>
-              <View style={styles.metronomeSide}>{taktvisare}</View>
-            </View>
-          ) : (
-            klaviatur
-          )
-        ) : null}
+        {isExpanded ? klaviatur : null}
 
         {isMoving ? (
           <View style={styles.moveBox}>
@@ -506,6 +623,7 @@ export function SongsScreen({
           </View>
         )}
       </Card>
+      </View>
     );
   };
 
@@ -646,7 +764,7 @@ export function SongsScreen({
                     Mappen är tom. Använd «Flytta» på en låt för att lägga den här.
                   </Text>
                 ) : (
-                  inFolder.map(renderSong)
+                  inFolder.map((song) => renderSong(song, inFolder))
                 )}
               </View>
             ) : null}
@@ -660,7 +778,7 @@ export function SongsScreen({
         </SectionTitle>
       ) : null}
 
-      {loose.map(renderSong)}
+      {loose.map((song) => renderSong(song, loose))}
 
       {/* Mappskapandet ligger under låtarna: det används sällan och ska inte
           stå i vägen för listan man faktiskt kom för. Göms i låst läge. */}
@@ -734,22 +852,25 @@ const makeStyles = (t: Palette) => StyleSheet.create({
   lockRow: {
     flexDirection: 'row',
   },
-  /** Taktvisaren uppe vid rubriken när den inte ryms bredvid klaviaturen. */
-  metronomeCorner: {
-    alignSelf: 'flex-end',
-    width: 170,
-  },
-  expandedRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  // Klaviaturen tar resten: den rullar i sidled och klarar vilken bredd som helst.
-  expandedKeyboard: {
+  /**
+   * Taktvisaren tar all plats som blir över mellan titeln och tempoknappen,
+   * så att den hamnar så nära radens mitt som innehållet tillåter.
+   */
+  headerMetronome: {
     flex: 1,
+    minWidth: 120,
   },
-  metronomeSide: {
-    width: 170,
+  /** Greppet: liten yta, men hög nog att träffa med tummen. */
+  grip: {
+    paddingVertical: 6,
+    paddingRight: 2,
+  },
+  // Det dragna kortet lyfts ur listan så att man ser vad man håller i.
+  draggingCard: {
+    opacity: 0.92,
+    borderColor: t.accent,
+    elevation: 8,
+    zIndex: 20,
   },
   input: {
     backgroundColor: t.surfaceRaised,

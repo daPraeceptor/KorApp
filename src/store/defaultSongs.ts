@@ -20,6 +20,7 @@ import type { Song } from './songs.ts';
 export const DEFAULT_SONGS: Song[] = [
   {
     id: 'standard-aftonen',
+    sortIndex: 1,
     title: 'Aftonen',
     bpm: 62,
     beatsPerBar: 4,
@@ -34,6 +35,7 @@ export const DEFAULT_SONGS: Song[] = [
   },
   {
     id: 'standard-kung-liljekonvalje',
+    sortIndex: 2,
     title: 'Kung Liljekonvalje',
     bpm: 52,
     beatsPerBar: 4,
@@ -47,6 +49,7 @@ export const DEFAULT_SONGS: Song[] = [
   },
   {
     id: 'standard-sommarpsalm',
+    sortIndex: 3,
     title: 'Sommarpsalm – En vänlig grönskas rika dräkt',
     bpm: 114,
     beatsPerBar: 4,
@@ -60,6 +63,7 @@ export const DEFAULT_SONGS: Song[] = [
   },
   {
     id: 'standard-uti-var-hage',
+    sortIndex: 4,
     title: 'Uti vår hage',
     bpm: 118,
     beatsPerBar: 3,

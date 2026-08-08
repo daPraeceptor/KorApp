@@ -29,6 +29,13 @@ export interface Song {
   updatedAt: number;
   /** Mappen låten ligger i. null betyder att den ligger löst i listan. */
   folderId: string | null;
+  /**
+   * Låtens plats i sin egen grupp, satt av körledaren. En konsert går i sin
+   * ordning, inte i bokstavsordning. Noll betyder oplacerad — då faller
+   * sorteringen tillbaka på titeln, vilket är hur biblioteket såg ut innan
+   * ordningen fanns.
+   */
+  sortIndex: number;
 }
 
 /** En mapp att samla låtar i, till exempel en konsert eller en termin. */
@@ -131,6 +138,7 @@ export function createSong(partial: Partial<Song> = {}): Song {
     notes: '',
     updatedAt: Date.now(),
     folderId: null,
+    sortIndex: 0,
     ...partial,
   };
 }
@@ -174,6 +182,8 @@ export function normalizeSong(raw: unknown): Song | null {
     notes: typeof value.notes === 'string' ? value.notes : '',
     updatedAt: number(value.updatedAt, Date.now()),
     folderId: typeof value.folderId === 'string' ? value.folderId : null,
+    // Bibliotek sparade före ordningen fanns får noll och sorteras på titel.
+    sortIndex: Math.max(0, Math.round(number(value.sortIndex, 0))),
   };
 }
 
@@ -195,8 +205,51 @@ export function parseLibrary(json: string | null): Song[] {
   }
 }
 
+/**
+ * Ordnar biblioteket: körledarens egen följd först, titeln som utslag.
+ *
+ * Oplacerade låtar har noll och hamnar därför överst, i bokstavsordning —
+ * så ser en mapp ut tills någon börjat flytta om i den.
+ */
 export function sortSongs(songs: Song[]): Song[] {
-  return [...songs].sort((a, b) => a.title.localeCompare(b.title, 'sv'));
+  return [...songs].sort(
+    (a, b) =>
+      a.sortIndex - b.sortIndex || a.title.localeCompare(b.title, 'sv'),
+  );
+}
+
+/**
+ * Flyttar en låt ett steg upp eller ner bland sina grannar i samma mapp.
+ *
+ * Hela gruppen numreras om från ett innan bytet. Utan det skulle låtar som
+ * aldrig flyttats alla ligga på noll, och ett byte mellan två nollor skulle
+ * inte synas.
+ */
+export function moveSongInFolder(
+  songs: Song[],
+  songId: string,
+  direction: -1 | 1,
+): Song[] {
+  const song = songs.find((candidate) => candidate.id === songId);
+  if (!song) {
+    return songs;
+  }
+
+  const grupp = sortSongs(songs.filter((s) => s.folderId === song.folderId));
+  const från = grupp.findIndex((s) => s.id === songId);
+  const till = från + direction;
+  if (från < 0 || till < 0 || till >= grupp.length) {
+    return songs;
+  }
+
+  const omflyttad = [...grupp];
+  [omflyttad[från], omflyttad[till]] = [omflyttad[till], omflyttad[från]];
+
+  // Numreringen börjar på ett, så att noll fortsätter betyda oplacerad.
+  const nyaIndex = new Map(omflyttad.map((s, index) => [s.id, index + 1]));
+  return songs.map((s) =>
+    nyaIndex.has(s.id) ? { ...s, sortIndex: nyaIndex.get(s.id)! } : s,
+  );
 }
 
 /** Ställer tonerna i den följd de ska spelas. */

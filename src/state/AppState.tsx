@@ -41,6 +41,7 @@ import {
   Song,
   createFolder,
   createSong,
+  moveSongInFolder as flyttaILista,
   orderTones,
   parseFolders,
   parseLibrary,
@@ -224,6 +225,8 @@ interface AppStateValue {
   /** Tar bort mappen. Låtarna i den blir kvar men hamnar löst i listan. */
   deleteFolder: (id: string) => void;
   moveSongToFolder: (songId: string, folderId: string | null) => void;
+  /** Flyttar låten ett steg upp (-1) eller ner (1) bland grannarna i mappen. */
+  moveSongInFolder: (songId: string, direction: -1 | 1) => void;
 
   addSong: (title: string) => Song;
   updateSong: (id: string, patch: Partial<Song>) => void;
@@ -529,6 +532,18 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     );
   }, []);
 
+  /**
+   * Flyttar en låt ett steg bland sina grannar i samma mapp. Dragningen i
+   * listan ropar hit varje gång fingret passerat en granne, så att listan
+   * ordnar om sig medan man drar.
+   */
+  const moveSongInFolder = useCallback(
+    (songId: string, direction: -1 | 1) => {
+      setSongs((current) => sortSongs(flyttaILista(current, songId, direction)));
+    },
+    [],
+  );
+
   const updateSong = useCallback((id: string, patch: Partial<Song>) => {
     setSongs((current) =>
       sortSongs(
@@ -601,6 +616,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       renameFolder,
       deleteFolder,
       moveSongToFolder,
+      moveSongInFolder,
       addSong,
       updateSong,
       deleteSong,
@@ -633,6 +649,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       renameFolder,
       deleteFolder,
       moveSongToFolder,
+      moveSongInFolder,
       addSong,
       updateSong,
       deleteSong,

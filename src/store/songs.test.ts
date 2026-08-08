@@ -3,12 +3,15 @@ import assert from 'node:assert/strict';
 
 import {
   MAX_TONES,
+  type Song,
   createFolder,
+  moveSongInFolder,
   normalizeSong,
   orderTones,
   parseFolders,
   parseLibrary,
   searchSongs,
+  sortSongs,
   toggleTone,
   withValidFolders,
 } from './songs.ts';
@@ -191,4 +194,79 @@ test('trasig lagring ger ett tomt bibliotek i stället för krasch', () => {
   assert.deepEqual(parseLibrary('{ trasig json'), []);
   assert.deepEqual(parseLibrary(null), []);
   assert.deepEqual(parseLibrary('{"inte":"en lista"}'), []);
+});
+
+/**
+ * Bygger en låt med bara det omflyttningen bryr sig om. Till skillnad från
+ * `lat` ovan typas den som Song, eftersom testerna läser sortIndex tillbaka.
+ */
+const iOrdning = (
+  id: string,
+  title: string,
+  sortIndex: number,
+  folderId: string | null = null,
+) => ({ id, title, sortIndex, folderId }) as unknown as Song;
+
+test('omflyttning byter plats med grannen och numrerar om gruppen', () => {
+  const songs = [
+    iOrdning('a', 'Ada', 1, 'f'),
+    iOrdning('b', 'Bo', 2, 'f'),
+    iOrdning('c', 'Cia', 3, 'f'),
+  ];
+  const ned = moveSongInFolder(songs, 'a', 1);
+  assert.deepEqual(
+    sortSongs(ned).map((s) => s.id),
+    ['b', 'a', 'c'],
+  );
+  const upp = moveSongInFolder(ned, 'a', -1);
+  assert.deepEqual(
+    sortSongs(upp).map((s) => s.id),
+    ['a', 'b', 'c'],
+  );
+});
+
+test('oplacerade låtar får en ordning så att första bytet syns', () => {
+  // Alla på noll: utan omnumrering skulle bytet inte ändra sorteringen alls.
+  const songs = [
+    iOrdning('a', 'Ada', 0, 'f'),
+    iOrdning('b', 'Bo', 0, 'f'),
+  ];
+  const efter = moveSongInFolder(songs, 'a', 1);
+  assert.deepEqual(
+    sortSongs(efter).map((s) => s.id),
+    ['b', 'a'],
+  );
+  assert.ok(efter.every((s) => s.sortIndex > 0), 'alla ska ha fått en plats');
+});
+
+test('omflyttning stannar vid gruppens kanter', () => {
+  const songs = [iOrdning('a', 'Ada', 1, 'f'), iOrdning('b', 'Bo', 2, 'f')];
+  assert.deepEqual(moveSongInFolder(songs, 'a', -1), songs, 'första kan inte upp');
+  assert.deepEqual(moveSongInFolder(songs, 'b', 1), songs, 'sista kan inte ner');
+  assert.deepEqual(moveSongInFolder(songs, 'finns-inte', 1), songs);
+});
+
+test('omflyttning rör bara den egna mappen', () => {
+  const songs = [
+    iOrdning('a', 'Ada', 1, 'f'),
+    iOrdning('b', 'Bo', 2, 'f'),
+    iOrdning('x', 'Xerxes', 1, 'g'),
+    iOrdning('y', 'Yvonne', 2, null),
+  ];
+  const efter = moveSongInFolder(songs, 'a', 1);
+  const orörd = (id: string) =>
+    efter.find((s) => s.id === id)!.sortIndex ===
+    songs.find((s) => s.id === id)!.sortIndex;
+  assert.ok(orörd('x'), 'annan mapp ska stå still');
+  assert.ok(orörd('y'), 'lösa låtar ska stå still');
+});
+
+test('sorteringen sätter körledarens ordning före bokstavsordningen', () => {
+  const songs = [iOrdning('z', 'Åsa', 1), iOrdning('a', 'Ada', 2)];
+  assert.deepEqual(sortSongs(songs).map((s) => s.id), ['z', 'a']);
+});
+
+test('oplacerade låtar ligger i bokstavsordning', () => {
+  const songs = [iOrdning('b', 'Bo', 0), iOrdning('a', 'Ada', 0)];
+  assert.deepEqual(sortSongs(songs).map((s) => s.id), ['a', 'b']);
 });
