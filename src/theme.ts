@@ -256,7 +256,10 @@ export function buildPalette(id: ThemeId): Palette {
     accentSurface: blanda(c.surface, c.accent, 0.18),
 
     keyWhitePressed: blanda(c.keyWhite, c.dark ? '#000000' : c.text, 0.16),
-    keyWhiteBorder: blanda(c.keyWhite, c.text, 0.22),
+    // Kanten måste dras mot temats mörka ände, inte mot textfärgen. I ett
+    // mörkt tema är texten nästan vit, och en vit kant på en vit tangent
+    // lämnade klaviaturen utan synliga skiljelinjer.
+    keyWhiteBorder: blanda(c.keyWhite, bläck, 0.34),
     keyBlackPressed: blanda(c.keyBlack, c.text, 0.25),
     keyBlackBorder: blanda(c.keyBlack, '#000000', 0.35),
     keyLabel: blanda(c.keyWhite, c.text, 0.55),

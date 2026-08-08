@@ -181,8 +181,13 @@ export function Keyboard({
     [onNotePlayed],
   );
 
+  /**
+   * I uppspelningsläget färgas ingen tangent, oavsett vad anroparen ber om.
+   * Klaviaturen ska läsas som ett piano: vita och svarta tangenter, och
+   * tonerna utpekade med prickar i stället för med kulör.
+   */
   const isTonic = (midi: number) =>
-    markTonic && pitchClass(midi) === tuning.tonicPitchClass;
+    !playableTones && markTonic && pitchClass(midi) === tuning.tonicPitchClass;
 
   const renderLabel = (midi: number, black: boolean) => {
     if (!showLabels) {
