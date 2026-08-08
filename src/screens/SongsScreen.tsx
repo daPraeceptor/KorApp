@@ -216,12 +216,13 @@ export function SongsScreen({
         key={song.id}
         // Den valda låten får accentramen — samma ram som när metronomen går.
         style={isCurrent ? styles.currentCard : undefined}
-        // Ett tryck var som helst i rutan väljer låten och fäller upp
-        // pianot. Ren uppspelning, därför tillåtet även i konsertläget —
-        // knapparna i rutan tar sina egna tryck som vanligt.
+        // Ett tryck var som helst i rutan väljer låten och fäller upp pianot.
+        // Trycket fäller aldrig ihop igen — den uppfällda rutan är full av
+        // knappar och tangenter, och ett tryck bredvid dem skulle rycka undan
+        // det man siktade på. Rutan stängs först när en annan låt väljs.
         onPress={() => {
           loadSong(song.id);
-          setExpandedId((current) => (current === song.id ? null : song.id));
+          setExpandedId(song.id);
         }}
       >
         {/* Uppfälld låt får taktvisaren överst, i den stil som valts i
