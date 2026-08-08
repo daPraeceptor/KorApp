@@ -220,7 +220,7 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
   );
 
   const toneCount = live.tones.length;
-  // Tonikan går bara att sätta där den betyder något, så tipset följer
+  // Grundtonen går bara att sätta där den betyder något, så tipset följer
   // markeringen i stället för att stå kvar och lova något som inte händer.
   const markTonic = live.tuningSystem === 'just' || settings.markTonicInTempered;
   const cents = displayedNote === null ? 0 : centsFromTempered(displayedNote, tuning);
@@ -483,7 +483,7 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
           }
           selectedTones={live.tones}
           selectMode={selectMode}
-          // Tonikan styr både den rena stämningen och solmisationen, så den
+          // Grundtonen styr både den rena stämningen och solmisationen, så den
           // sätts utan att stämningssystemet ändras med.
           onSetTonic={(pitchClass) => updateLive({ tonicPitchClass: pitchClass })}
           onToggleTone={toggleTone}

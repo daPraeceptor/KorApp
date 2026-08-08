@@ -62,20 +62,20 @@ test('svarta tangenter är just de fem halvtonsstegen', () => {
   );
 });
 
-test('tonikan har samma frekvens i båda stämningarna', () => {
-  // Ankaret gör att körledaren kan ge tonikan från en fast referens.
+test('grundtonen har samma frekvens i båda stämningarna', () => {
+  // Ankaret gör att körledaren kan ge grundtonen från en fast referens.
   for (const pc of [0, 2, 5, 7, 9, 11]) {
     close(
       justFrequency(60 + pc, pc),
       temperedFrequency(60 + pc),
       1e-9,
-      `tonika med tonklass ${pc}`,
+      `grundton med tonklass ${pc}`,
     );
   }
 });
 
-test('ren kvint är exakt 3/2 över tonikan', () => {
-  const tonic = justFrequency(60, 0); // C4 som tonika
+test('ren kvint är exakt 3/2 över grundtonen', () => {
+  const tonic = justFrequency(60, 0); // C4 som grundton
   close(justFrequency(67, 0) / tonic, 3 / 2, 1e-12, 'C4 till G4');
 });
 
@@ -99,12 +99,12 @@ test('ren stämning ger exakta oktaver även flera oktaver bort', () => {
   close(frequencyOf(40, tuning) / low, 0.5, 1e-12, 'en oktav ner');
 });
 
-test('toner under tonikan får rätt kvot', () => {
-  // En halvton under tonikan ska vara 15/16 av tonikan, inte 16/15.
+test('toner under grundtonen får rätt kvot', () => {
+  // En halvton under grundtonen ska vara 15/16 av grundtonen, inte 16/15.
   const tonic = justFrequency(60, 0);
   close(justFrequency(59, 0) / tonic, 15 / 16, 1e-12, 'H3 under C4');
-  close(justFrequency(55, 0) / tonic, 3 / 4, 1e-12, 'G3, kvart under tonikan');
-  close(justFrequency(53, 0) / tonic, 2 / 3, 1e-12, 'F3, kvint under tonikan');
+  close(justFrequency(55, 0) / tonic, 3 / 4, 1e-12, 'G3, kvart under grundtonen');
+  close(justFrequency(53, 0) / tonic, 2 / 3, 1e-12, 'F3, kvint under grundtonen');
 });
 
 test('durtreklangen är svävningsfri i ren stämning', () => {
@@ -144,21 +144,21 @@ test('solmisation från C ger do re mi på den vita skalan', () => {
   ]);
 });
 
-test('solmisation flyttar med tonikan', () => {
-  // Med G som tonika blir G do. F är då sänkt septim och heter te, inte ti —
+test('solmisation flyttar med grundtonen', () => {
+  // Med G som grundton blir G do. F är då sänkt septim och heter te, inte ti —
   // ledtonen i G-dur är F♯.
   assert.deepEqual(etiketter('solfege', 'tonic', 7), [
     'fa', 'sol', 'la', 'te', 'do', 're', 'mi',
   ]);
 });
 
-test('tonplatser skrivs som romerska siffror och räknas från tonikan', () => {
+test('tonplatser skrivs som romerska siffror och räknas från grundtonen', () => {
   assert.deepEqual(etiketter('degrees', 'tonic', 2), [
     '♭VII', 'I', 'II', '♭III', 'IV', 'V', 'VI',
   ]);
 });
 
-test('fast referens struntar i tonikan', () => {
+test('fast referens struntar i grundtonen', () => {
   assert.deepEqual(etiketter('degrees', 'c', 5), etiketter('degrees', 'c', 0));
 });
 
@@ -211,7 +211,7 @@ test('alla tolv tonplatser är unika romerska siffror', () => {
 
 test('utgångstonen pekas ut rätt i varje system', () => {
   const bas = { naming: 'international' as const, tonicPitchClass: 7 };
-  // Bokstäver utgår från C, solmisation från tonikan när den är vald.
+  // Bokstäver utgår från C, solmisation från grundtonen när den är vald.
   assert.equal(isLabelRoot(60, { ...bas, system: 'letters', reference: 'tonic' }), true);
   assert.equal(isLabelRoot(67, { ...bas, system: 'letters', reference: 'tonic' }), false);
   assert.equal(isLabelRoot(67, { ...bas, system: 'solfege', reference: 'tonic' }), true);
@@ -219,9 +219,9 @@ test('utgångstonen pekas ut rätt i varje system', () => {
   assert.equal(isLabelRoot(60, { ...bas, system: 'solfege', reference: 'c' }), true);
 });
 
-test('byte av tonika flyttar vilka toner som är rena', () => {
-  // Med D som tonika blir F♯ den rena tersen i stället för E.
+test('byte av grundton flyttar vilka toner som är rena', () => {
+  // Med D som grundton blir F♯ den rena tersen i stället för E.
   const dTonic = { system: 'just' as const, tonicPitchClass: 2, a4: 440 };
   close(centsFromTempered(66, dTonic), -13.686, 0.01, 'F♯ som ters över D');
-  close(centsFromTempered(62, dTonic), 0, 1e-9, 'D som tonika');
+  close(centsFromTempered(62, dTonic), 0, 1e-9, 'D som grundton');
 });

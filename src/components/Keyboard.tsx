@@ -1,11 +1,11 @@
 /**
  * Klaviatur för att ge kören toner.
  *
- * Ett tryck spelar tonen. Ett dubbeltryck gör tangenten till tonika, det vill
+ * Ett tryck spelar tonen. Ett dubbeltryck gör tangenten till grundton, det vill
  * säga referenstonen som den rena stämningen räknas ifrån — tangenten markeras
  * då tydligt så att man ser vad kören stämmer mot.
  *
- * Tonikan sätts medvetet inte med långtryck: att hålla ned en tangent är precis
+ * Grundtonen sätts medvetet inte med långtryck: att hålla ned en tangent är precis
  * vad man gör för att låta kören höra en ton, och det ska inte byta referens.
  */
 import React, { useCallback, useMemo, useRef, useState } from 'react';
@@ -72,7 +72,7 @@ interface Props {
   labels: LabelConfig;
   /** När falskt lämnas tangenterna omärkta. */
   showLabels: boolean;
-  /** Om tonikatangenten ska markeras med etikett och färg. */
+  /** Om grundtonstangenten ska markeras med etikett och färg. */
   markTonic: boolean;
   /** MIDI-toner som är sparade till låten. */
   selectedTones: number[];
@@ -84,7 +84,7 @@ interface Props {
   onNotePlayed?: (midi: number | null) => void;
   /**
    * Om satt går bara de här tonerna att spela — resten dämpas och tiger.
-   * Klaviaturen blir då ren uppspelning: varken tonika eller tonval går
+   * Klaviaturen blir då ren uppspelning: varken grundton eller tonval går
    * att ändra från den.
    */
   playableTones?: number[];
@@ -140,7 +140,7 @@ export function Keyboard({
   const press = useCallback(
     async (midi: number) => {
       // I uppspelningsläget tiger allt utom de förvalda tonerna, och varken
-      // tonika eller tonval går att röra.
+      // grundton eller tonval går att röra.
       if (playableTones) {
         if (!playableTones.includes(midi)) {
           return;
@@ -242,7 +242,7 @@ export function Keyboard({
               <View style={styles.keyFoot}>
                 {tonic ? (
                   <Text style={styles.tonicBadge} numberOfLines={1}>
-                    TONIKA
+                    GRUNDTON
                   </Text>
                 ) : null}
                 {renderLabel(midi, false)}
@@ -274,9 +274,10 @@ export function Keyboard({
                 {saved ? <View style={styles.savedDot} /> : null}
               </View>
               <View style={styles.keyFoot}>
+                {/* Förkortat: en svart tangent är bara 34 enheter bred. */}
                 {tonic ? (
                   <Text style={styles.tonicBadgeBlack} numberOfLines={1}>
-                    TON
+                    GRUND
                   </Text>
                 ) : null}
                 {renderLabel(midi, true)}
@@ -355,7 +356,7 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     backgroundColor: t.tone,
   },
   /**
-   * Nedre delen av tangenten. Tonika-etiketten hör hemma här och inte högre
+   * Nedre delen av tangenten. Grundtons-etiketten hör hemma här och inte högre
    * upp, eftersom de svarta tangenterna täcker den övre halvan av de vita.
    */
   keyFoot: {

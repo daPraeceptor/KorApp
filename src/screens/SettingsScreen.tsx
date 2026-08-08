@@ -192,15 +192,15 @@ export function SettingsScreen() {
               tint={t.pure}
               onChange={(labelReference) => updateSettings({ labelReference })}
               options={[
-                { value: 'tonic' as const, label: 'Tonikan' },
+                { value: 'tonic' as const, label: 'Grundtonen' },
                 { value: 'c' as const, label: 'C' },
               ]}
             />
             <Text style={styles.help}>
               {settings.labelReference === 'tonic'
-                ? `Flyttbart: tonikan blir alltid ${
+                ? `Flyttbart: grundtonen blir alltid ${
                     settings.labelSystem === 'solfege' ? 'do' : 'I'
-                  }, så samma benämning betyder samma funktion oavsett tonart. Tonikan väljs med dubbeltryck på klaviaturen.`
+                  }, så samma benämning betyder samma funktion oavsett tonart. Grundtonen väljs med dubbeltryck på klaviaturen.`
                 : `Fast: C är alltid ${
                     settings.labelSystem === 'solfege' ? 'do' : 'I'
                   }, oavsett vilken tonart stycket går i.`}
@@ -215,7 +215,7 @@ export function SettingsScreen() {
           </>
         )}
 
-        <Text style={styles.rowLabel}>Markera tonikatangenten</Text>
+        <Text style={styles.rowLabel}>Markera grundtonstangenten</Text>
         <SegmentedControl
           value={settings.markTonicInTempered ? 'always' : 'just'}
           tint={t.pure}
@@ -227,8 +227,8 @@ export function SettingsScreen() {
         />
         <Text style={styles.help}>
           {settings.markTonicInTempered
-            ? 'Tonikan märks ut med etikett och färg i båda stämningarna.'
-            : 'Tonikan märks bara ut i ren stämning, där allt annat stäms mot den. I tempererad stämning har den ingen hörbar följd.'}
+            ? 'Grundtonen märks ut med etikett och färg i båda stämningarna.'
+            : 'Grundtonen märks bara ut i ren stämning, där allt annat stäms mot den. I tempererad stämning har den ingen hörbar följd.'}
         </Text>
       </Card>
 

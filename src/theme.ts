@@ -2,7 +2,7 @@
  * Färgteman.
  *
  * Varje tema anger bara ett tjugotal grundfärger. Resten härleds — textfärgen
- * ovanpå färgade plattor, klaviaturens nyanser, tonikamarkeringen — så att ett
+ * ovanpå färgade plattor, klaviaturens nyanser, grundtonsmarkeringen — så att ett
  * nytt tema inte behöver räkna fram tjugofem värden för hand, och så att
  * nyanserna hänger ihop inom temat i stället för att vara lösryckta.
  *
@@ -35,7 +35,7 @@ interface ThemeCore {
 
   /** Tempo och metronom. */
   accent: string;
-  /** Ren stämning och tonika. */
+  /** Ren stämning och grundton. */
   pure: string;
   /** Sparade körtoner. */
   tone: string;
@@ -224,7 +224,7 @@ export interface Palette extends ThemeCore {
   keyLabel: string;
   keyLabelBlack: string;
 
-  /** Tonikamarkeringen på klaviaturen. */
+  /** Grundtonsmarkeringen på klaviaturen. */
   tonicBorder: string;
   tonicBlackBg: string;
   tonicBadgeBg: string;

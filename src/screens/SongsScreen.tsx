@@ -162,6 +162,11 @@ export function SongsScreen({
   const [collapsed, setCollapsed] = useState<string[]>([]);
   /** Låten vars kort är uppfällt med spelbart piano. */
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  /**
+   * Kortens bredd, mätt på det uppfällda. Alla kort är lika breda, så ett
+   * mått räcker för att avgöra om taktvisaren ryms bredvid klaviaturen.
+   */
+  const [cardWidth, setCardWidth] = useState(0);
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [draftFolderName, setDraftFolderName] = useState('');
   const [confirmDeleteFolderId, setConfirmDeleteFolderId] = useState<string | null>(
@@ -211,6 +216,57 @@ export function SongsScreen({
     const isPlayingTempo = isCurrent && metronomeRunning;
     const isExpanded = expandedId === song.id;
 
+    /**
+     * Bredvid klaviaturen ryms taktvisaren bara på breda skärmar. På en telefon
+     * skulle den tränga ihop tangenterna, och då står den kvar uppe vid
+     * rubriken i stället — men skjuten åt höger, inte mitt i vägen.
+     */
+    const rumBredvid = cardWidth >= 520;
+
+    const taktvisare = (
+      <MetronomeVisual
+        style={settings.metronomeVisual}
+        running={isPlayingTempo}
+        bpm={song.bpm}
+        pulse={isPlayingTempo ? pulse : null}
+        activeBeat={isPlayingTempo && pulse ? pulse.beat : null}
+      />
+    );
+
+    const klaviatur =
+      song.tones.length > 0 ? (
+        <Keyboard
+          fromMidi={Math.max(0, Math.min(...song.tones) - 2)}
+          toMidi={Math.min(127, Math.max(...song.tones) + 2)}
+          tuning={{
+            system: song.tuningSystem,
+            tonicPitchClass: song.tonicPitchClass,
+            a4: settings.a4,
+          }}
+          labels={{
+            system: settings.labelSystem,
+            naming: settings.naming,
+            reference: settings.labelReference,
+            tonicPitchClass: song.tonicPitchClass,
+          }}
+          showLabels={settings.showNoteNames}
+          // Grundtonen färgas inte här. Den är en av låtens toner, och med
+          // grön grundton mitt bland de gula såg de fyra tonerna olika ut
+          // fast de är samma sorts ton. Vilken grundtonen är står i raden
+          // ovanför klaviaturen.
+          markTonic={false}
+          selectedTones={song.tones}
+          selectMode={false}
+          playableTones={song.tones}
+          onSetTonic={() => {}}
+          onToggleTone={() => {}}
+        />
+      ) : (
+        <Text style={styles.help}>
+          Inga sparade toner att spela. Lägg till toner via «Ändra».
+        </Text>
+      );
+
     return (
       <Card
         key={song.id}
@@ -224,18 +280,13 @@ export function SongsScreen({
           loadSong(song.id);
           setExpandedId(song.id);
         }}
+        onLayout={(e) => setCardWidth(e.nativeEvent.layout.width)}
       >
-        {/* Uppfälld låt får taktvisaren överst, i den stil som valts i
-            spelvyn. Samma bild på båda ställena — man ska inte behöva lära
-            om vad man tittar på. */}
-        {isExpanded ? (
-          <MetronomeVisual
-            style={settings.metronomeVisual}
-            running={isPlayingTempo}
-            bpm={song.bpm}
-            pulse={isPlayingTempo ? pulse : null}
-            activeBeat={isPlayingTempo && pulse ? pulse.beat : null}
-          />
+        {/* Utan plats bredvid klaviaturen står taktvisaren uppe vid rubriken,
+            skjuten åt höger. Stilen är den som valts i spelvyn — samma bild på
+            båda ställena, så man slipper lära om vad man tittar på. */}
+        {isExpanded && !rumBredvid ? (
+          <View style={styles.metronomeCorner}>{taktvisare}</View>
         ) : null}
 
         {isEditing ? (
@@ -265,7 +316,7 @@ export function SongsScreen({
             <Text style={styles.meta}>
               {song.bpm} slag/min · {song.beatsPerBar}/4 ·{' '}
               {song.tuningSystem === 'just'
-                ? `ren, tonika ${noteName(song.tonicPitchClass, settings.naming)}`
+                ? `ren, grundton ${noteName(song.tonicPitchClass, settings.naming)}`
                 : 'tempererad'}
             </Text>
             {song.tones.length > 0 ? (
@@ -282,19 +333,6 @@ export function SongsScreen({
         )}
 
         <View style={styles.quickRow}>
-          <Button
-            label={isPlayingTempo ? 'Stoppa tempo' : '▶ Tempo'}
-            renderIcon={
-              isPlayingTempo
-                ? (color) => <MutedSpeakerIcon color={color} />
-                : undefined
-            }
-            variant="primary"
-            onPress={() =>
-              isPlayingTempo ? stopMetronome() : void playSongTempo(song)
-            }
-            style={styles.quickButton}
-          />
           {/* En ensam ton har varken ackord eller ordning — bara sig själv,
               och behöver därför bara en knapp. */}
           {song.tones.length > 1 ? (
@@ -334,43 +372,34 @@ export function SongsScreen({
               style={styles.quickButton}
             />
           )}
+          {/* Tempot sist i raden: tongivningen hör ihop och ska stå samlad,
+              och metronomen är det enda som fortsätter låta efter trycket. */}
+          <Button
+            label={isPlayingTempo ? 'Stoppa tempo' : '▶ Tempo'}
+            renderIcon={
+              isPlayingTempo
+                ? (color) => <MutedSpeakerIcon color={color} />
+                : undefined
+            }
+            variant="primary"
+            onPress={() =>
+              isPlayingTempo ? stopMetronome() : void playSongTempo(song)
+            }
+            style={styles.quickButton}
+          />
         </View>
 
-        {/* Uppfällt kort: stor taktvisare och ett piano där bara låtens toner
-            går att spela, i låtens egen stämning. Ren uppspelning — inget går
-            att ändra härifrån. */}
+        {/* Uppfällt kort: ett piano där bara låtens toner går att spela, i
+            låtens egen stämning. Ren uppspelning — inget går att ändra
+            härifrån. Med plats står taktvisaren till höger om klaviaturen. */}
         {isExpanded ? (
-          song.tones.length > 0 ? (
-            <Keyboard
-              fromMidi={Math.max(0, Math.min(...song.tones) - 2)}
-              toMidi={Math.min(127, Math.max(...song.tones) + 2)}
-              tuning={{
-                system: song.tuningSystem,
-                tonicPitchClass: song.tonicPitchClass,
-                a4: settings.a4,
-              }}
-              labels={{
-                system: settings.labelSystem,
-                naming: settings.naming,
-                reference: settings.labelReference,
-                tonicPitchClass: song.tonicPitchClass,
-              }}
-              showLabels={settings.showNoteNames}
-              // Tonikan färgas inte här. Den är en av låtens toner, och med
-              // grön tonika mitt bland de gula såg de fyra tonerna olika ut
-              // fast de är samma sorts ton. Vilken tonikan är står i raden
-              // ovanför klaviaturen.
-              markTonic={false}
-              selectedTones={song.tones}
-              selectMode={false}
-              playableTones={song.tones}
-              onSetTonic={() => {}}
-              onToggleTone={() => {}}
-            />
+          rumBredvid ? (
+            <View style={styles.expandedRow}>
+              <View style={styles.expandedKeyboard}>{klaviatur}</View>
+              <View style={styles.metronomeSide}>{taktvisare}</View>
+            </View>
           ) : (
-            <Text style={styles.help}>
-              Inga sparade toner att spela. Lägg till toner via «Ändra».
-            </Text>
+            klaviatur
           )
         ) : null}
 
@@ -704,6 +733,23 @@ const makeStyles = (t: Palette) => StyleSheet.create({
   // Dragbanan fyller radens bredd — utan raden runt om har flex ingen riktning.
   lockRow: {
     flexDirection: 'row',
+  },
+  /** Taktvisaren uppe vid rubriken när den inte ryms bredvid klaviaturen. */
+  metronomeCorner: {
+    alignSelf: 'flex-end',
+    width: 170,
+  },
+  expandedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  // Klaviaturen tar resten: den rullar i sidled och klarar vilken bredd som helst.
+  expandedKeyboard: {
+    flex: 1,
+  },
+  metronomeSide: {
+    width: 170,
   },
   input: {
     backgroundColor: t.surfaceRaised,

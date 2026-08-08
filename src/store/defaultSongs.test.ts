@@ -25,13 +25,13 @@ test('id och titlar är unika', () => {
   assert.equal(new Set(titlar).size, titlar.length, 'två låtar delar titel');
 });
 
-test('tempo, taktart och tonika ligger inom giltiga områden', () => {
+test('tempo, taktart och grundton ligger inom giltiga områden', () => {
   for (const song of DEFAULT_SONGS) {
     assert.ok(song.bpm >= 30 && song.bpm <= 300, `${song.title}: orimligt tempo`);
     assert.ok(song.beatsPerBar >= 1, `${song.title}: orimlig taktart`);
     assert.ok(
       song.tonicPitchClass >= 0 && song.tonicPitchClass <= 11,
-      `${song.title}: tonikan utanför oktaven`,
+      `${song.title}: grundtonen utanför oktaven`,
     );
   }
 });
@@ -49,7 +49,7 @@ test('tonerna är spelbara och inte fler än vad appen tillåter', () => {
 });
 
 test('varje låt har minst en ton att ge kören', () => {
-  // Tonikan behöver däremot inte finnas bland tonerna. Den är referensen som
+  // Grundtonen behöver däremot inte finnas bland tonerna. Den är referensen som
   // den rena stämningen räknas ifrån, och att ge kören en annan ton än
   // grundtonen är vanligt — ett D i en sats som står i G.
   for (const song of DEFAULT_SONGS) {

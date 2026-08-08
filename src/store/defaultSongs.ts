@@ -25,7 +25,7 @@ export const DEFAULT_SONGS: Song[] = [
     beatsPerBar: 4,
     subdivision: 'quarter',
     tuningSystem: 'just',
-    // F som tonika: A4 och F4 bildar en ren ters över grundtonen.
+    // F som grundton: A4 och F4 bildar en ren ters över grundtonen.
     tonicPitchClass: 5,
     tones: [69, 65],
     notes: '',

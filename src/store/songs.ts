@@ -21,7 +21,7 @@ export interface Song {
   beatsPerBar: number;
   subdivision: SubdivisionId;
   tuningSystem: TuningSystem;
-  /** Tonklass 0–11 för låtens tonika. */
+  /** Tonklass 0–11 för låtens grundton. */
   tonicPitchClass: number;
   /** MIDI-nummer för de toner kören ska få. Ordningen kan vara betydelsebärande. */
   tones: number[];

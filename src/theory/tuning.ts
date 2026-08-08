@@ -3,7 +3,7 @@
  *
  * Två stämningssystem stöds:
  *  - Liksvävande temperering ("tempererad"): alla halvtoner lika stora, som ett piano.
- *  - Ren stämning ("svävningsfri"): intervallen byggs av heltalskvoter relativt en tonika,
+ *  - Ren stämning ("svävningsfri"): intervallen byggs av heltalskvoter relativt en grundton,
  *    vilket gör att övertonerna sammanfaller och svävningarna försvinner.
  */
 
@@ -50,7 +50,7 @@ const INTERNATIONAL_NAMES = [
 ] as const;
 
 /**
- * Rena intervallkvoter i 5-limit, indexerade på antal halvtoner över tonikan.
+ * Rena intervallkvoter i 5-limit, indexerade på antal halvtoner över grundtonen.
  * Detta är den uppsättning körer normalt sjunger: ren ters 5/4, ren kvint 3/2.
  */
 export const JUST_RATIOS: ReadonlyArray<readonly [number, number]> = [
@@ -127,7 +127,7 @@ export type LabelSystem = 'letters' | 'solfege' | 'degrees';
 
 /**
  * Vad solmisationen och tonplatserna räknas ifrån: fast från C, eller flyttbart
- * från den valda tonikan så att tonikan alltid blir do respektive 1.
+ * från den valda grundtonen så att grundtonen alltid blir do respektive 1.
  */
 export type LabelReference = 'c' | 'tonic';
 
@@ -154,7 +154,7 @@ export function noteLabel(midi: number, config: LabelConfig): string {
   return config.system === 'solfege' ? SOLFEGE_NAMES[step] : DEGREE_NAMES[step];
 }
 
-/** Sant för den ton som systemet räknar från: C, eller tonikan. */
+/** Sant för den ton som systemet räknar från: C, eller grundtonen. */
 export function isLabelRoot(midi: number, config: LabelConfig): boolean {
   const root = config.reference === 'tonic' ? config.tonicPitchClass : 0;
   return config.system === 'letters'
@@ -199,10 +199,10 @@ export function temperedFrequency(midi: number, a4: number = DEFAULT_A4): number
 }
 
 /**
- * Frekvens i ren stämning relativt en tonika.
+ * Frekvens i ren stämning relativt en grundton.
  *
- * Tonikan själv förankras på sin tempererade frekvens, så att den låter likadant
- * oavsett stämningssystem — körledaren ger tonikan från en fast referens och
+ * Grundtonen själv förankras på sin tempererade frekvens, så att den låter likadant
+ * oavsett stämningssystem — körledaren ger grundtonen från en fast referens och
  * övriga toner justeras runt den.
  */
 export function justFrequency(
@@ -225,7 +225,7 @@ export function justFrequency(
 
 export interface TuningConfig {
   system: TuningSystem;
-  /** Tonklass 0–11 för tonikan. Används bara i ren stämning. */
+  /** Tonklass 0–11 för grundtonen. Används bara i ren stämning. */
   tonicPitchClass: number;
   /** Referensfrekvens för kammartonen A4. */
   a4: number;
@@ -256,7 +256,7 @@ export function centsFromTempered(midi: number, tuning: TuningConfig): number {
   return centsBetween(temperedFrequency(midi, tuning.a4), frequencyOf(midi, tuning));
 }
 
-/** Antal halvtoner över tonikan, reducerat till en oktav. */
+/** Antal halvtoner över grundtonen, reducerat till en oktav. */
 export function scaleDegree(midi: number, tonicPitchClass: number): number {
   return pitchClass(midi - tonicPitchClass);
 }

@@ -70,10 +70,10 @@ export interface Settings {
   showNoteNames: boolean;
   /** Bokstäver, solmisation eller romerska tonplatssiffror. */
   labelSystem: LabelSystem;
-  /** Om solmisation och tonplatser räknas från C eller från tonikan. */
+  /** Om solmisation och tonplatser räknas från C eller från grundtonen. */
   labelReference: LabelReference;
   /**
-   * Om tonikatangenten märks ut även i tempererad stämning. I ren stämning
+   * Om grundtonstangenten märks ut även i tempererad stämning. I ren stämning
    * märks den alltid ut, eftersom allt annat stäms mot den.
    */
   markTonicInTempered: boolean;
