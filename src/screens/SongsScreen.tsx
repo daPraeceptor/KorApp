@@ -124,7 +124,7 @@ const WEB_DRAG_STYLE =
     ? ({ touchAction: 'none', userSelect: 'none' } as unknown as ViewStyle)
     : undefined;
 
-/** Överstruken högtalare: tystnad — trycket stoppar det som spelas. */
+/** Överstruken högtalare: metronomen går tyst. */
 function MutedSpeakerIcon({ color }: { color: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 20 20">
@@ -147,6 +147,25 @@ function MutedSpeakerIcon({ color }: { color: string }) {
         strokeWidth={2}
         strokeLinecap="round"
       />
+    </Svg>
+  );
+}
+
+/** Högtalare med ljudvågor: metronomen hörs. */
+function SpeakerIcon({ color }: { color: string }) {
+  return (
+    <Svg width={20} height={20} viewBox="0 0 20 20">
+      <Path d="M3 7.4 h3 L10.6 4 v12 L6 12.6 H3 z" fill={color} />
+      {[3.2, 6.2].map((r, i) => (
+        <Path
+          key={i}
+          d={`M13 ${10 - r} A ${r} ${r} 0 0 1 13 ${10 + r}`}
+          stroke={color}
+          strokeWidth={1.9}
+          strokeLinecap="round"
+          fill="none"
+        />
+      ))}
     </Svg>
   );
 }
@@ -362,13 +381,36 @@ export function SongsScreen({
       />
     );
 
+    /**
+     * Uppfälld låt visar takten även när den är tyst: bilden går på egen
+     * klocka tills ljudet slås på, och låser sig då vid de hörda klicken.
+     */
     const taktvisare = (
       <MetronomeVisual
         style={settings.metronomeVisual}
-        running={isPlayingTempo}
+        running={isExpanded || isPlayingTempo}
         bpm={song.bpm}
         pulse={isPlayingTempo ? pulse : null}
         activeBeat={isPlayingTempo && pulse ? pulse.beat : null}
+      />
+    );
+
+    /** Ikonen visar hur det låter nu; trycket byter läge. */
+    const ljudKnapp = (
+      <Button
+        label={isPlayingTempo ? 'Tysta metronomen' : 'Låt metronomen höras'}
+        renderIcon={(color) =>
+          isPlayingTempo ? (
+            <SpeakerIcon color={color} />
+          ) : (
+            <MutedSpeakerIcon color={color} />
+          )
+        }
+        variant={isPlayingTempo ? 'primary' : 'default'}
+        onPress={() =>
+          isPlayingTempo ? stopMetronome() : void playSongTempo(song)
+        }
+        style={styles.headerTempo}
       />
     );
 
@@ -512,7 +554,7 @@ export function SongsScreen({
             {isExpanded ? (
               <>
                 <View style={styles.headerMetronome}>{taktvisare}</View>
-                {tempoKnapp(styles.headerTempo)}
+                {ljudKnapp}
               </>
             ) : null}
           </View>

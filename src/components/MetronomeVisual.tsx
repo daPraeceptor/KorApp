@@ -66,13 +66,25 @@ export function MetronomeVisual({ style, running, bpm, pulse, activeBeat }: Prop
   }
 
   const beatMs = 60000 / bpm;
-  // Andel av taktslaget som förflutit, 0 vid slaget och 1 strax före nästa.
-  const phase =
-    running && pulse
-      ? Math.min(Math.max((Date.now() - pulse.at) / beatMs, 0), 1)
-      : 0;
-  // Varannat taktslag går åt andra hållet. Räknaren löper vidare över taktgränser.
-  const direction = running && pulse && pulse.count % 2 === 1 ? -1 : 1;
+  /**
+   * Andel av taktslaget som förflutit, 0 vid slaget och 1 strax före nästa.
+   *
+   * Med ett hört taktslag räknas den därifrån, så att bilden följer ljudet.
+   * Utan ljud går visaren på egen klocka — då finns inga klick att följa, men
+   * takten ska ändå synas.
+   */
+  let phase = 0;
+  let direction: 1 | -1 = 1;
+  if (running && pulse) {
+    phase = Math.min(Math.max((Date.now() - pulse.at) / beatMs, 0), 1);
+    // Varannat taktslag går åt andra hållet. Räknaren löper vidare över
+    // taktgränser.
+    direction = pulse.count % 2 === 1 ? -1 : 1;
+  } else if (running) {
+    const beats = Date.now() / beatMs;
+    phase = beats % 1;
+    direction = Math.floor(beats) % 2 === 1 ? -1 : 1;
+  }
   const onBeat = activeBeat === 0;
 
   if (style === 'ball') {
