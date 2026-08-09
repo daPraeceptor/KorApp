@@ -447,7 +447,9 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
             tint={live.tuningSystem === 'just' ? t.pure : t.accent}
             onChange={(tuningSystem) => updateLive({ tuningSystem })}
             options={[
-              { value: 'tempered' as const, label: 'Tempererad' },
+              // Kort text: på en telefon delar knapparna raden med
+              // tonvalsknappen, och «Tempererad» fick då inte plats alls.
+              { value: 'tempered' as const, label: 'Tmp' },
               { value: 'just' as const, label: 'Ren' },
             ]}
           />
@@ -742,6 +744,9 @@ const makeStyles = (t: Palette) => StyleSheet.create({
   // synas. Påslaget läge byter till tonfärgen, samma färg som tonernas
   // markeringar på tangenterna.
   toggle: {
+    // Den här knappen får ge upp bredd när raden är trång — dess text kan
+    // brytas till två rader. Stämningsvalet kan inte krympa alls.
+    flexShrink: 1,
     paddingVertical: 7,
     paddingHorizontal: 12,
     borderRadius: radius.pill,

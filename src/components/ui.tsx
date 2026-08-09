@@ -162,7 +162,10 @@ export function SegmentedControl<T extends string | number>({
               : null}
             {/* Tom etikett hoppas över helt, annars tar den ändå plats i höjd. */}
             {option.label ? (
+              // En etikett som inte får plats ska hellre synas avkortad än
+              // brytas till en andra rad som klipps bort av knappens höjd.
               <Text
+                numberOfLines={1}
                 style={[
                   styles.segmentLabel,
                   selected && styles.segmentLabelSelected,
@@ -458,6 +461,9 @@ const makeStyles = (t: Palette) => StyleSheet.create({
   },
   segmentedCompact: {
     alignSelf: 'flex-start',
+    // Kontrollen ger inte upp sin bredd när raden blir trång. Utan detta
+    // pressades knapparna ihop på en telefon tills texten försvann.
+    flexShrink: 0,
   },
   segment: {
     flex: 1,
