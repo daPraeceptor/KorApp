@@ -229,6 +229,31 @@ export function SongsScreen({
   const dragCommitted = useRef(0);
   /** Varje låts grannar, uppdaterad vid utritningen och läst vid greppet. */
   const groupIds = useRef(new Map<string, string[]>());
+  /** Vilken mapp varje låt ligger i, läst när greppet släpps. */
+  const groupFolder = useRef(new Map<string, string | null>());
+
+  /**
+   * Släppzoner: varje mapp och området utanför mapparna.
+   *
+   * Zonernas lägen mäts när greppet tas, och fingrets läge jämförs mot dem
+   * under dragningen. Släpper man över en annan mapp flyttas låten dit.
+   */
+  const LÖST = '__utanför__';
+  const zoneRefs = useRef(new Map<string, View | null>());
+  const zoneBounds = useRef(new Map<string, { top: number; bottom: number }>());
+  /** Mappen fingret svävar över, för att kunna lysa upp den. */
+  const [hoverZone, setHoverZone] = useState<string | null>(null);
+  const hoverRef = useRef<string | null>(null);
+
+  /** Mappen under fingret, eller LÖST för området utanför mapparna. */
+  const zonUnder = (y: number): string | null => {
+    for (const [id, { top, bottom }] of zoneBounds.current) {
+      if (y >= top && y <= bottom) {
+        return id;
+      }
+    }
+    return null;
+  };
   /**
    * En bestående responder per låt.
    *
@@ -271,8 +296,17 @@ export function SongsScreen({
             .get(id)
             ?.measureInWindow((_x, _y, _w, h) => heights.current.set(id, h)),
         );
+        // Mät släppzonerna: var mapparna ligger på skärmen just nu.
+        zoneBounds.current.clear();
+        zoneRefs.current.forEach((vy, id) =>
+          vy?.measureInWindow((_x, y, _w, h) =>
+            zoneBounds.current.set(id, { top: y, bottom: y + h }),
+          ),
+        );
         dragGroup.current = group;
         dragCommitted.current = 0;
+        hoverRef.current = null;
+        setHoverZone(null);
         setDragOffset(0);
         setDraggingId(songId);
       },
@@ -295,12 +329,34 @@ export function SongsScreen({
           dragCommitted.current += riktning * höjd;
         }
         setDragOffset(gesture.dy - dragCommitted.current);
+
+        // Vilken mapp svävar fingret över? Bara byten ritas om, annars skulle
+        // varje rörelse kosta en omritning i onödan.
+        const zon = zonUnder(gesture.moveY);
+        if (zon !== hoverRef.current) {
+          hoverRef.current = zon;
+          setHoverZone(zon);
+        }
       },
       onPanResponderRelease: () => {
+        // Släpp över en annan mapp flyttar låten dit. Samma mapp betyder att
+        // dragningen bara ordnade om, och då är den redan gjord.
+        const zon = hoverRef.current;
+        if (zon !== null) {
+          const mål = zon === LÖST ? null : zon;
+          const nuvarande = groupFolder.current.get(songId) ?? null;
+          if (mål !== nuvarande) {
+            moveSongToFolder(songId, mål);
+          }
+        }
+        hoverRef.current = null;
+        setHoverZone(null);
         setDraggingId(null);
         setDragOffset(0);
       },
       onPanResponderTerminate: () => {
+        hoverRef.current = null;
+        setHoverZone(null);
         setDraggingId(null);
         setDragOffset(0);
       },
@@ -450,11 +506,14 @@ export function SongsScreen({
       );
 
     const isDragging = draggingId === song.id;
-    // Bara en grupp med flera låtar går att ordna om, och inte i konsertläget.
-    const kanDras = !locked && grupp.length > 1;
+    // Dragningen ordnar om inom gruppen och flyttar mellan mappar. Den senare
+    // är meningsfull även för en ensam låt, så länge det finns en mapp att dra
+    // till. I konsertläget går ingetdera.
+    const kanDras = !locked && (grupp.length > 1 || folders.length > 0);
     // Grannarna läses ur refen när greppet tas, så att respondern slipper
     // skapas om varje gång listan ritas.
     groupIds.current.set(song.id, grupp.map((s) => s.id));
+    groupFolder.current.set(song.id, song.folderId);
 
     const underrubriker = (
       <>
@@ -775,7 +834,18 @@ export function SongsScreen({
         }
 
         return (
-          <View key={folder.id} style={styles.folder}>
+          /* Mappen är också en släppzon: drar man en låt hit hamnar den i
+             mappen. Ramen lyser upp medan fingret svävar över. */
+          <View
+            key={folder.id}
+            ref={(el) => {
+              zoneRefs.current.set(folder.id, el);
+            }}
+            style={[
+              styles.folder,
+              hoverZone === folder.id ? styles.folderHover : undefined,
+            ]}
+          >
             {isEditingFolder ? (
               <View style={styles.editRow}>
                 <TextInput
@@ -853,7 +923,8 @@ export function SongsScreen({
               <View style={styles.folderBody}>
                 {inFolder.length === 0 ? (
                   <Text style={styles.help}>
-                    Mappen är tom. Använd «Flytta» på en låt för att lägga den här.
+                    Mappen är tom. Dra hit en låt i dess grepp, eller använd
+                    «Flytta».
                   </Text>
                 ) : (
                   inFolder.map((song) => renderSong(song, inFolder))
@@ -870,7 +941,24 @@ export function SongsScreen({
         </SectionTitle>
       ) : null}
 
-      {loose.map((song) => renderSong(song, loose))}
+      {/* Området utanför mapparna är också en släppzon: drar man en låt hit
+          lämnar den sin mapp. */}
+      <View
+        ref={(el) => {
+          zoneRefs.current.set(LÖST, el);
+        }}
+        style={[
+          styles.looseZone,
+          hoverZone === LÖST ? styles.folderHover : undefined,
+        ]}
+      >
+        {loose.map((song) => renderSong(song, loose))}
+        {loose.length === 0 && folders.length > 0 ? (
+          <Text style={styles.help}>
+            Alla låtar ligger i mappar. Dra en hit för att ta ut den.
+          </Text>
+        ) : null}
+      </View>
 
       {/* Mappskapandet ligger under låtarna: det används sällan och ska inte
           stå i vägen för listan man faktiskt kom för. Göms i låst läge. */}
@@ -1046,6 +1134,20 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
+  },
+  // Zonen utanför mapparna behöver egen höjd även när den är tom, annars
+  // finns ingen yta att släppa på när allt ligger i mappar.
+  looseZone: {
+    gap: spacing.md,
+    minHeight: 48,
+    justifyContent: 'center',
+  },
+  /** Släppzonen under fingret: samma accentram som en vald låt. */
+  folderHover: {
+    borderWidth: 2,
+    borderColor: t.accent,
+    borderRadius: radius.md,
+    backgroundColor: t.accentSurface,
   },
   folderBody: {
     gap: spacing.sm,
