@@ -15,6 +15,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { audioEngine } from '../audio/engine';
@@ -109,7 +110,8 @@ export type MetronomeVisualStyle = 'pendulum' | 'bar' | 'ball' | 'none';
 const DEFAULT_SETTINGS: Settings = {
   a4: DEFAULT_A4,
   naming: 'international',
-  volume: 0.8,
+  // iOS-högtalarna är starka nog att halv volym räcker som utgångsläge.
+  volume: Platform.OS === 'ios' ? 0.5 : 0.8,
   defaultToneGapBpm: DEFAULT_TONE_GAP_BPM,
   showNoteNames: true,
   labelSystem: 'letters',
