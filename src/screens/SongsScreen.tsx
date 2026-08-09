@@ -203,6 +203,32 @@ export function SongsScreen({
   } = useAppState();
 
   const [newFolderName, setNewFolderName] = useState('');
+  const scrollRef = useRef<ScrollView>(null);
+  /** Rullningsläget, för att kunna räkna om skärmlägen till innehållslägen. */
+  const scrollOffset = useRef(0);
+
+  /**
+   * Skapar mappen och rullar dit. Mapparna sorteras i bokstavsordning, så den
+   * nya kan hamna var som helst i listan — långt från skaparkortet längst ner.
+   * Utan rullningen ser det ut som att ingenting hände.
+   */
+  const skapaMapp = () => {
+    if (!newFolderName.trim()) {
+      return;
+    }
+    const mapp = addFolder(newFolderName);
+    setNewFolderName('');
+    // Vänta tills listan ritats om med den nya mappen; först då finns dess
+    // vy att mäta på. Mappens ruta är också dess släppzon, så refen finns.
+    setTimeout(() => {
+      zoneRefs.current.get(mapp.id)?.measureInWindow((_x, y) => {
+        scrollRef.current?.scrollTo({
+          y: Math.max(0, scrollOffset.current + y - 90),
+          animated: true,
+        });
+      });
+    }, 120);
+  };
   const [query, setQuery] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState('');
@@ -780,9 +806,14 @@ export function SongsScreen({
 
   return (
     <ScrollView
+      ref={scrollRef}
       style={styles.screen}
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
+      scrollEventThrottle={16}
+      onScroll={(e) => {
+        scrollOffset.current = e.nativeEvent.contentOffset.y;
+      }}
     >
       {locked ? (
         <Card>
@@ -973,20 +1004,12 @@ export function SongsScreen({
               placeholderTextColor={t.textMuted}
               style={[styles.input, styles.editInput]}
               returnKeyType="done"
-              onSubmitEditing={() => {
-                if (newFolderName.trim()) {
-                  addFolder(newFolderName);
-                  setNewFolderName('');
-                }
-              }}
+              onSubmitEditing={skapaMapp}
             />
             <Button
               label="Skapa"
               disabled={!newFolderName.trim()}
-              onPress={() => {
-                addFolder(newFolderName);
-                setNewFolderName('');
-              }}
+              onPress={skapaMapp}
             />
           </View>
         </Card>
