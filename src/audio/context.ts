@@ -40,6 +40,7 @@ export interface AudioContextLike {
   readonly currentTime: number;
   readonly destination: any;
   readonly state: string;
+  readonly sampleRate: number;
   createGain(): GainNodeLike;
   createOscillator(): OscillatorNodeLike;
   createBiquadFilter(): BiquadFilterNodeLike;

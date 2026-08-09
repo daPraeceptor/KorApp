@@ -1,5 +1,5 @@
 /** Inställningar: kammarton, tonnamn, volym och hur körtonerna ges. */
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import {
@@ -11,6 +11,7 @@ import {
   Stepper,
 } from '../components/ui';
 import { audioEngine } from '../audio/engine';
+import { audioLog } from '../audio/diagnostics';
 import {
   MAX_AUTO_STOP_BEATS,
   MIN_AUTO_STOP_BEATS,
@@ -42,6 +43,8 @@ export function SettingsScreen() {
   const t = useTheme();
   const styles = useThemedStyles(makeStyles);
   const { settings, updateSettings, live, playTones } = useAppState();
+  // Diagnostikloggen bor utanför React; räknaren tvingar fram omritningen.
+  const [, setDiagTick] = useState(0);
 
   /**
    * Provar tempot på riktiga toner. Med låtens egna toner hör man det man
@@ -407,6 +410,34 @@ export function SettingsScreen() {
       </Card>
 
       <Card>
+        <SectionTitle>Ljuddiagnostik</SectionTitle>
+        <Text style={styles.help}>
+          Kör provet om appen är tyst. Varje steg i ljudkedjan skriver sitt
+          utfall här — då syns var det brister.
+        </Text>
+        <Button
+          label="Kör ljudprov"
+          variant="primary"
+          onPress={() => {
+            void audioEngine
+              .runDiagnostics()
+              .then(() => setDiagTick((n: number) => n + 1));
+            // Rita om direkt också, så att sessionsraderna syns medan provet går.
+            setTimeout(() => setDiagTick((n: number) => n + 1), 100);
+          }}
+        />
+        {audioLog().length > 0 ? (
+          audioLog().map((rad, i) => (
+            <Text key={`${rad.at}-${i}`} style={styles.diagRow}>
+              {new Date(rad.at).toLocaleTimeString('sv-SE')}  {rad.text}
+            </Text>
+          ))
+        ) : (
+          <Text style={styles.help}>Inget loggat ännu.</Text>
+        )}
+      </Card>
+
+      <Card>
         <SectionTitle>Rena intervall</SectionTitle>
         <Text style={styles.help}>
           I ren stämning byggs varje intervall av en enkel frekvenskvot, vilket
@@ -470,6 +501,11 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     color: t.text,
     fontSize: 15,
     fontWeight: '600',
+    fontVariant: ['tabular-nums'],
+  },
+  diagRow: {
+    color: t.textMuted,
+    fontSize: 12,
     fontVariant: ['tabular-nums'],
   },
   help: {
