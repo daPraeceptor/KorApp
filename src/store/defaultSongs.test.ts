@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { DEFAULT_SONGS } from './defaultSongs.ts';
+import { DEFAULT_FOLDERS, DEFAULT_SONGS } from './defaultSongs.ts';
 import { MAX_TONES, normalizeSong } from './songs.ts';
 
 /**
@@ -55,4 +55,22 @@ test('varje låt har minst en ton att ge kören', () => {
   for (const song of DEFAULT_SONGS) {
     assert.ok(song.tones.length > 0, `${song.title}: saknar toner`);
   }
+});
+
+test('varje medföljande låt ligger i en mapp som finns', () => {
+  // Pekar en låt på en mapp som saknas blir den lös i listan vid första
+  // starten, och den medföljande ordningen syns aldrig.
+  const idn = new Set(DEFAULT_FOLDERS.map((mapp) => mapp.id));
+  for (const song of DEFAULT_SONGS) {
+    if (song.folderId !== null) {
+      assert.ok(idn.has(song.folderId), `${song.title}: mappen finns inte`);
+    }
+  }
+});
+
+test('mappen har en egen plats åt varje låt', () => {
+  // Två låtar på samma plats gör ordningen godtycklig.
+  const platser = DEFAULT_SONGS.map((song) => song.sortIndex);
+  assert.equal(new Set(platser).size, platser.length, 'två låtar delar plats');
+  assert.ok(platser.every((p) => p > 0), 'noll betyder oplacerad');
 });

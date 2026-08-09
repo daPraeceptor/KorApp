@@ -19,7 +19,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { audioEngine } from '../audio/engine';
 import { DEFAULT_TIMBRE, TimbreId } from '../audio/timbres';
-import { DEFAULT_SONGS } from '../store/defaultSongs';
+import { DEFAULT_FOLDERS, DEFAULT_SONGS } from '../store/defaultSongs';
 import { metronome } from '../audio/metronome';
 import { DEFAULT_SUBDIVISION, SubdivisionId } from '../audio/subdivisions';
 import { ThemeProvider } from '../ThemeContext';
@@ -267,7 +267,14 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         if (cancelled) {
           return;
         }
-        const laddadeMappar = sortFolders(parseFolders(foldersJson));
+        /**
+         * Mapparna följer med låtarna: startbiblioteket ligger i en mapp, och
+         * utan den skulle låtarna hamna lösa i listan vid första starten.
+         * Samma villkor som för låtarna — bara en orörd lagring får dem.
+         */
+        const laddadeMappar = sortFolders(
+          foldersJson === null ? DEFAULT_FOLDERS : parseFolders(foldersJson),
+        );
         setFolders(laddadeMappar);
         /**
          * Bara en orörd lagring får de medföljande låtarna. Har appen skrivit
