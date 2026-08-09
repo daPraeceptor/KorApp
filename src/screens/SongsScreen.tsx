@@ -392,6 +392,7 @@ export function SongsScreen({
         bpm={song.bpm}
         pulse={isPlayingTempo ? pulse : null}
         activeBeat={isPlayingTempo && pulse ? pulse.beat : null}
+        silent={!isPlayingTempo}
       />
     );
 

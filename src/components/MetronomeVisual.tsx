@@ -9,6 +9,7 @@ import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Svg, { Circle, G, Line, Path } from 'react-native-svg';
 
+import { beatPosition } from '../audio/beatPosition';
 import { BeatPulse, MetronomeVisualStyle } from '../state/AppState';
 import { Palette, radius } from '../theme';
 import { useTheme, useThemedStyles } from '../ThemeContext';
@@ -31,6 +32,16 @@ interface Props {
   pulse: BeatPulse | null;
   /** Taktdel som just hörs, för att markera ettan. */
   activeBeat: number | null;
+  /**
+   * Sant när takten visas utan ljud. Då finns inga klick att följa, och
+   * bilden går på egen klocka.
+   *
+   * Med ljud men utan klick ännu — de första millisekunderna efter start —
+   * står visaren still i utgångsläget i stället. En egen klocka där skulle
+   * börja mitt i en svängning och sedan hoppa till noll när första klicket
+   * kom, vilket syns som en blink.
+   */
+  silent?: boolean;
 }
 
 /**
@@ -43,7 +54,14 @@ function bounceHeight(bpm: number): number {
   return BOUNCE_MIN + andel * (BOUNCE_MAX - BOUNCE_MIN);
 }
 
-export function MetronomeVisual({ style, running, bpm, pulse, activeBeat }: Props) {
+export function MetronomeVisual({
+  style,
+  running,
+  bpm,
+  pulse,
+  activeBeat,
+  silent = false,
+}: Props) {
   const t = useTheme();
   const styles = useThemedStyles(makeStyles);
   const [, setFrame] = useState(0);
@@ -65,26 +83,7 @@ export function MetronomeVisual({ style, running, bpm, pulse, activeBeat }: Prop
     return null;
   }
 
-  const beatMs = 60000 / bpm;
-  /**
-   * Andel av taktslaget som förflutit, 0 vid slaget och 1 strax före nästa.
-   *
-   * Med ett hört taktslag räknas den därifrån, så att bilden följer ljudet.
-   * Utan ljud går visaren på egen klocka — då finns inga klick att följa, men
-   * takten ska ändå synas.
-   */
-  let phase = 0;
-  let direction: 1 | -1 = 1;
-  if (running && pulse) {
-    phase = Math.min(Math.max((Date.now() - pulse.at) / beatMs, 0), 1);
-    // Varannat taktslag går åt andra hållet. Räknaren löper vidare över
-    // taktgränser.
-    direction = pulse.count % 2 === 1 ? -1 : 1;
-  } else if (running) {
-    const beats = Date.now() / beatMs;
-    phase = beats % 1;
-    direction = Math.floor(beats) % 2 === 1 ? -1 : 1;
-  }
+  const { phase, direction } = beatPosition(running, pulse, bpm, silent, Date.now());
   const onBeat = activeBeat === 0;
 
   if (style === 'ball') {
