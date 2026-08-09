@@ -10,6 +10,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
@@ -441,18 +442,34 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
               Välj toner för tongivning
             </Text>
           </Pressable>
-          <SegmentedControl
-            compact
-            value={live.tuningSystem}
-            tint={live.tuningSystem === 'just' ? t.pure : t.accent}
-            onChange={(tuningSystem) => updateLive({ tuningSystem })}
-            options={[
-              // Kort text: på en telefon delar knapparna raden med
-              // tonvalsknappen, och «Tempererad» fick då inte plats alls.
-              { value: 'tempered' as const, label: 'Tmp' },
-              { value: 'just' as const, label: 'Ren' },
-            ]}
-          />
+          {/* Stämningen är i grunden av eller på: tempererad är normalläget
+              och ren stämning det man slår till. En omkopplare säger det
+              tydligare än två knappar, och ryms alltid på raden. */}
+          <Pressable
+            onPress={() =>
+              updateLive({
+                tuningSystem: live.tuningSystem === 'just' ? 'tempered' : 'just',
+              })
+            }
+            style={styles.tuningSwitchRow}
+          >
+            <Text
+              style={[
+                styles.tuningLabel,
+                live.tuningSystem === 'just' && styles.tuningLabelOn,
+              ]}
+            >
+              Ren stämning
+            </Text>
+            <Switch
+              value={live.tuningSystem === 'just'}
+              onValueChange={(pa) =>
+                updateLive({ tuningSystem: pa ? 'just' : 'tempered' })
+              }
+              trackColor={{ false: t.border, true: t.pure }}
+              thumbColor={t.text}
+            />
+          </Pressable>
         </View>
 
         <View style={styles.octaveRow}>
@@ -739,6 +756,22 @@ const makeStyles = (t: Palette) => StyleSheet.create({
   tapButton: {
     // Får ta plats efter finjusteringsknapparna men inte tränga undan Starta.
     flexShrink: 1,
+  },
+  // Hela raden är tryckbar: etiketten och omkopplaren är ett reglage.
+  tuningSwitchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    flexShrink: 0,
+  },
+  tuningLabel: {
+    color: t.textMuted,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  // Påslagen stämning lyser i samma färg som de rena tonernas markeringar.
+  tuningLabelOn: {
+    color: t.pure,
   },
   // Accentfärgad även i vila — det här är vägen in till tonvalet och ska
   // synas. Påslaget läge byter till tonfärgen, samma färg som tonernas
