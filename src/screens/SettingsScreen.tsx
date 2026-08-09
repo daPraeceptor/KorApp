@@ -1,6 +1,13 @@
 /** Inställningar: kammarton, tonnamn, volym och hur körtonerna ges. */
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  View,
+} from 'react-native';
 
 import {
   Button,
@@ -86,14 +93,13 @@ export function SettingsScreen() {
         <SectionTitle>Tempo från låtlistan</SectionTitle>
         <View style={styles.row}>
           <Text style={styles.rowLabel}>Stoppa av sig själv</Text>
-          <SegmentedControl
-            compact
-            value={settings.autoStopFromList ? 'på' : 'av'}
-            onChange={(val) => updateSettings({ autoStopFromList: val === 'på' })}
-            options={[
-              { value: 'av' as const, label: 'Av' },
-              { value: 'på' as const, label: 'På' },
-            ]}
+          <Switch
+            value={settings.autoStopFromList}
+            onValueChange={(autoStopFromList) =>
+              updateSettings({ autoStopFromList })
+            }
+            trackColor={{ false: t.border, true: t.accent }}
+            thumbColor={t.text}
           />
         </View>
         {settings.autoStopFromList ? (
