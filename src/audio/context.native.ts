@@ -20,8 +20,16 @@ import type { AudioContextLike } from './context';
 let sessionConfigured = false;
 
 /**
- * Låter appen spela även när telefonens ringsignal är avstängd — annars är
- * appen tyst för alla som har ljudet nedskruvat, vilket är vanligt i kyrkor.
+ * Ställer in ljudsessionen på iOS.
+ *
+ * Kategorin "playback" låter appen spela även när ringsignalen är avstängd —
+ * annars är appen tyst för alla som har ljudet nedskruvat, vilket är vanligt
+ * i kyrkor. Den skickar också ljudet till högtalaren av sig själv.
+ *
+ * Lägg inte till "defaultToSpeaker" här. Det alternativet gäller bara
+ * kategorin "playAndRecord", och iOS avvisar hela anropet när det kombineras
+ * med "playback". Sessionen konfigureras då aldrig, och eftersom biblioteket
+ * avbryter aktiveringen när konfigurationen misslyckas blev appen helt tyst.
  */
 function configureAudioSession(): void {
   if (sessionConfigured) {
@@ -32,11 +40,14 @@ function configureAudioSession(): void {
     AudioManager.setAudioSessionOptions({
       iosCategory: 'playback',
       iosMode: 'default',
-      iosOptions: ['mixWithOthers', 'defaultToSpeaker'],
+      iosOptions: ['mixWithOthers'],
     });
-    void AudioManager.setAudioSessionActivity(true).catch(() => {});
-  } catch {
-    // Ljudsessionen är en optimering; appen fungerar även om den inte kan sättas.
+    void AudioManager.setAudioSessionActivity(true).catch((fel: unknown) => {
+      // Ett tyst fel här kostade en hel utgåva. Nu syns det åtminstone i loggen.
+      console.warn('Ljudsessionen kunde inte aktiveras', fel);
+    });
+  } catch (fel) {
+    console.warn('Ljudsessionen kunde inte ställas in', fel);
   }
 }
 
