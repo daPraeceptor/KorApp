@@ -12,7 +12,6 @@
       "bundleIdentifier": "com.peterholmstrand.korapp",
       "infoPlist": {
         "UIBackgroundModes": [
-          "audio",
           "audio"
         ],
         "ITSAppUsesNonExemptEncryption": false
