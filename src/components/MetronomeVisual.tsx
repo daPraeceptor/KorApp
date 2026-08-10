@@ -115,7 +115,9 @@ export function MetronomeVisual({
           style={[
             styles.marker,
             onBeat && styles.markerAccent,
-            { left: `${50 + andel * 44}%` },
+            // Banan följer banans bredd: strecket spänner 23–77 %, så
+            // markören vänder en procentenhet innanför ändarna.
+            { left: `${50 + andel * 26}%` },
           ]}
         />
       </View>
@@ -186,26 +188,28 @@ const makeStyles = (t: Palette) => StyleSheet.create({
   ballAccent: {
     backgroundColor: t.pure,
   },
+  // Marken ligger i linje med pendelns bas: basens underkant står på 140 av
+  // 150, alltså 10 från botten — strecket spänner 139–142 och delar linje.
   ground: {
     height: 3,
     width: '49%',
     borderRadius: radius.pill,
     backgroundColor: t.border,
-    marginBottom: 18,
+    marginBottom: 8,
   },
   track: {
     position: 'absolute',
     top: HEIGHT / 2,
     height: 3,
-    width: '90%',
+    width: '54%',
     borderRadius: radius.pill,
     backgroundColor: t.border,
   },
   marker: {
     position: 'absolute',
-    top: HEIGHT / 2 - 26,
+    top: HEIGHT / 2 - 31,
     width: 8,
-    height: 54,
+    height: 65,
     borderRadius: radius.sm,
     backgroundColor: t.accent,
     // Procentläget pekar på markörens vänsterkant — halva bredden tillbaka
