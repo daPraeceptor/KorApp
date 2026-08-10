@@ -14,6 +14,7 @@ import React, {
 } from 'react';
 import {
   Dimensions,
+  LayoutAnimation,
   PanResponder,
   Platform,
   Pressable,
@@ -306,10 +307,8 @@ export function SongsScreen({
   const [dragOffset, setDragOffset] = useState(0);
   /** Grannarnas ordning just nu, så att dragningen ser sina egna byten. */
   const dragGroup = useRef<string[]>([]);
-  /** Hur långt de tänkta bytena flyttat kortets plats i räkningen. */
+  /** Hur långt de redan gjorda bytena flyttat kortet. */
   const dragCommitted = useRef(0);
-  /** Nettosteg att utföra när greppet släpps — listan ordnas om först då. */
-  const pendingMoves = useRef(0);
   /** Mellanrummet mellan korten i gruppen — bytena flyttar kortet höjd + glapp. */
   const dragMellanrum = useRef(0);
   /** Rullningsläget när greppet togs, så att autoscrollen kan räknas bort. */
@@ -379,9 +378,10 @@ export function SongsScreen({
    *
    * Kortet skall alltid ligga kvar under fingret — det är iOS-standarden och
    * det enda som känns rätt. Fingrets väg genom innehållet är dy plus det
-   * listan hunnit rulla sedan greppet. Bytena räknas ut under vägen men
-   * utförs först vid släppet: en lista som ordnar om sig medan man drar
-   * rycker till, och det man håller i skall ligga stilla under fingret.
+   * listan hunnit rulla sedan greppet, och varje passerad granne räknas bort
+   * med grannens höjd plus mellanrummet, så att förskjutningen inte driver.
+   * Grannarna flyter undan direkt när fingret passerar dem — de gör plats åt
+   * det man drar — och på telefonen glider de mjukt i stället för att rycka.
    */
   const uppdateraDrag = (songId: string) => {
     const rullat = scrollOffset.current - dragScrollStart.current;
@@ -410,16 +410,21 @@ export function SongsScreen({
         break;
       }
       const riktning: -1 | 1 = kvar > 0 ? 1 : -1;
-      pendingMoves.current += riktning;
+      // Grannen glider mjukt undan på telefonen. Webben saknar stödet och
+      // flyttar direkt, som förut.
+      if (Platform.OS === 'ios') {
+        LayoutAnimation.configureNext(
+          LayoutAnimation.create(150, 'easeInEaseOut', 'opacity'),
+        );
+      }
+      moveSongInFolder(songId, riktning);
       const ny = [...dragGroup.current];
       [ny[plats], ny[plats + riktning]] = [ny[plats + riktning], ny[plats]];
       dragGroup.current = ny;
       dragCommitted.current += riktning * (höjd + dragMellanrum.current);
       plats += riktning;
     }
-    // Ingen kompensation här: listan står orörd tills släppet, så kortets
-    // utgångsläge flyttar sig aldrig och fingrets väg är hela förskjutningen.
-    setDragOffset(rel);
+    setDragOffset(rel - dragCommitted.current);
 
     // Vilken mapp svävar fingret över? Zonerna mättes vid greppet, så det
     // rullade läggs till för att jämföra i samma koordinater. Bara byten
@@ -505,7 +510,6 @@ export function SongsScreen({
         );
         dragGroup.current = group;
         dragCommitted.current = 0;
-        pendingMoves.current = 0;
         // Mellanrummet mellan grannarna: mappkroppen packar tätare än ytan
         // utanför mapparna. Måtten kommer ur samma stilar som ritar listan.
         dragMellanrum.current =
@@ -528,22 +532,16 @@ export function SongsScreen({
         uppdateraDrag(songId);
       },
       onPanResponderRelease: () => {
-        // Släpp över en annan mapp flyttar låten dit. I samma mapp utförs
-        // de hopsamlade bytena först nu — listan ligger stilla ända tills
-        // fingret släpper.
+        // Släpp över en annan mapp flyttar låten dit. Samma mapp betyder att
+        // dragningen bara ordnade om, och då är den redan gjord.
         const zon = hoverRef.current;
-        const mål = zon === null ? null : zon === LÖST ? null : zon;
-        const nuvarande = groupFolder.current.get(songId) ?? null;
-        if (zon !== null && mål !== nuvarande) {
-          moveSongToFolder(songId, mål);
-        } else {
-          const steg = pendingMoves.current;
-          const riktning: -1 | 1 = steg > 0 ? 1 : -1;
-          for (let i = 0; i < Math.abs(steg); i++) {
-            moveSongInFolder(songId, riktning);
+        if (zon !== null) {
+          const mål = zon === LÖST ? null : zon;
+          const nuvarande = groupFolder.current.get(songId) ?? null;
+          if (mål !== nuvarande) {
+            moveSongToFolder(songId, mål);
           }
         }
-        pendingMoves.current = 0;
         avslutaDrag();
       },
       onPanResponderTerminate: () => {

@@ -548,8 +548,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
 
   /**
    * Flyttar en låt ett steg bland sina grannar i samma mapp. Dragningen i
-   * listan ropar hit när greppet släpps — en gång per passerad granne, i
-   * följd, så nettoflytten blir hela vägen fingret vandrade.
+   * listan ropar hit varje gång fingret passerat en granne, så att grannarna
+   * flyter undan och ger plats åt det man drar.
    */
   const moveSongInFolder = useCallback(
     (songId: string, direction: -1 | 1) => {
