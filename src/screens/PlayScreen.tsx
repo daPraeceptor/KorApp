@@ -420,16 +420,6 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
                   onPress={() => playTones('chord')}
                   style={styles.toneButton}
                 />
-                <Button
-                  label="↑ Upp"
-                  onPress={() => playTones('up')}
-                  style={styles.toneButton}
-                />
-                <Button
-                  label="↓ Ner"
-                  onPress={() => playTones('down')}
-                  style={styles.toneButton}
-                />
               </View>
             </>
           )}

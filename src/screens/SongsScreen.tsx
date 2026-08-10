@@ -856,16 +856,6 @@ export function SongsScreen({
                 style={styles.quickButton}
               />
               <Button
-                label="♪ ↑"
-                onPress={() => playTones('up', song)}
-                style={styles.quickButton}
-              />
-              <Button
-                label="♪ ↓"
-                onPress={() => playTones('down', song)}
-                style={styles.quickButton}
-              />
-              <Button
                 label="♪ ⇢"
                 onPress={() => playTones('chosen', song)}
                 style={styles.quickButton}
