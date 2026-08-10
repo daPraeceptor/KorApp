@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
 
+import { haptik } from '../haptics';
 import { useTheme } from '../ThemeContext';
 import { Palette, ThemeId, radius, spacing } from '../theme';
 
@@ -387,6 +388,8 @@ export function SlideToConfirm({
           const max = Math.max(0, trackWidth.current - SLIDE_KNOB_WIDTH - 6);
           // Nästan framme räknas som framme — men halvvägs gör det inte.
           if (max > 0 && gesture.dx >= max * 0.85) {
+            // Bekräftelsen känns i handen: låset slog till.
+            haptik.klar();
             onConfirm();
           }
           setDragX(0);

@@ -32,6 +32,7 @@ import Svg, { Circle, Line, Path } from 'react-native-svg';
 import { Button, Card, SectionTitle, SlideToConfirm } from '../components/ui';
 import { Keyboard } from '../components/Keyboard';
 import { MetronomeVisual } from '../components/MetronomeVisual';
+import { haptik } from '../haptics';
 import { BeatPulse, useAppState } from '../state/AppState';
 import { Folder, Song, searchSongs } from '../store/songs';
 import { noteName, noteNameWithOctave } from '../theory/tuning';
@@ -429,6 +430,8 @@ export function SongsScreen({
         break;
       }
       const riktning: -1 | 1 = kvar > 0 ? 1 : -1;
+      // Varje passerad granne känns, som när man drar appar på hemskärmen.
+      haptik.val();
       // Grannen glider mjukt undan på telefonen. Webben saknar stödet och
       // flyttar direkt, som förut.
       if (Platform.OS === 'ios') {
@@ -512,6 +515,8 @@ export function SongsScreen({
       onMoveShouldSetPanResponder: () => true,
       onPanResponderTerminationRequest: () => false,
       onPanResponderGrant: (event) => {
+        // Kortet lyfts: en tydlig knäpp bekräftar att greppet tog tag.
+        haptik.medel();
         const group = groupIds.current.get(songId) ?? [];
         // Mät hela gruppen nu: höjderna kan ha ändrats sedan sist, och de
         // behövs redan vid första rörelsen.
@@ -578,13 +583,18 @@ export function SongsScreen({
             const målGrupp = medlem
               ? (groupIds.current.get(medlem[0]) ?? [])
               : [];
-            const plats = målGrupp.filter((id) => {
-              if (id === songId) {
-                return false;
-              }
-              const mått = cardTops.current.get(id);
-              return mått !== undefined && mått.top + mått.height / 2 < fingerY;
-            }).length;
+            const mätbara = målGrupp.filter(
+              (id) => id !== songId && cardTops.current.has(id),
+            );
+            // En hopfälld mapp har inga kort att jämföra med. Då finns ingen
+            // plats att sikta på, och låten läggs sist i stället för överst.
+            const plats =
+              mätbara.length === 0
+                ? undefined
+                : mätbara.filter((id) => {
+                    const mått = cardTops.current.get(id)!;
+                    return mått.top + mått.height / 2 < fingerY;
+                  }).length;
             moveSongToFolder(songId, mål, plats);
           }
         }
@@ -609,6 +619,14 @@ export function SongsScreen({
   const [sveparId, setSveparId] = useState<string | null>(null);
   const [svepDx, setSvepDx] = useState(0);
   const svepBas = useRef(0);
+  /** Läget i refform: släppet läser det utan att bero på en omritning. */
+  const svepDxRef = useRef(0);
+  /** Fingrets väg, odämpad — den avgör om svepet räknas som fullbordat. */
+  const svepRåRef = useRef(0);
+  /** Sant medan kortet är draget förbi punkten där släppet räcker. */
+  const fullsvepNådd = useRef(false);
+  /** Vad ett fullsvep gör, per rad. Uppdateras vid varje utritning. */
+  const fullsvepHandlingar = useRef(new Map<string, (() => void) | undefined>());
   const svepResponders = useRef(
     new Map<string, ReturnType<typeof PanResponder.create>>(),
   );
@@ -618,7 +636,31 @@ export function SongsScreen({
     setSwipedId(null);
   };
 
-  const svepResponderFor = (songId: string) => {
+  /** Håller refen i takt med läget, så att släppet ser samma tal som bilden. */
+  const sättSvepDx = (dx: number) => {
+    svepDxRef.current = dx;
+    setSvepDx(dx);
+  };
+
+  /**
+   * Hur långt fingret måste vandra för att släppet självt ska räknas som ett
+   * beslut. Samma vana som i iOS Mail: ett långt svep behöver inget tryck på
+   * knappen efteråt.
+   *
+   * Måttet tas på fingret och inte på kortet: kortet bromsas in bortom
+   * knappens bredd, och mot det dämpade läget hade tröskeln krävt ett drag
+   * längre än telefonen är bred.
+   */
+  const FULLSVEP = 200;
+
+  const svepResponderFor = (
+    songId: string,
+    /** Anropas när svepet dragits hela vägen och släpps. */
+    påFullsvep?: () => void,
+  ) => {
+    // Verkan läses ur en ref: respondern skapas en gång, men vad raden gör
+    // kan ändras mellan utritningarna.
+    fullsvepHandlingar.current.set(songId, påFullsvep);
     const redan = svepResponders.current.get(songId);
     if (redan) {
       return redan;
@@ -632,7 +674,7 @@ export function SongsScreen({
       onPanResponderTerminationRequest: () => false,
       onPanResponderGrant: () => {
         svepBas.current = swipedRef.current === songId ? -SVEPBREDD : 0;
-        setSvepDx(svepBas.current);
+        sättSvepDx(svepBas.current);
         setSveparId(songId);
         // Ett annat öppet kort stängs så fort ett nytt grepp tas.
         if (swipedRef.current !== null && swipedRef.current !== songId) {
@@ -640,20 +682,44 @@ export function SongsScreen({
         }
       },
       onPanResponderMove: (_event, gesture) => {
-        const dx = Math.min(0, Math.max(-SVEPBREDD, svepBas.current + gesture.dx));
-        setSvepDx(dx);
+        // Bortom knappens bredd går det trögare, men det går: motståndet
+        // säger att man är på väg mot något mer än att bara öppna raden.
+        const rå = svepBas.current + gesture.dx;
+        svepRåRef.current = rå;
+        const dx =
+          rå < -SVEPBREDD
+            ? -SVEPBREDD - (Math.abs(rå) - SVEPBREDD) * 0.55
+            : Math.min(0, rå);
+        // En knäpp när fingret passerar punkten där släppet räcker.
+        if (rå <= -FULLSVEP && !fullsvepNådd.current) {
+          fullsvepNådd.current = true;
+          haptik.medel();
+        } else if (rå > -FULLSVEP) {
+          fullsvepNådd.current = false;
+        }
+        sättSvepDx(Math.max(dx, -SVEPBREDD - 90));
       },
-      onPanResponderRelease: (_event, gesture) => {
-        const dx = svepBas.current + gesture.dx;
+      onPanResponderRelease: () => {
+        const rå = svepRåRef.current;
+        const dx = svepDxRef.current;
+        fullsvepNådd.current = false;
+        setSveparId(null);
+        if (rå <= -FULLSVEP) {
+          // Hela vägen: svepet självt är beslutet.
+          stängSvep();
+          sättSvepDx(0);
+          fullsvepHandlingar.current.get(songId)?.();
+          return;
+        }
         if (dx < -SVEPBREDD / 2) {
           swipedRef.current = songId;
           setSwipedId(songId);
         } else if (swipedRef.current === songId) {
           stängSvep();
         }
-        setSveparId(null);
       },
       onPanResponderTerminate: () => {
+        fullsvepNådd.current = false;
         setSveparId(null);
       },
     });
@@ -753,10 +819,17 @@ export function SongsScreen({
     ]);
   };
 
-  const toggleFolder = (id: string) =>
+  const toggleFolder = (id: string) => {
+    // Mappen fälls upp och ihop mjukt på telefonen.
+    if (Platform.OS === 'ios') {
+      LayoutAnimation.configureNext(
+        LayoutAnimation.create(220, 'easeInEaseOut', 'opacity'),
+      );
+    }
     setCollapsed((current) =>
       current.includes(id) ? current.filter((x) => x !== id) : [...current, id],
     );
+  };
 
   /**
    * @param grupp låtarna i samma mapp, i visad ordning. Dragningen behöver
@@ -772,13 +845,10 @@ export function SongsScreen({
      * ska det bara ta sin egen plats, så att taktvisaren får resten.
      */
     const tempoKnapp = (style: ViewStyle) => (
+      /* Etiketten säger vad trycket gör. Ikonen som stod här förut ersatte
+         texten helt — knappen blev en stum symbol mitt under spelningen. */
       <Button
-        label={isPlayingTempo ? 'Stoppa tempo' : '▶ Tempo'}
-        renderIcon={
-          isPlayingTempo
-            ? (color) => <MutedSpeakerIcon color={color} />
-            : undefined
-        }
+        label={isPlayingTempo ? '■ Stoppa' : '▶ Tempo'}
         variant="primary"
         onPress={() =>
           isPlayingTempo ? stopMetronome() : void playSongTempo(song)
@@ -941,7 +1011,9 @@ export function SongsScreen({
       ) : null}
       <View
         style={svepX !== 0 ? { transform: [{ translateX: svepX }] } : undefined}
-        {...(kanSvepas ? svepResponderFor(song.id).panHandlers : {})}
+        {...(kanSvepas
+          ? svepResponderFor(song.id, () => bekräftaRadering(song)).panHandlers
+          : {})}
       >
       <Card
         // Den valda låten får accentramen — samma ram som när metronomen går.
@@ -964,6 +1036,12 @@ export function SongsScreen({
           if (swipedRef.current !== null) {
             stängSvep();
             return;
+          }
+          // Kortet fälls upp mjukt på telefonen, som iOS egna listor.
+          if (Platform.OS === 'ios' && expandedId !== song.id) {
+            LayoutAnimation.configureNext(
+              LayoutAnimation.create(220, 'easeInEaseOut', 'opacity'),
+            );
           }
           loadSong(song.id);
           setExpandedId(song.id);
@@ -1076,6 +1154,8 @@ export function SongsScreen({
       style={styles.screen}
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
+      // Tangentbordet åker ner när man börjar rulla, som i iOS egna listor.
+      keyboardDismissMode="on-drag"
       scrollEventThrottle={16}
       // Medan ett kort hålls i får listan inte panorera med fingret — det
       // drog innehållet åt fel håll under kortet. Rullning under dragning
@@ -1218,7 +1298,15 @@ export function SongsScreen({
                     ? { transform: [{ translateX: mappSvepX }] }
                     : undefined
                 }
-                {...(locked ? {} : svepResponderFor(folder.id).panHandlers)}
+                {...(locked
+                  ? {}
+                  : svepResponderFor(folder.id, () => {
+                      if (antalIMappen === 0) {
+                        deleteFolder(folder.id);
+                      } else {
+                        bekräftaMappRadering(folder, antalIMappen);
+                      }
+                    }).panHandlers)}
               >
                 {isEditingFolder ? (
                   <View style={styles.editRow}>

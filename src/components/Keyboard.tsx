@@ -18,7 +18,7 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
-import * as Haptics from 'expo-haptics';
+import { haptik } from '../haptics';
 
 import { audioEngine } from '../audio/engine';
 import {
@@ -138,9 +138,7 @@ export function Keyboard({
 
   const setTonic = useCallback(
     (midi: number) => {
-      if (Platform.OS !== 'web') {
-        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-      }
+      haptik.medel();
       onSetTonic(pitchClass(midi));
     },
     [onSetTonic],

@@ -15,7 +15,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import Svg, { Circle, G, Line, Path } from 'react-native-svg';
-import * as Haptics from 'expo-haptics';
+import { haptik } from '../haptics';
 
 import { MAX_BPM, MIN_BPM, clampBpm } from '../audio/tempo';
 import { Palette, radius } from '../theme';
@@ -163,9 +163,7 @@ export function TempoWheel({
           const next = clampBpm(preciseBpm.current);
           if (next !== bpmRef.current) {
             bpmRef.current = next;
-            if (Platform.OS !== 'web') {
-              void Haptics.selectionAsync().catch(() => {});
-            }
+            haptik.val();
             onChange(next);
           }
         },
@@ -179,6 +177,7 @@ export function TempoWheel({
             const dx = startPoint.current.x - center.current.x;
             const dy = startPoint.current.y - center.current.y;
             if (Math.hypot(dx, dy) < size / 2 - 46) {
+              haptik.lätt();
               onCenterTap();
             }
           }

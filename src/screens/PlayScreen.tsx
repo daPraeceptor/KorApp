@@ -237,6 +237,8 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
       style={styles.screen}
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
+      // Tangentbordet åker ner när man börjar rulla, som i iOS egna vyer.
+      keyboardDismissMode="on-drag"
       // Vyn får inte rulla iväg under fingret medan tempohjulet vrids. På
       // webben behövs spärren inte — hjulet stänger av sidscrollen med
       // touchAction — och att stänga av den där gömmer rullningslisten,

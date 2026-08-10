@@ -17,6 +17,9 @@ import React, {
 } from 'react';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
+
+import { setHapticsEnabled } from '../haptics';
 
 import { audioEngine } from '../audio/engine';
 import { DEFAULT_TIMBRE, TimbreId } from '../audio/timbres';
@@ -54,6 +57,9 @@ import {
 } from '../store/songs';
 
 export type { PlayDirection } from '../store/songs';
+
+/** Eget namn på vakenhetslåset, så att bara vår egen låsning släpps. */
+const KEEP_AWAKE_TAG = 'korapp-metronom';
 
 const SONGS_KEY = 'korapp.songs.v1';
 const SETTINGS_KEY = 'korapp.settings.v1';
@@ -101,6 +107,15 @@ export interface Settings {
   autoStopFromList: boolean;
   /** Antal hörbara slag — underdelningar inräknade — innan stoppet. */
   autoStopBeats: number;
+  /** Ettan klingar ljusare än de andra taktdelarna. */
+  accentFirstBeat: boolean;
+  /** Telefonen svarar med en liten stöt när något grips eller slår om. */
+  haptics: boolean;
+  /**
+   * Skärmen slocknar inte medan metronomen går. Telefonen ligger framme på
+   * notstället under repetitionen och ska inte somna mitt i en sats.
+   */
+  keepAwake: boolean;
 }
 
 export type StartTab = 'auto' | 'play' | 'songs';
@@ -125,6 +140,9 @@ const DEFAULT_SETTINGS: Settings = {
   startTab: 'auto',
   autoStopFromList: false,
   autoStopBeats: 16,
+  accentFirstBeat: true,
+  haptics: true,
+  keepAwake: true,
 };
 
 export const MIN_AUTO_STOP_BEATS = 2;
@@ -352,6 +370,32 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       subdivision: live.subdivision,
     });
   }, [live.bpm, live.beatsPerBar, live.subdivision]);
+
+  useEffect(() => {
+    metronome.update({ accentFirstBeat: settings.accentFirstBeat });
+  }, [settings.accentFirstBeat]);
+
+  useEffect(() => {
+    setHapticsEnabled(settings.haptics);
+  }, [settings.haptics]);
+
+  /**
+   * Håller skärmen tänd medan metronomen går. Låset släpps så fort den
+   * stoppas — appen ska inte hindra telefonen från att somna i onödan.
+   */
+  useEffect(() => {
+    if (!settings.keepAwake || !metronomeRunning) {
+      return;
+    }
+    void activateKeepAwakeAsync(KEEP_AWAKE_TAG).catch(() => {});
+    return () => {
+      try {
+        deactivateKeepAwake(KEEP_AWAKE_TAG);
+      } catch {
+        // Vissa plattformar saknar stödet. Att skärmen slocknar är inget fel.
+      }
+    };
+  }, [settings.keepAwake, metronomeRunning]);
 
   useEffect(() => {
     metronome.onBeat = (beat) => {

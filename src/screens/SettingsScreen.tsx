@@ -152,6 +152,57 @@ export function SettingsScreen() {
         </Text>
       </Card>
 
+      {/* Metronomens eget uppförande, samlat: hur den låter och vad den gör
+          med telefonen medan den går. */}
+      <Card>
+        <SectionTitle>Metronom</SectionTitle>
+        <View style={styles.row}>
+          <Text style={styles.rowLabel}>Betona ettan</Text>
+          <Switch
+            value={settings.accentFirstBeat}
+            onValueChange={(accentFirstBeat) =>
+              updateSettings({ accentFirstBeat })
+            }
+            trackColor={{ false: t.border, true: t.accent }}
+            thumbColor={t.text}
+          />
+        </View>
+        <Text style={styles.help}>
+          Taktens första slag klingar ljusare än de andra. Avstängt låter alla
+          slag lika — bra när takten inte ska höras, bara pulsen.
+        </Text>
+        <View style={styles.row}>
+          <Text style={styles.rowLabel}>Håll skärmen tänd</Text>
+          <Switch
+            value={settings.keepAwake}
+            onValueChange={(keepAwake) => updateSettings({ keepAwake })}
+            trackColor={{ false: t.border, true: t.accent }}
+            thumbColor={t.text}
+          />
+        </View>
+        <Text style={styles.help}>
+          Skärmen slocknar inte medan metronomen går. Telefonen ligger framme
+          på notstället och ska inte somna mitt i en sats.
+        </Text>
+      </Card>
+
+      <Card>
+        <SectionTitle>Känsel</SectionTitle>
+        <View style={styles.row}>
+          <Text style={styles.rowLabel}>Vibration</Text>
+          <Switch
+            value={settings.haptics}
+            onValueChange={(haptics) => updateSettings({ haptics })}
+            trackColor={{ false: t.border, true: t.accent }}
+            thumbColor={t.text}
+          />
+        </View>
+        <Text style={styles.help}>
+          Telefonen svarar med en liten stöt när tempohjulet vrids, ett kort
+          lyfts eller låset slår till. Gäller inte i webbläsaren.
+        </Text>
+      </Card>
+
       <Card>
         <SectionTitle>Startvy</SectionTitle>
         <SegmentedControl
