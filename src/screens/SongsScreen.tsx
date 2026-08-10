@@ -1025,6 +1025,19 @@ export function SongsScreen({
           return null;
         }
 
+        // Svepets läge för mappens rubrikrad — samma maskineri som låtarna.
+        const mappSvepX =
+          sveparId === folder.id
+            ? svepDx
+            : swipedId === folder.id
+              ? -SVEPBREDD
+              : 0;
+        // Antalet räknas på hela biblioteket, inte på sökträffarna: varningen
+        // skall tala om vad mappen faktiskt rymmer.
+        const antalIMappen = songs.filter(
+          (s) => s.folderId === folder.id,
+        ).length;
+
         return (
           /* Mappen är också en släppzon: drar man en låt hit hamnar den i
              mappen. Ramen lyser upp medan fingret svävar över. */
@@ -1038,43 +1051,126 @@ export function SongsScreen({
               hoverZone === folder.id ? styles.folderHover : undefined,
             ]}
           >
-            {isEditingFolder ? (
-              <View style={styles.editRow}>
-                <TextInput
-                  value={draftFolderName}
-                  onChangeText={setDraftFolderName}
-                  style={[styles.input, styles.editInput]}
-                  autoFocus
-                  returnKeyType="done"
-                  onSubmitEditing={() => {
-                    renameFolder(folder.id, draftFolderName);
-                    setEditingFolderId(null);
+            {/* Rubrikraden sveps åt vänster för att ta bort mappen, precis
+                som låtkorten: en rund soptunna växer fram bakom raden. */}
+            <View style={styles.swipeWrap}>
+              {!locked && (sveparId === folder.id || mappSvepX !== 0) ? (
+                <View style={styles.swipeActions}>
+                  <Pressable
+                    style={[
+                      styles.swipeDelete,
+                      styles.swipeDeleteFolder,
+                      {
+                        transform: [
+                          {
+                            scale:
+                              0.3 + 0.7 * Math.min(1, -mappSvepX / SVEPBREDD),
+                          },
+                        ],
+                      },
+                    ]}
+                    onPress={() => {
+                      stängSvep();
+                      // En tom mapp försvinner direkt. Innehåller den låtar
+                      // ställs varningsfrågan — och är de många krävs draget.
+                      if (antalIMappen === 0) {
+                        deleteFolder(folder.id);
+                      } else {
+                        setConfirmDeleteFolderId(folder.id);
+                      }
+                    }}
+                  >
+                    <TrashIcon color={t.onAccent} />
+                  </Pressable>
+                </View>
+              ) : null}
+              <View
+                style={
+                  mappSvepX !== 0
+                    ? { transform: [{ translateX: mappSvepX }] }
+                    : undefined
+                }
+                {...(locked ? {} : svepResponderFor(folder.id).panHandlers)}
+              >
+                {isEditingFolder ? (
+                  <View style={styles.editRow}>
+                    <TextInput
+                      value={draftFolderName}
+                      onChangeText={setDraftFolderName}
+                      style={[styles.input, styles.editInput]}
+                      autoFocus
+                      returnKeyType="done"
+                      onSubmitEditing={() => {
+                        renameFolder(folder.id, draftFolderName);
+                        setEditingFolderId(null);
+                      }}
+                    />
+                    <Button
+                      label="Klart"
+                      variant="primary"
+                      onPress={() => {
+                        renameFolder(folder.id, draftFolderName);
+                        setEditingFolderId(null);
+                      }}
+                    />
+                  </View>
+                ) : (
+                  <Pressable
+                    onPress={() => {
+                      if (swipedRef.current !== null) {
+                        stängSvep();
+                        return;
+                      }
+                      toggleFolder(folder.id);
+                    }}
+                    style={styles.folderHeader}
+                  >
+                    <Text style={styles.folderName}>
+                      {open ? '▾' : '▸'}  {folder.name}
+                    </Text>
+                    <Text style={styles.folderCount}>
+                      {inFolder.length} {inFolder.length === 1 ? 'låt' : 'låtar'}
+                    </Text>
+                    {/* Pennan byter namn — samma symbol som på låtkorten. */}
+                    {locked ? null : (
+                      <Pressable
+                        onPress={() => {
+                          setEditingFolderId(folder.id);
+                          setDraftFolderName(folder.name);
+                        }}
+                        hitSlop={10}
+                        style={styles.editCorner}
+                      >
+                        <PencilIcon color={t.textMuted} />
+                      </Pressable>
+                    )}
+                  </Pressable>
+                )}
+              </View>
+            </View>
+
+            {locked || !isConfirmingFolder ? null : antalIMappen > 5 ? (
+              /* Många låtar: ett tryck räcker inte, borttagningen bekräftas
+                 med samma draggest som konsertläget. Låtarna blir kvar. */
+              <View style={styles.folderConfirmSlide}>
+                <Text style={styles.confirmText}>
+                  Mappen «{folder.name}» innehåller {antalIMappen} låtar.
+                  Låtarna blir kvar, men mappen försvinner.
+                </Text>
+                <SlideToConfirm
+                  hint="Dra för att ta bort mappen"
+                  onConfirm={() => {
+                    deleteFolder(folder.id);
+                    setConfirmDeleteFolderId(null);
                   }}
                 />
                 <Button
-                  label="Klart"
-                  variant="primary"
-                  onPress={() => {
-                    renameFolder(folder.id, draftFolderName);
-                    setEditingFolderId(null);
-                  }}
+                  label="Avbryt"
+                  variant="ghost"
+                  onPress={() => setConfirmDeleteFolderId(null)}
                 />
               </View>
             ) : (
-              <Pressable
-                onPress={() => toggleFolder(folder.id)}
-                style={styles.folderHeader}
-              >
-                <Text style={styles.folderName}>
-                  {open ? '▾' : '▸'}  {folder.name}
-                </Text>
-                <Text style={styles.folderCount}>
-                  {inFolder.length} {inFolder.length === 1 ? 'låt' : 'låtar'}
-                </Text>
-              </Pressable>
-            )}
-
-            {locked ? null : isConfirmingFolder ? (
               <View style={styles.actions}>
                 <Text style={styles.confirmText}>
                   Ta bort mappen «{folder.name}»? Låtarna blir kvar.
@@ -1091,22 +1187,6 @@ export function SongsScreen({
                     deleteFolder(folder.id);
                     setConfirmDeleteFolderId(null);
                   }}
-                />
-              </View>
-            ) : (
-              <View style={styles.folderActions}>
-                <Button
-                  label="Byt namn"
-                  variant="ghost"
-                  onPress={() => {
-                    setEditingFolderId(folder.id);
-                    setDraftFolderName(folder.name);
-                  }}
-                />
-                <Button
-                  label="Ta bort mapp"
-                  variant="ghost"
-                  onPress={() => setConfirmDeleteFolderId(folder.id)}
                 />
               </View>
             )}
@@ -1335,10 +1415,15 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     color: t.textMuted,
     fontSize: 12,
   },
-  folderActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  // Rubrikraden är lägre än ett låtkort, så mappens soptunna är mindre.
+  swipeDeleteFolder: {
+    width: 40,
+    height: 40,
+  },
+  // Dra-bekräftelsen behöver hela bredden, så den står i egen spalt.
+  folderConfirmSlide: {
     gap: spacing.sm,
+    marginTop: spacing.xs,
   },
   // Zonen utanför mapparna behöver egen höjd även när den är tom, annars
   // finns ingen yta att släppa på när allt ligger i mappar. Ramen är osynlig
