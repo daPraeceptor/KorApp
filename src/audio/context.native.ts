@@ -6,8 +6,6 @@
  */
 import { AudioContext, AudioManager } from 'react-native-audio-api';
 
-import { beskrivFel, logAudio } from './diagnostics';
-
 export type {
   AudioParamLike,
   AudioNodeLike,
@@ -44,38 +42,23 @@ function configureAudioSession(): void {
       iosMode: 'default',
       iosOptions: ['mixWithOthers'],
     });
-    logAudio('Session: inställd (playback, mixWithOthers)');
-    void AudioManager.setAudioSessionActivity(true)
-      .then(() => logAudio('Session: aktiverad'))
-      .catch((fel: unknown) => {
-        // Ett tyst fel här kostade en hel utgåva. Nu syns det i diagnostiken.
-        logAudio(`Session: aktivering MISSLYCKADES — ${beskrivFel(fel)}`);
-      });
+    // Aktiveringen kan misslyckas utan att appen skall krascha för det —
+    // men den får aldrig misslyckas tyst i utvecklingsläge.
+    void AudioManager.setAudioSessionActivity(true).catch((fel: unknown) => {
+      console.warn('Ljudsessionen kunde inte aktiveras', fel);
+    });
   } catch (fel) {
-    logAudio(`Session: inställning MISSLYCKADES — ${beskrivFel(fel)}`);
+    console.warn('Ljudsessionen kunde inte ställas in', fel);
   }
 }
 
 export function createAudioContext(): AudioContextLike {
   configureAudioSession();
-  try {
-    const ctx = new AudioContext() as unknown as AudioContextLike;
-    logAudio(`Kontext: skapad (state=${ctx.state}, ${ctx.sampleRate} Hz)`);
-    return ctx;
-  } catch (fel) {
-    logAudio(`Kontext: kunde INTE skapas — ${beskrivFel(fel)}`);
-    throw fel;
-  }
+  return new AudioContext() as unknown as AudioContextLike;
 }
 
 export async function unlockAudioContext(ctx: AudioContextLike): Promise<void> {
   if (ctx.state === 'suspended') {
-    try {
-      await ctx.resume();
-      logAudio(`Kontext: väckt (state=${ctx.state})`);
-    } catch (fel) {
-      logAudio(`Kontext: väckning MISSLYCKADES — ${beskrivFel(fel)}`);
-      throw fel;
-    }
+    await ctx.resume();
   }
 }

@@ -18,7 +18,6 @@ import {
   Stepper,
 } from '../components/ui';
 import { audioEngine } from '../audio/engine';
-import { audioLog } from '../audio/diagnostics';
 import {
   MAX_AUTO_STOP_BEATS,
   MIN_AUTO_STOP_BEATS,
@@ -51,7 +50,6 @@ export function SettingsScreen() {
   const styles = useThemedStyles(makeStyles);
   const { settings, updateSettings, live, playTones } = useAppState();
   // Diagnostikloggen bor utanför React; räknaren tvingar fram omritningen.
-  const [, setDiagTick] = useState(0);
 
   /**
    * Provar tempot på riktiga toner. Med låtens egna toner hör man det man
@@ -72,6 +70,88 @@ export function SettingsScreen() {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+      {/* Volymen överst: det är den inställning som ändras oftast, mitt i
+          repetitionen, och skall inte behöva letas fram. */}
+      <Card>
+        <SectionTitle>Volym</SectionTitle>
+        <View style={styles.row}>
+          <Text style={styles.rowLabel}>Ljudstyrka</Text>
+          <Stepper
+            value={Math.round(settings.volume * 100)}
+            min={10}
+            max={100}
+            step={10}
+            onChange={(percent) => updateSettings({ volume: percent / 100 })}
+            format={(value) => `${value} %`}
+          />
+        </View>
+        <Button
+          label="Testa ljudet"
+          onPress={() =>
+            void audioEngine.playTones([261.63, 329.63, 392], {
+              mode: 'together',
+              chordDuration: 1.6,
+            })
+          }
+        />
+      </Card>
+
+      <Card>
+        <SectionTitle>Kammarton</SectionTitle>
+        <View style={styles.row}>
+          <Text style={styles.rowLabel}>A =</Text>
+          <Stepper
+            value={settings.a4}
+            min={415}
+            max={466}
+            onChange={(a4) => updateSettings({ a4 })}
+            format={(value) => `${value} Hz`}
+          />
+        </View>
+        <Text style={styles.help}>
+          Standard är 440 Hz. Många orglar och blåsorkestrar ligger på 442 Hz,
+          och barockensembler ofta på 415 Hz.
+        </Text>
+        {settings.a4 !== DEFAULT_A4 ? (
+          <Button
+            label="Återställ till 440 Hz"
+            variant="ghost"
+            onPress={() => updateSettings({ a4: DEFAULT_A4 })}
+          />
+        ) : null}
+      </Card>
+
+      <Card>
+        <SectionTitle>Färgtema</SectionTitle>
+        <View style={styles.themeGrid}>
+          {THEME_ORDER.map((id) => {
+            const meta = THEME_META[id];
+            const vald = settings.themeId === id;
+            // Färgprovet byggs ur temats egen palett, så knappen visar vad man får.
+            const p = buildPalette(id);
+            return (
+              <Pressable
+                key={id}
+                onPress={() => updateSettings({ themeId: id })}
+                style={[styles.themeChip, vald && styles.themeChipOn]}
+              >
+                <View style={[styles.themeSwatch, { backgroundColor: p.background }]}>
+                  <View style={[styles.themeDot, { backgroundColor: p.accent }]} />
+                  <View style={[styles.themeDot, { backgroundColor: p.pure }]} />
+                  <View style={[styles.themeDot, { backgroundColor: p.tone }]} />
+                </View>
+                <Text style={[styles.themeName, vald && styles.themeNameOn]}>
+                  {meta.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        <Text style={styles.help}>
+          {THEME_META[settings.themeId].description}
+        </Text>
+      </Card>
+
       <Card>
         <SectionTitle>Startvy</SectionTitle>
         <SegmentedControl
@@ -111,41 +191,16 @@ export function SettingsScreen() {
               max={MAX_AUTO_STOP_BEATS}
               step={2}
               onChange={(autoStopBeats) => updateSettings({ autoStopBeats })}
-              format={(value) => `${value} taktslag`}
+              format={(value) => `${value} slag`}
             />
           </View>
         ) : null}
         <Text style={styles.help}>
           Tempoknappen i låtlistan stoppar metronomen av sig själv efter
           {settings.autoStopFromList ? ` ${settings.autoStopBeats}` : ' ett antal'}{' '}
-          taktslag. Gäller bara starter från listan — i spelvyn går metronomen
-          tills du stoppar den.
+          slag — varje hörbart klick räknas, underdelningar med. Gäller bara
+          starter från listan — i spelvyn går metronomen tills du stoppar den.
         </Text>
-      </Card>
-
-      <Card>
-        <SectionTitle>Kammarton</SectionTitle>
-        <View style={styles.row}>
-          <Text style={styles.rowLabel}>A =</Text>
-          <Stepper
-            value={settings.a4}
-            min={415}
-            max={466}
-            onChange={(a4) => updateSettings({ a4 })}
-            format={(value) => `${value} Hz`}
-          />
-        </View>
-        <Text style={styles.help}>
-          Standard är 440 Hz. Många orglar och blåsorkestrar ligger på 442 Hz,
-          och barockensembler ofta på 415 Hz.
-        </Text>
-        {settings.a4 !== DEFAULT_A4 ? (
-          <Button
-            label="Återställ till 440 Hz"
-            variant="ghost"
-            onPress={() => updateSettings({ a4: DEFAULT_A4 })}
-          />
-        ) : null}
       </Card>
 
       <Card>
@@ -238,37 +293,6 @@ export function SettingsScreen() {
           {settings.markTonicInTempered
             ? 'Grundtonen märks ut med etikett och färg i båda stämningarna.'
             : 'Grundtonen märks bara ut i ren stämning, där allt annat stäms mot den. I tempererad stämning har den ingen hörbar följd.'}
-        </Text>
-      </Card>
-
-      <Card>
-        <SectionTitle>Färgtema</SectionTitle>
-        <View style={styles.themeGrid}>
-          {THEME_ORDER.map((id) => {
-            const meta = THEME_META[id];
-            const vald = settings.themeId === id;
-            // Färgprovet byggs ur temats egen palett, så knappen visar vad man får.
-            const p = buildPalette(id);
-            return (
-              <Pressable
-                key={id}
-                onPress={() => updateSettings({ themeId: id })}
-                style={[styles.themeChip, vald && styles.themeChipOn]}
-              >
-                <View style={[styles.themeSwatch, { backgroundColor: p.background }]}>
-                  <View style={[styles.themeDot, { backgroundColor: p.accent }]} />
-                  <View style={[styles.themeDot, { backgroundColor: p.pure }]} />
-                  <View style={[styles.themeDot, { backgroundColor: p.tone }]} />
-                </View>
-                <Text style={[styles.themeName, vald && styles.themeNameOn]}>
-                  {meta.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-        <Text style={styles.help}>
-          {THEME_META[settings.themeId].description}
         </Text>
       </Card>
 
@@ -392,58 +416,6 @@ export function SettingsScreen() {
       </Card>
 
       <Card>
-        <SectionTitle>Volym</SectionTitle>
-        <View style={styles.row}>
-          <Text style={styles.rowLabel}>Ljudstyrka</Text>
-          <Stepper
-            value={Math.round(settings.volume * 100)}
-            min={10}
-            max={100}
-            step={10}
-            onChange={(percent) => updateSettings({ volume: percent / 100 })}
-            format={(value) => `${value} %`}
-          />
-        </View>
-        <Button
-          label="Testa ljudet"
-          onPress={() =>
-            void audioEngine.playTones([261.63, 329.63, 392], {
-              mode: 'together',
-              chordDuration: 1.6,
-            })
-          }
-        />
-      </Card>
-
-      <Card>
-        <SectionTitle>Ljuddiagnostik</SectionTitle>
-        <Text style={styles.help}>
-          Kör provet om appen är tyst. Varje steg i ljudkedjan skriver sitt
-          utfall här — då syns var det brister.
-        </Text>
-        <Button
-          label="Kör ljudprov"
-          variant="primary"
-          onPress={() => {
-            void audioEngine
-              .runDiagnostics()
-              .then(() => setDiagTick((n: number) => n + 1));
-            // Rita om direkt också, så att sessionsraderna syns medan provet går.
-            setTimeout(() => setDiagTick((n: number) => n + 1), 100);
-          }}
-        />
-        {audioLog().length > 0 ? (
-          audioLog().map((rad, i) => (
-            <Text key={`${rad.at}-${i}`} style={styles.diagRow}>
-              {new Date(rad.at).toLocaleTimeString('sv-SE')}  {rad.text}
-            </Text>
-          ))
-        ) : (
-          <Text style={styles.help}>Inget loggat ännu.</Text>
-        )}
-      </Card>
-
-      <Card>
         <SectionTitle>Rena intervall</SectionTitle>
         <Text style={styles.help}>
           I ren stämning byggs varje intervall av en enkel frekvenskvot, vilket
@@ -507,11 +479,6 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     color: t.text,
     fontSize: 15,
     fontWeight: '600',
-    fontVariant: ['tabular-nums'],
-  },
-  diagRow: {
-    color: t.textMuted,
-    fontSize: 12,
     fontVariant: ['tabular-nums'],
   },
   help: {

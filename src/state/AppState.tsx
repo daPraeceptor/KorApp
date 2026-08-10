@@ -93,12 +93,12 @@ export interface Settings {
    */
   startTab: StartTab;
   /**
-   * Stoppar metronomen av sig själv efter ett antal taktslag, men bara när
+   * Stoppar metronomen av sig själv efter ett antal slag, men bara när
    * den startats från låtlistan. Där vill man oftast bara känna tempot en
    * stund; i spelvyn ska den gå tills man säger till.
    */
   autoStopFromList: boolean;
-  /** Antal taktslag innan automatstoppet slår till. */
+  /** Antal hörbara slag — underdelningar inräknade — innan stoppet. */
   autoStopBeats: number;
 }
 
@@ -251,7 +251,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   // Undviker att skriva tillbaka det inlästa värdet direkt efter start.
   const hydrated = useRef(false);
   /**
-   * Taktslag kvar innan metronomen stoppar sig själv, eller null när den ska
+   * Slag kvar innan metronomen stoppar sig själv, eller null när den ska
    * gå tills någon säger till. Armeras bara av starter från låtlistan.
    */
   const autoStopLeft = useRef<number | null>(null);
@@ -354,10 +354,14 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         // Pendeln behöver veta åt vilket håll den ska svänga.
         count: (previous?.count ?? -1) + 1,
       }));
+    };
 
-      // Automatstoppet räknar bara när starten kom från låtlistan. Gränsen
-      // och påslaget läses ur refar: onBeat sätts en gång och skulle annars
-      // frysa fast de värden inställningarna hade vid starten.
+    // Automatstoppet räknar varje hörbart klick — slag, inte taktslag — så
+    // att sexton slag alltid är sexton ljud, även med underdelningar. Det
+    // räknar bara när starten kom från låtlistan. Gränsen och påslaget läses
+    // ur refar: hanteraren sätts en gång och skulle annars frysa fast de
+    // värden inställningarna hade vid starten.
+    metronome.onClick = () => {
       if (autoStopLeft.current === null) {
         return;
       }
@@ -371,6 +375,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     };
     return () => {
       metronome.onBeat = null;
+      metronome.onClick = null;
       metronome.stop();
       audioEngine.stopTones();
       audioEngine.stopAllVoices();

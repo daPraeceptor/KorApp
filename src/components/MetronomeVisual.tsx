@@ -188,7 +188,7 @@ const makeStyles = (t: Palette) => StyleSheet.create({
   },
   ground: {
     height: 3,
-    width: '70%',
+    width: '49%',
     borderRadius: radius.pill,
     backgroundColor: t.border,
     marginBottom: 18,

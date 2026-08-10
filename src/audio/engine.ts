@@ -12,7 +12,6 @@ import {
   unlockAudioContext,
 } from './context.ts';
 import { DEFAULT_TIMBRE, TIMBRES, type TimbreId } from './timbres.ts';
-import { beskrivFel, logAudio } from './diagnostics.ts';
 
 /** Nivå som exponentiella ramper går mot i stället för noll, som de inte klarar. */
 const SILENCE = 0.0001;
@@ -67,33 +66,6 @@ export class AudioEngine {
 
   get isReady(): boolean {
     return this.ctx !== null;
-  }
-
-  /**
-   * Provar hela ljudkedjan och skriver utfallet till diagnostiken.
-   *
-   * Det avgörande måttet är klockan: en ljudmotor som verkligen går räknar
-   * upp currentTime, en som inte startat står stilla på noll. Tillsammans
-   * med ett hörbart klick skiljer det "motorn står" från "motorn går men
-   * ljudet försvinner på vägen ut".
-   */
-  async runDiagnostics(): Promise<void> {
-    try {
-      const ctx = await this.ensure();
-      logAudio(`Prov: state=${ctx.state}, ${ctx.sampleRate} Hz`);
-      const start = ctx.currentTime;
-      this.scheduleClick(start + 0.05, 'accent');
-      logAudio('Prov: klick schemalagt');
-      await new Promise((klar) => setTimeout(klar, 400));
-      const slut = ctx.currentTime;
-      logAudio(
-        slut > start
-          ? `Prov: klockan går (${start.toFixed(3)} → ${slut.toFixed(3)})`
-          : `Prov: klockan STÅR STILLA på ${start.toFixed(3)} — motorn är inte igång`,
-      );
-    } catch (fel) {
-      logAudio(`Prov: MISSLYCKADES — ${beskrivFel(fel)}`);
-    }
   }
 
   get currentTime(): number {

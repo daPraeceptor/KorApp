@@ -51,6 +51,13 @@ export class Metronome {
   /** Anropas när en taktdel hörs, med taktdelens nummer från noll. */
   onBeat: ((beat: number) => void) | null = null;
 
+  /**
+   * Anropas för varje hörbart klick, underdelningarna inräknade. Automat-
+   * stoppet räknar de här: sexton slag är sexton ljud, oavsett vad de är
+   * för slags delar av takten.
+   */
+  onClick: (() => void) | null = null;
+
   constructor(engine: AudioEngine = audioEngine) {
     this.engine = engine;
   }
@@ -162,6 +169,11 @@ export class Metronome {
         const delayMs = Math.max((tickTime - now) * 1000, 0);
         // Blinket får ligga någon millisekund fel; det är bara en visuell markering.
         setTimeout(() => this.onBeat?.(positionInBar), delayMs);
+      }
+
+      if (this.onClick) {
+        const delayMs = Math.max((tickTime - now) * 1000, 0);
+        setTimeout(() => this.onClick?.(), delayMs);
       }
 
       this.offsetIndex += 1;
