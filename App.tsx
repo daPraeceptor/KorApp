@@ -56,11 +56,22 @@ function GearIcon({ color }: { color: string }) {
 }
 
 /** Den klassiska redigeringspennan: spelvyn redigerar den laddade låten. */
+/**
+ * Apples redigeringssymbol — pennan som skriver på ett papper, samma
+ * bild som pennan i låtlistans kort («square.and.pencil»).
+ */
 function EditIcon({ color }: { color: string }) {
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24">
+    <Svg width={22} height={22} viewBox="0 0 24 24">
       <Path
-        d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+        d="M20 13 V18.5 A2.5 2.5 0 0 1 17.5 21 H5.5 A2.5 2.5 0 0 1 3 18.5 V6.5 A2.5 2.5 0 0 1 5.5 4 H11"
+        stroke={color}
+        strokeWidth={1.8}
+        strokeLinecap="round"
+        fill="none"
+      />
+      <Path
+        d="M20.9 3.1a2 2 0 0 0-2.83 0l-7.4 7.4a1 1 0 0 0-.26.45l-.9 3.3a.55.55 0 0 0 .68.68l3.3-.9a1 1 0 0 0 .45-.26l7.4-7.4a2 2 0 0 0 0-2.83z"
         fill={color}
       />
     </Svg>

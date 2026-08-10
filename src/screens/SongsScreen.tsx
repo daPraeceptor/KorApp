@@ -129,6 +129,29 @@ function GripIcon({ color }: { color: string }) {
   );
 }
 
+/**
+ * Apples standardsymbol för att redigera: en penna som skriver på ett
+ * papper — samma bild som «square.and.pencil» i iOS egna appar. Papperet
+ * lämnar en öppning uppe till höger där pennan går in.
+ */
+function PencilIcon({ color }: { color: string }) {
+  return (
+    <Svg width={22} height={22} viewBox="0 0 24 24">
+      <Path
+        d="M20 13 V18.5 A2.5 2.5 0 0 1 17.5 21 H5.5 A2.5 2.5 0 0 1 3 18.5 V6.5 A2.5 2.5 0 0 1 5.5 4 H11"
+        stroke={color}
+        strokeWidth={1.8}
+        strokeLinecap="round"
+        fill="none"
+      />
+      <Path
+        d="M20.9 3.1a2 2 0 0 0-2.83 0l-7.4 7.4a1 1 0 0 0-.26.45l-.9 3.3a.55.55 0 0 0 .68.68l3.3-.9a1 1 0 0 0 .45-.26l7.4-7.4a2 2 0 0 0 0-2.83z"
+        fill={color}
+      />
+    </Svg>
+  );
+}
+
 /** Webbläsaren tolkar annars dragningen som en sidscroll. */
 const WEB_DRAG_STYLE =
   Platform.OS === 'web'
@@ -646,6 +669,20 @@ export function SongsScreen({
       />
     );
 
+    /** Pennan på papperet — Apples redigeringssymbol — öppnar spelvyn. */
+    const ändraKnapp = (
+      <Pressable
+        onPress={() => {
+          loadSong(song.id);
+          onOpenPlay();
+        }}
+        hitSlop={10}
+        style={styles.editCorner}
+      >
+        <PencilIcon color={t.textMuted} />
+      </Pressable>
+    );
+
     /** Ikonen visar hur det låter nu; trycket byter läge. */
     const ljudKnapp = (
       <Button
@@ -842,6 +879,9 @@ export function SongsScreen({
                 <Text style={styles.title} numberOfLines={2}>
                   {song.title}
                 </Text>
+                {/* Pennan uppe i högra hörnet öppnar redigeringen — Apples
+                    egen symbol i stället för en Ändra-knapp. */}
+                {locked || isExpanded ? null : ändraKnapp}
               </View>
               {underrubriker}
             </View>
@@ -849,6 +889,7 @@ export function SongsScreen({
               <>
                 <View style={styles.headerMetronome}>{taktvisare}</View>
                 {ljudKnapp}
+                {locked ? null : ändraKnapp}
               </>
             ) : null}
           </View>
@@ -896,8 +937,9 @@ export function SongsScreen({
         {isExpanded ? klaviatur : null}
 
         {/* Byt namn och Ta bort nås med ett svep åt vänster på kortet, som i
-            iOS egna listor. Flytt sker genom att dra kortet i greppet. */}
-        {locked ? null : isConfirming ? (
+            iOS egna listor. Flytt sker genom att dra kortet i greppet och
+            redigeringen bakom pennan uppe i hörnet. */}
+        {locked || !isConfirming ? null : (
           <View style={styles.actions}>
             <Text style={styles.confirmText}>Ta bort «{song.title}»?</Text>
             <Button
@@ -911,16 +953,6 @@ export function SongsScreen({
               onPress={() => {
                 deleteSong(song.id);
                 setConfirmDeleteId(null);
-              }}
-            />
-          </View>
-        ) : (
-          <View style={styles.actions}>
-            <Button
-              label="Ändra"
-              onPress={() => {
-                loadSong(song.id);
-                onOpenPlay();
               }}
             />
           </View>
@@ -1411,6 +1443,11 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     gap: spacing.sm,
     alignItems: 'center',
     marginTop: spacing.xs,
+  },
+  // Pennan står överst i kortets högra hörn, i linje med rubriken.
+  editCorner: {
+    alignSelf: 'flex-start',
+    padding: 2,
   },
   confirmText: {
     color: t.text,
