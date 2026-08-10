@@ -7,7 +7,6 @@ import {
   LayoutChangeEvent,
   NativeScrollEvent,
   NativeSyntheticEvent,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -235,30 +234,8 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
         scrollY.current = e.nativeEvent.contentOffset.y;
       }}
     >
-      {/* Utan laddad låt finns inget att visa här — listfliken är vägen till
-          låtarna, och en ruta som bara säger "ingen låt" tar plats i onödan.
-          På iPhonen är raden borttagen helt: skärmen är trång och titeln
-          står redan i sparkortet längst ner. */}
-      {currentSong && Platform.OS !== 'ios' ? (
-        <Pressable style={styles.songBar} onPress={onOpenSongs}>
-          <View style={styles.songBarText}>
-            {/* Bara titeln. Listfliken är den självklara vägen till låtarna,
-                så raden behöver inte förklara sig. */}
-            <Text style={styles.songTitle} numberOfLines={1}>
-              {currentSong.title}
-            </Text>
-          </View>
-          {hasUnsavedChanges ? (
-            <Button
-              label="Spara"
-              variant="primary"
-              onPress={saveToCurrentSong}
-              style={styles.saveButton}
-            />
-          ) : null}
-        </Pressable>
-      ) : null}
-
+      {/* Ingen titelrad här: skärmen börjar direkt med metronomen. Titeln
+          står i sparkortet längst ner, och sparandet bor där också. */}
       {/* Ett tryck på taktvisaren bläddrar till nästa stil. "Ingen" ingår
           inte i bläddringen — en osynlig visare går inte att trycka på. */}
       <Pressable onPress={cycleVisual}>
@@ -618,28 +595,6 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     padding: spacing.md,
     gap: spacing.md,
     paddingBottom: spacing.xl,
-  },
-  songBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    backgroundColor: t.surface,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: t.border,
-    padding: spacing.md,
-  },
-  songBarText: {
-    flex: 1,
-  },
-  songTitle: {
-    color: t.text,
-    fontSize: 19,
-    fontWeight: '700',
-  },
-  saveButton: {
-    paddingVertical: 9,
-    paddingHorizontal: 14,
   },
   wheelArea: {
     alignItems: 'center',
