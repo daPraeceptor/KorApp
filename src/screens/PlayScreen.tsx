@@ -109,11 +109,11 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
   const [wheelDragging, setWheelDragging] = useState(false);
   const [meterOpen, setMeterOpen] = useState(true);
   /**
-   * Klaviaturen börjar hopfälld, så att metronomen och alla dess reglage
-   * ryms på en iPhone-skärm. Tongivningsknapparna däremot står alltid
-   * framme — det är dem körledaren behöver blixtsnabbt på repetitionen.
+   * Klaviaturen börjar utfälld: en ny redigering handlar oftast om tonerna,
+   * och då skall tangenterna stå redo direkt. Raden går att fälla ihop när
+   * den är i vägen, och vyn öppnas ny vid varje besök.
    */
-  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const [keyboardOpen, setKeyboardOpen] = useState(true);
   const taps = useRef<number[]>([]);
 
   /**
