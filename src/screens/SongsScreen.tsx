@@ -245,8 +245,6 @@ export function SongsScreen({
     }, 120);
   };
   const [query, setQuery] = useState('');
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [draftTitle, setDraftTitle] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<string[]>([]);
   /** Låten vars kort är uppfällt med spelbart piano. */
@@ -505,7 +503,7 @@ export function SongsScreen({
    * namn» och «Ta bort» — som i iOS egna listor. Ett kort i taget kan stå
    * öppet; ett tryck var som helst på kortet stänger det igen.
    */
-  const SVEPBREDD = 168;
+  const SVEPBREDD = 88;
   const [swipedId, setSwipedId] = useState<string | null>(null);
   const swipedRef = useRef<string | null>(null);
   /** Kortet som sveps just nu och hur långt det har glidit. */
@@ -578,26 +576,12 @@ export function SongsScreen({
   // öppen namnruta kvar och går att skriva i fast läget är låst.
   useEffect(() => {
     if (locked) {
-      setEditingId(null);
       setConfirmDeleteId(null);
       setEditingFolderId(null);
       setConfirmDeleteFolderId(null);
       stängSvep();
     }
   }, [locked]);
-
-  const beginRename = (id: string, title: string) => {
-    setEditingId(id);
-    setDraftTitle(title);
-    setConfirmDeleteId(null);
-  };
-
-  const commitRename = () => {
-    if (editingId) {
-      updateSong(editingId, { title: draftTitle.trim() || 'Namnlös låt' });
-    }
-    setEditingId(null);
-  };
 
   const toggleFolder = (id: string) =>
     setCollapsed((current) =>
@@ -610,7 +594,6 @@ export function SongsScreen({
    */
   const renderSong = (song: Song, grupp: Song[] = []) => {
     const isCurrent = currentSong?.id === song.id;
-    const isEditing = editingId === song.id;
     const isConfirming = confirmDeleteId === song.id;
     const isPlayingTempo = isCurrent && metronomeRunning;
     const isExpanded = expandedId === song.id;
@@ -739,7 +722,7 @@ export function SongsScreen({
       </>
     );
 
-    const kanSvepas = !locked && !isEditing;
+    const kanSvepas = !locked;
     const svepX =
       sveparId === song.id ? svepDx : swipedId === song.id ? -SVEPBREDD : 0;
 
@@ -757,18 +740,10 @@ export function SongsScreen({
         }}
         style={styles.swipeWrap}
       >
-      {/* Åtgärderna ligger bakom kortet och syns när det glider åt sidan. */}
+      {/* Åtgärden ligger bakom kortet och syns när det glider åt sidan.
+          Namn byts i redigeringsvyn, så svepet rymmer bara borttagningen. */}
       {kanSvepas && (sveparId === song.id || svepX !== 0) ? (
         <View style={styles.swipeActions}>
-          <Pressable
-            style={[styles.swipeAction, styles.swipeRename]}
-            onPress={() => {
-              stängSvep();
-              beginRename(song.id, song.title);
-            }}
-          >
-            <Text style={styles.swipeActionText}>Byt namn</Text>
-          </Pressable>
           <Pressable
             style={[styles.swipeAction, styles.swipeDelete]}
             onPress={() => {
@@ -810,24 +785,12 @@ export function SongsScreen({
           setExpandedId(song.id);
         }}
       >
-        {isEditing ? (
-          <View style={styles.editRow}>
-            <TextInput
-              value={draftTitle}
-              onChangeText={setDraftTitle}
-              style={[styles.input, styles.editInput]}
-              autoFocus
-              returnKeyType="done"
-              onSubmitEditing={commitRename}
-            />
-            <Button label="Klart" variant="primary" onPress={commitRename} />
-          </View>
-        ) : (
-          /**
-           * Rubriken och underrubrikerna ligger överst på hela bredden, i
-           * båda lägena. Uppfälld följer taktvisaren och ljudknappen på
-           * raden under; hopfälld står den lilla taktvisaren i rubrikraden.
-           */
+        {/*
+          * Rubriken och underrubrikerna ligger överst på hela bredden, i
+          * båda lägena. Uppfälld följer taktvisaren på raden under;
+          * hopfälld står den lilla taktvisaren i rubrikraden.
+          */}
+        {(
           <View>
             <View style={styles.titleRow}>
               {kanDras ? (
@@ -1409,7 +1372,7 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     top: 0,
     bottom: 0,
     right: 0,
-    width: 168,
+    width: 88,
     flexDirection: 'row',
     borderRadius: radius.md,
     overflow: 'hidden',
@@ -1419,9 +1382,6 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.xs,
-  },
-  swipeRename: {
-    backgroundColor: t.accent,
   },
   swipeDelete: {
     backgroundColor: t.danger,
