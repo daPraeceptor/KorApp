@@ -1227,7 +1227,8 @@ export function SongsScreen({
         ]}
       >
         {loose.map((song) => renderSong(song, loose))}
-        {loose.length === 0 && folders.length > 0 ? (
+        {/* I låst läge går det inte att dra något — då är tipset bara brus. */}
+        {loose.length === 0 && folders.length > 0 && !locked ? (
           <Text style={styles.help}>
             Alla låtar ligger i mappar. Dra en hit för att ta ut den.
           </Text>
