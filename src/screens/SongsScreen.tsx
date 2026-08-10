@@ -852,45 +852,42 @@ export function SongsScreen({
           </View>
         ) : (
           /**
-           * Uppfälld ligger texten i en egen spalt till vänster: rubriken
-           * högst upp med underrubrikerna direkt under. Taktvisaren tar
-           * platsen som blir över och tempot står ytterst till höger.
+           * Rubriken och underrubrikerna ligger överst på hela bredden, i
+           * båda lägena. Uppfälld följer taktvisaren och ljudknappen på
+           * raden under; hopfälld står den lilla taktvisaren i rubrikraden.
            */
-          <View style={isExpanded ? styles.expandedHeader : undefined}>
-            <View style={isExpanded ? styles.headerText : undefined}>
-              <View style={styles.titleRow}>
-                {kanDras ? (
-                  <View
-                    style={[styles.grip, WEB_DRAG_STYLE]}
-                    {...dragResponderFor(song.id).panHandlers}
-                  >
-                    <GripIcon color={isDragging ? t.accent : t.textMuted} />
-                  </View>
-                ) : null}
-                {/* Uppfälld visar den stora taktvisaren i stället — då säger
-                    den lilla ingenting nytt. */}
-                {isExpanded ? null : (
-                  <MiniMetronome
-                    bpm={song.bpm}
-                    color={isPlayingTempo ? t.accent : t.textMuted}
-                    pulse={isPlayingTempo ? pulse : null}
-                  />
-                )}
-                <Text style={styles.title} numberOfLines={2}>
-                  {song.title}
-                </Text>
-                {/* Pennan uppe i högra hörnet öppnar redigeringen — Apples
-                    egen symbol i stället för en Ändra-knapp. */}
-                {locked || isExpanded ? null : ändraKnapp}
-              </View>
-              {underrubriker}
+          <View>
+            <View style={styles.titleRow}>
+              {kanDras ? (
+                <View
+                  style={[styles.grip, WEB_DRAG_STYLE]}
+                  {...dragResponderFor(song.id).panHandlers}
+                >
+                  <GripIcon color={isDragging ? t.accent : t.textMuted} />
+                </View>
+              ) : null}
+              {/* Uppfälld visar den stora taktvisaren i stället — då säger
+                  den lilla ingenting nytt. */}
+              {isExpanded ? null : (
+                <MiniMetronome
+                  bpm={song.bpm}
+                  color={isPlayingTempo ? t.accent : t.textMuted}
+                  pulse={isPlayingTempo ? pulse : null}
+                />
+              )}
+              <Text style={styles.title} numberOfLines={2}>
+                {song.title}
+              </Text>
+              {/* Pennan uppe i högra hörnet öppnar redigeringen — Apples
+                  egen symbol i stället för en Ändra-knapp. */}
+              {locked ? null : ändraKnapp}
             </View>
+            {underrubriker}
             {isExpanded ? (
-              <>
+              <View style={styles.expandedControls}>
                 <View style={styles.headerMetronome}>{taktvisare}</View>
                 {ljudKnapp}
-                {locked ? null : ändraKnapp}
-              </>
+              </View>
             ) : null}
           </View>
         )}
@@ -1227,18 +1224,21 @@ const makeStyles = (t: Palette) => StyleSheet.create({
    * Taktvisaren tar all plats som blir över mellan titeln och tempoknappen,
    * så att den hamnar så nära radens mitt som innehållet tillåter.
    */
+  // Taktvisaren fyller kolumnens bredd, så att pendeln svänger mitt över
+  // ljudknappen under den.
   headerMetronome: {
-    flex: 1,
-    minWidth: 120,
+    alignSelf: 'stretch',
   },
-  expandedHeader: {
-    flexDirection: 'row',
+  /**
+   * Uppfälld står taktvisaren och ljudknappen i en egen spalt till höger,
+   * under rubriken: animationen mitt ovanför knappen. Bredden bestäms av
+   * knappen — animationen sträcker sig över samma mått.
+   */
+  expandedControls: {
+    alignSelf: 'flex-end',
     alignItems: 'center',
-    gap: spacing.sm,
-  },
-  // Texten tar sin naturliga bredd men får krympa när titeln är lång.
-  headerText: {
-    flexShrink: 1,
+    gap: spacing.xs,
+    marginTop: spacing.xs,
   },
   /**
    * Tempot i rubriken: bara så stort som texten kräver. Det växer inte med
