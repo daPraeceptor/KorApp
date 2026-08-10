@@ -42,6 +42,12 @@ interface Props {
    * kom, vilket syns som en blink.
    */
   silent?: boolean;
+  /**
+   * Markens bredd i bollstilen, som andel av visarens bredd. Spelvyn har
+   * gott om plats runt om och klarar sig med standardens smala streck; i
+   * listkortens trånga spalt får ett bredare streck bära upp bollen.
+   */
+  groundWidth?: `${number}%`;
 }
 
 /**
@@ -61,6 +67,7 @@ export function MetronomeVisual({
   pulse,
   activeBeat,
   silent = false,
+  groundWidth,
 }: Props) {
   const t = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -95,7 +102,9 @@ export function MetronomeVisual({
         <View style={styles.ballArea}>
           <View style={[styles.ball, onBeat && styles.ballAccent, { bottom: lift }]} />
         </View>
-        <View style={styles.ground} />
+        <View
+          style={[styles.ground, groundWidth ? { width: groundWidth } : null]}
+        />
       </View>
     );
   }
@@ -180,8 +189,8 @@ const makeStyles = (t: Palette) => StyleSheet.create({
   },
   ball: {
     position: 'absolute',
-    width: 30,
-    height: 30,
+    width: 34.5,
+    height: 34.5,
     borderRadius: radius.pill,
     backgroundColor: t.accent,
   },
@@ -192,7 +201,7 @@ const makeStyles = (t: Palette) => StyleSheet.create({
   // 150, alltså 10 från botten — strecket spänner 139–142 och delar linje.
   ground: {
     height: 3,
-    width: '49%',
+    width: '39%',
     borderRadius: radius.pill,
     backgroundColor: t.border,
     marginBottom: 8,

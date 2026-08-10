@@ -237,8 +237,10 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
       {/* Ingen titelrad här: skärmen börjar direkt med metronomen. Titeln
           står i sparkortet längst ner, och sparandet bor där också. */}
       {/* Ett tryck på taktvisaren bläddrar till nästa stil. "Ingen" ingår
-          inte i bläddringen — en osynlig visare går inte att trycka på. */}
-      <Pressable onPress={cycleVisual}>
+          inte i bläddringen — en osynlig visare går inte att trycka på.
+          Visaren skjuts en aning nedåt, mot hjulet, så att luften ovanför
+          den inte gapar mellan skärmkanten och animationen. */}
+      <Pressable onPress={cycleVisual} style={styles.visualShift}>
         <MetronomeVisual
           style={settings.metronomeVisual}
           running={metronomeRunning}
@@ -595,6 +597,10 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     padding: spacing.md,
     gap: spacing.md,
     paddingBottom: spacing.xl,
+  },
+  // Flyttar taktvisaren en bit nedåt utan att ändra platsen den tar.
+  visualShift: {
+    transform: [{ translateY: 12 }],
   },
   wheelArea: {
     alignItems: 'center',

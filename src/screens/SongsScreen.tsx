@@ -681,6 +681,9 @@ export function SongsScreen({
             pulse={isPlayingTempo ? pulse : null}
             activeBeat={isPlayingTempo && pulse ? pulse.beat : null}
             silent={!isPlayingTempo}
+            // 80 % bredare än standardstrecket: spalten är smal och bollen
+            // behöver något att landa på i ögats mening.
+            groundWidth="88%"
           />
         </View>
       </View>
