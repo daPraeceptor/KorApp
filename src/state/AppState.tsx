@@ -44,6 +44,7 @@ import {
   createSong,
   moveSongInFolder as flyttaILista,
   orderTones,
+  placeSongInFolder,
   parseFolders,
   parseLibrary,
   sortFolders,
@@ -226,7 +227,14 @@ interface AppStateValue {
   renameFolder: (id: string, name: string) => void;
   /** Tar bort mappen. Låtarna i den blir kvar men hamnar löst i listan. */
   deleteFolder: (id: string) => void;
-  moveSongToFolder: (songId: string, folderId: string | null) => void;
+  /** Tar bort mappen tillsammans med alla låtar i den. */
+  deleteFolderAndSongs: (id: string) => void;
+  /** Flyttar låten till mappen (null = utanför), på vald plats i gruppen. */
+  moveSongToFolder: (
+    songId: string,
+    folderId: string | null,
+    position?: number,
+  ) => void;
   /** Flyttar låten ett steg upp (-1) eller ner (1) bland grannarna i mappen. */
   moveSongInFolder: (songId: string, direction: -1 | 1) => void;
 
@@ -538,13 +546,29 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     );
   }, []);
 
-  const moveSongToFolder = useCallback((songId: string, folderId: string | null) => {
-    setSongs((current) =>
-      current.map((song) =>
-        song.id === songId ? { ...song, folderId, updatedAt: Date.now() } : song,
-      ),
-    );
-  }, []);
+  /** Tar bort mappen och alla låtar i den. Den laddade följer med i fallet. */
+  const deleteFolderAndSongs = useCallback(
+    (id: string) => {
+      setFolders((current) => current.filter((folder) => folder.id !== id));
+      setSongs((current) => current.filter((song) => song.folderId !== id));
+      setCurrentSongId((laddad) =>
+        laddad !== null &&
+        songs.some((song) => song.id === laddad && song.folderId === id)
+          ? null
+          : laddad,
+      );
+    },
+    [songs],
+  );
+
+  const moveSongToFolder = useCallback(
+    (songId: string, folderId: string | null, position?: number) => {
+      setSongs((current) =>
+        sortSongs(placeSongInFolder(current, songId, folderId, position)),
+      );
+    },
+    [],
+  );
 
   /**
    * Flyttar en låt ett steg bland sina grannar i samma mapp. Dragningen i
@@ -629,6 +653,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       addFolder,
       renameFolder,
       deleteFolder,
+      deleteFolderAndSongs,
       moveSongToFolder,
       moveSongInFolder,
       addSong,
@@ -662,6 +687,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       addFolder,
       renameFolder,
       deleteFolder,
+      deleteFolderAndSongs,
       moveSongToFolder,
       moveSongInFolder,
       addSong,

@@ -88,6 +88,12 @@ interface Props {
    * att ändra från den.
    */
   playableTones?: number[];
+  /**
+   * Breddar tangenterna så att klaviaturen fyller sin yta kant till kant
+   * när tonspannet är litet. Är spannet bredare än ytan rullar den i
+   * sidled som vanligt.
+   */
+  fillWidth?: boolean;
 }
 
 export function Keyboard({
@@ -103,11 +109,14 @@ export function Keyboard({
   onToggleTone,
   onNotePlayed,
   playableTones,
+  fillWidth = false,
 }: Props) {
   const t = useTheme();
   const styles = useThemedStyles(makeStyles);
   const [pressed, setPressed] = useState<number[]>([]);
   const lastTap = useRef<{ midi: number; at: number } | null>(null);
+  /** Ytans bredd, mätt för att kunna breddas kant till kant. */
+  const [containerWidth, setContainerWidth] = useState(0);
 
   const { whiteKeys, blackKeys } = useMemo(() => {
     const whites: number[] = [];
@@ -208,16 +217,26 @@ export function Keyboard({
     );
   };
 
+  // Kant till kant: tangenterna breddas tills klaviaturen fyller ytan. Är
+  // spannet bredare än ytan behåller tangenterna sitt vanliga mått och
+  // klaviaturen rullar i sidled i stället.
+  const keyWidth =
+    fillWidth && containerWidth > 0 && whiteKeys.length > 0
+      ? Math.max(WHITE_KEY_WIDTH, containerWidth / whiteKeys.length)
+      : WHITE_KEY_WIDTH;
+  const blackWidth = (BLACK_KEY_WIDTH / WHITE_KEY_WIDTH) * keyWidth;
+
   return (
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.scrollContent}
+      onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
     >
       <View
         style={[
           styles.keyboard,
-          { width: whiteKeys.length * WHITE_KEY_WIDTH },
+          { width: whiteKeys.length * keyWidth },
           WEB_NO_SELECT,
         ]}
       >
@@ -232,6 +251,7 @@ export function Keyboard({
               onPressOut={() => release(midi)}
               style={[
                 styles.whiteKey,
+                keyWidth !== WHITE_KEY_WIDTH ? { width: keyWidth } : null,
                 active && styles.whiteKeyPressed,
                 tonic && styles.tonicKey,
               ]}
@@ -263,9 +283,9 @@ export function Keyboard({
               style={[
                 styles.blackKey,
                 {
-                  left:
-                    (whiteIndex + 1) * WHITE_KEY_WIDTH - BLACK_KEY_WIDTH / 2,
+                  left: (whiteIndex + 1) * keyWidth - blackWidth / 2,
                 },
+                keyWidth !== WHITE_KEY_WIDTH ? { width: blackWidth } : null,
                 active && styles.blackKeyPressed,
                 tonic && styles.tonicKeyBlack,
               ]}

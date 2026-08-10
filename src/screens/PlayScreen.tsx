@@ -23,7 +23,7 @@ import { NoteValueIcon } from '../components/NoteValueIcon';
 import {
   SUBDIVISIONS,
   SUBDIVISION_ORDER,
-  subdivisionOr,
+  type SubdivisionId,
 } from '../audio/subdivisions';
 import { TempoWheel } from '../components/TempoWheel';
 import { Button, Card, SectionTitle, SegmentedControl, Stepper } from '../components/ui';
@@ -108,7 +108,6 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
   const [playedNote, setPlayedNote] = useState<number | null>(null);
   const [keyboardStart, setKeyboardStart] = useState(48);
   const [wheelDragging, setWheelDragging] = useState(false);
-  const [meterOpen, setMeterOpen] = useState(true);
   /**
    * Klaviaturen börjar utfälld: en ny redigering handlar oftast om tonerna,
    * och då skall tangenterna stå redo direkt. Raden går att fälla ihop när
@@ -216,6 +215,16 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
       live.subdivision === id,
   );
 
+  /** Underdelningarna som segmentknappar, med notbild och eventuell text. */
+  const underdelningsval = (ids: SubdivisionId[]) =>
+    ids.map((id) => ({
+      value: id,
+      // Med alla åtta framme finns ingen plats för text. Notbilderna
+      // säger ändå vad varje figur är, och namnen står i inställningarna.
+      label: settings.showAdvancedSubdivisions ? '' : SUBDIVISIONS[id].label,
+      renderIcon: (color: string) => <NoteValueIcon value={id} color={color} />,
+    }));
+
   const toneCount = live.tones.length;
   // Grundtonen går bara att sätta där den betyder något, så tipset följer
   // markeringen i stället för att stå kvar och lova något som inte händer.
@@ -294,47 +303,50 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
         />
       </View>
 
+      {/* Ingen rubrik: raderna säger själva vad de gör, och kortet är alltid
+          framme — utan rubrik finns inget att fälla ihop heller. */}
       <Card>
-        <Pressable
-          onPress={() => setMeterOpen((open) => !open)}
-          style={styles.cardHeader}
-        >
-          <SectionTitle>Taktart</SectionTitle>
-          <Text style={styles.cardHeaderNote}>
-            {/* Hopfälld visar kortet ändå vad som är inställt. */}
-            {meterOpen
-              ? '▾'
-              : `${live.beatsPerBar}/4 · ${subdivisionOr(live.subdivision).label.toLocaleLowerCase('sv')}  ▸`}
-          </Text>
-        </Pressable>
-
-        {meterOpen ? (
+        <View style={styles.row}>
+          <Text style={styles.rowLabel}>Slag per takt</Text>
+          <Stepper
+            value={live.beatsPerBar}
+            min={1}
+            max={12}
+            onChange={(beatsPerBar) => updateLive({ beatsPerBar })}
+          />
+        </View>
+        <Text style={styles.rowLabel}>Underdelning</Text>
+        {/* Fler än fyra underdelningar delas på två rader — åtta knappar på
+            en rad blir frimärken på en telefonskärm. */}
+        {synligaUnderdelningar.length > 4 ? (
           <>
-            <View style={styles.row}>
-              <Text style={styles.rowLabel}>Slag per takt</Text>
-              <Stepper
-                value={live.beatsPerBar}
-                min={1}
-                max={12}
-                onChange={(beatsPerBar) => updateLive({ beatsPerBar })}
-              />
-            </View>
-            <Text style={styles.rowLabel}>Underdelning</Text>
             <SegmentedControl
               value={live.subdivision}
               onChange={(subdivision) => updateLive({ subdivision })}
-              options={synligaUnderdelningar.map((id) => ({
-                value: id,
-                // Med alla åtta framme finns ingen plats för text. Notbilderna
-                // säger ändå vad varje figur är, och namnen står i inställningarna.
-                label: settings.showAdvancedSubdivisions ? '' : SUBDIVISIONS[id].label,
-                renderIcon: (color: string) => (
-                  <NoteValueIcon value={id} color={color} />
+              options={underdelningsval(
+                synligaUnderdelningar.slice(
+                  0,
+                  Math.ceil(synligaUnderdelningar.length / 2),
                 ),
-              }))}
+              )}
+            />
+            <SegmentedControl
+              value={live.subdivision}
+              onChange={(subdivision) => updateLive({ subdivision })}
+              options={underdelningsval(
+                synligaUnderdelningar.slice(
+                  Math.ceil(synligaUnderdelningar.length / 2),
+                ),
+              )}
             />
           </>
-        ) : null}
+        ) : (
+          <SegmentedControl
+            value={live.subdivision}
+            onChange={(subdivision) => updateLive({ subdivision })}
+            options={underdelningsval(synligaUnderdelningar)}
+          />
+        )}
       </Card>
 
       {/* Tongivningen står alltid framme — det är den körledaren behöver

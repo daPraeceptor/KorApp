@@ -252,6 +252,45 @@ export function moveSongInFolder(
   );
 }
 
+/**
+ * Flyttar en låt till en mapp — eller ut ur alla med null — och ställer den
+ * på en vald plats bland de nya grannarna. Utan angiven plats hamnar den
+ * sist: det är där något man lägger ifrån sig naturligt landar, inte överst.
+ *
+ * Hela målgruppen numreras om från ett, av samma skäl som vid stegflytten:
+ * annars är platsen inte värd namnet bland osorterade nollor.
+ */
+export function placeSongInFolder(
+  songs: Song[],
+  songId: string,
+  folderId: string | null,
+  position?: number,
+): Song[] {
+  const song = songs.find((candidate) => candidate.id === songId);
+  if (!song) {
+    return songs;
+  }
+
+  const flyttade = songs.map((s) =>
+    s.id === songId ? { ...s, folderId, updatedAt: Date.now() } : s,
+  );
+  const flyttad = flyttade.find((s) => s.id === songId)!;
+  const grannar = sortSongs(
+    flyttade.filter((s) => s.folderId === folderId && s.id !== songId),
+  );
+  const plats =
+    position === undefined
+      ? grannar.length
+      : Math.max(0, Math.min(position, grannar.length));
+  grannar.splice(plats, 0, flyttad);
+
+  // Numreringen börjar på ett, så att noll fortsätter betyda oplacerad.
+  const nyaIndex = new Map(grannar.map((s, index) => [s.id, index + 1]));
+  return flyttade.map((s) =>
+    nyaIndex.has(s.id) ? { ...s, sortIndex: nyaIndex.get(s.id)! } : s,
+  );
+}
+
 /** Ställer tonerna i den följd de ska spelas. */
 export function orderTones(tones: number[], direction: PlayDirection): number[] {
   switch (direction) {

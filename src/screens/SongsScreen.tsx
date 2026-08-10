@@ -13,8 +13,10 @@ import React, {
   useState,
 } from 'react';
 import {
+  Alert,
   Dimensions,
   LayoutAnimation,
+  Modal,
   PanResponder,
   Platform,
   Pressable,
@@ -31,7 +33,7 @@ import { Button, Card, SectionTitle, SlideToConfirm } from '../components/ui';
 import { Keyboard } from '../components/Keyboard';
 import { MetronomeVisual } from '../components/MetronomeVisual';
 import { BeatPulse, useAppState } from '../state/AppState';
-import { Song, searchSongs } from '../store/songs';
+import { Folder, Song, searchSongs } from '../store/songs';
 import { noteName, noteNameWithOctave } from '../theory/tuning';
 import { Palette, radius, spacing } from '../theme';
 import { useTheme, useThemedStyles } from '../ThemeContext';
@@ -254,6 +256,7 @@ export function SongsScreen({
     addFolder,
     renameFolder,
     deleteFolder,
+    deleteFolderAndSongs,
     moveSongToFolder,
     moveSongInFolder,
     playTones,
@@ -265,6 +268,8 @@ export function SongsScreen({
   const scrollRef = useRef<ScrollView>(null);
   /** Rullningsläget, för att kunna räkna om skärmlägen till innehållslägen. */
   const scrollOffset = useRef(0);
+  /** Sant när sökrutan redan gömts bakom det inledande rulläget på iOS. */
+  const sökGömd = useRef(false);
 
   /**
    * Skapar mappen och rullar dit. Mapparna sorteras i bokstavsordning, så den
@@ -289,7 +294,19 @@ export function SongsScreen({
     }, 120);
   };
   const [query, setQuery] = useState('');
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  /**
+   * Varningsdialogen på webben, formad som Apples egen. Telefonen använder
+   * systemets Alert i stället, så där förblir det här null.
+   */
+  const [dialog, setDialog] = useState<{
+    titel: string;
+    text: string;
+    knappar: {
+      label: string;
+      variant?: 'danger' | 'ghost' | 'primary';
+      onPress?: () => void;
+    }[];
+  } | null>(null);
   const [collapsed, setCollapsed] = useState<string[]>([]);
   /** Låten vars kort är uppfällt med spelbart piano. */
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -303,6 +320,8 @@ export function SongsScreen({
    */
   const cardRefs = useRef(new Map<string, View | null>());
   const heights = useRef(new Map<string, number>());
+  /** Alla korts lägen vid greppet, för att veta var i mappen ett släpp sker. */
+  const cardTops = useRef(new Map<string, { top: number; height: number }>());
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState(0);
   /** Grannarnas ordning just nu, så att dragningen ser sina egna byten. */
@@ -508,6 +527,14 @@ export function SongsScreen({
             zoneBounds.current.set(id, { top: y, bottom: y + h }),
           ),
         );
+        // Mät alla kort, inte bara grannarna: släpps låten i en annan mapp
+        // avgör målgruppens korts lägen var i den mappen den hamnar.
+        cardTops.current.clear();
+        cardRefs.current.forEach((vy, id) =>
+          vy?.measureInWindow((_x, y, _w, h) =>
+            cardTops.current.set(id, { top: y, height: h }),
+          ),
+        );
         dragGroup.current = group;
         dragCommitted.current = 0;
         // Mellanrummet mellan grannarna: mappkroppen packar tätare än ytan
@@ -532,14 +559,33 @@ export function SongsScreen({
         uppdateraDrag(songId);
       },
       onPanResponderRelease: () => {
-        // Släpp över en annan mapp flyttar låten dit. Samma mapp betyder att
-        // dragningen bara ordnade om, och då är den redan gjord.
+        // Släpp över en annan mapp flyttar låten dit — till platsen där den
+        // släpptes, inte överst. Samma mapp betyder att dragningen bara
+        // ordnade om, och då är den redan gjord.
         const zon = hoverRef.current;
         if (zon !== null) {
           const mål = zon === LÖST ? null : zon;
           const nuvarande = groupFolder.current.get(songId) ?? null;
           if (mål !== nuvarande) {
-            moveSongToFolder(songId, mål);
+            // Fingrets läge i greppets koordinater, jämfört med målgruppens
+            // kort så som de låg då: platsen är antalet kort vars mittlinje
+            // fingret passerat.
+            const rullat = scrollOffset.current - dragScrollStart.current;
+            const fingerY = fingerMoveY.current + rullat;
+            const medlem = [...groupFolder.current.entries()].find(
+              ([id, mapp]) => id !== songId && (mapp ?? null) === mål,
+            );
+            const målGrupp = medlem
+              ? (groupIds.current.get(medlem[0]) ?? [])
+              : [];
+            const plats = målGrupp.filter((id) => {
+              if (id === songId) {
+                return false;
+              }
+              const mått = cardTops.current.get(id);
+              return mått !== undefined && mått.top + mått.height / 2 < fingerY;
+            }).length;
+            moveSongToFolder(songId, mål, plats);
           }
         }
         avslutaDrag();
@@ -617,9 +663,6 @@ export function SongsScreen({
 
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [draftFolderName, setDraftFolderName] = useState('');
-  const [confirmDeleteFolderId, setConfirmDeleteFolderId] = useState<string | null>(
-    null,
-  );
 
   const searching = query.trim().length > 0;
   const matches = useMemo(() => searchSongs(songs, query), [songs, query]);
@@ -629,12 +672,86 @@ export function SongsScreen({
   // öppen namnruta kvar och går att skriva i fast läget är låst.
   useEffect(() => {
     if (locked) {
-      setConfirmDeleteId(null);
+      setDialog(null);
       setEditingFolderId(null);
-      setConfirmDeleteFolderId(null);
       stängSvep();
     }
   }, [locked]);
+
+  /**
+   * Raderingsfrågan i Apples egen stil: en riktig varningsdialog med rött
+   * borttagningsval. På telefonen är det systemets dialog; webben saknar den
+   * och får en likadant formad ruta över en tonad skärm.
+   */
+  const bekräftaRadering = (song: Song) => {
+    if (Platform.OS === 'web') {
+      setDialog({
+        titel: `Ta bort «${song.title}»?`,
+        text: 'Låten försvinner ur biblioteket.',
+        knappar: [
+          { label: 'Avbryt', variant: 'ghost' },
+          {
+            label: 'Ta bort',
+            variant: 'danger',
+            onPress: () => deleteSong(song.id),
+          },
+        ],
+      });
+      return;
+    }
+    Alert.alert(`Ta bort «${song.title}»?`, 'Låten försvinner ur biblioteket.', [
+      { text: 'Avbryt', style: 'cancel' },
+      {
+        text: 'Ta bort',
+        style: 'destructive',
+        onPress: () => deleteSong(song.id),
+      },
+    ]);
+  };
+
+  /**
+   * Mappfrågan i samma stil, men med två vägar: låtarna kan följa med i
+   * fallet eller läggas utanför mappen. Båda sägs rent ut — det värsta vore
+   * en körledare som trodde sig tömma en mapp och raderade repertoaren.
+   */
+  const bekräftaMappRadering = (mapp: Folder, antal: number) => {
+    const titel = `Ta bort mappen «${mapp.name}»?`;
+    const text =
+      antal === 1
+        ? 'Mappen innehåller en låt.'
+        : `Mappen innehåller ${antal} låtar.`;
+    if (Platform.OS === 'web') {
+      setDialog({
+        titel,
+        text,
+        knappar: [
+          { label: 'Avbryt', variant: 'ghost' },
+          {
+            label: 'Lägg låtarna utanför mappen',
+            onPress: () => deleteFolder(mapp.id),
+          },
+          {
+            label: 'Ta bort alla låtar i mappen',
+            variant: 'danger',
+            onPress: () => deleteFolderAndSongs(mapp.id),
+          },
+        ],
+      });
+      return;
+    }
+    Alert.alert(titel, text, [
+      { text: 'Avbryt', style: 'cancel' },
+      {
+        text: 'Lägg låtarna utanför mappen',
+        onPress: () => deleteFolder(mapp.id),
+      },
+      {
+        text: 'Ta bort alla låtar i mappen',
+        style: 'destructive',
+        onPress: () => deleteFolderAndSongs(mapp.id),
+      },
+    ]);
+  };
 
   const toggleFolder = (id: string) =>
     setCollapsed((current) =>
@@ -647,7 +764,6 @@ export function SongsScreen({
    */
   const renderSong = (song: Song, grupp: Song[] = []) => {
     const isCurrent = currentSong?.id === song.id;
-    const isConfirming = confirmDeleteId === song.id;
     const isPlayingTempo = isCurrent && metronomeRunning;
     const isExpanded = expandedId === song.id;
 
@@ -740,6 +856,8 @@ export function SongsScreen({
           playableTones={song.tones}
           onSetTonic={() => {}}
           onToggleTone={() => {}}
+          // Kortets fulla bredd, även när tonspannet bara är några tangenter.
+          fillWidth
         />
       ) : (
         <Text style={styles.help}>
@@ -814,7 +932,7 @@ export function SongsScreen({
             ]}
             onPress={() => {
               stängSvep();
-              setConfirmDeleteId(song.id);
+              bekräftaRadering(song);
             }}
           >
             <TrashIcon color={t.onAccent} />
@@ -943,27 +1061,9 @@ export function SongsScreen({
             härifrån. Med plats står taktvisaren till höger om klaviaturen. */}
         {isExpanded ? klaviatur : null}
 
-        {/* Byt namn och Ta bort nås med ett svep åt vänster på kortet, som i
-            iOS egna listor. Flytt sker genom att dra kortet i greppet och
-            redigeringen bakom pennan uppe i hörnet. */}
-        {locked || !isConfirming ? null : (
-          <View style={styles.actions}>
-            <Text style={styles.confirmText}>Ta bort «{song.title}»?</Text>
-            <Button
-              label="Avbryt"
-              variant="ghost"
-              onPress={() => setConfirmDeleteId(null)}
-            />
-            <Button
-              label="Ta bort"
-              variant="danger"
-              onPress={() => {
-                deleteSong(song.id);
-                setConfirmDeleteId(null);
-              }}
-            />
-          </View>
-        )}
+        {/* Ta bort nås med ett svep åt vänster på kortet, som i iOS egna
+            listor — frågan ställs i varningsdialogen. Flytt sker genom att
+            dra kortet i greppet och redigeringen bakom pennan i hörnet. */}
       </Card>
       </View>
       </View>
@@ -1013,6 +1113,16 @@ export function SongsScreen({
           style={styles.search}
           returnKeyType="search"
           clearButtonMode="while-editing"
+          // På telefonen börjar listan nedrullad förbi sökrutan, som i iOS
+          // egna listor: den dras fram med ett neddrag när den behövs.
+          onLayout={(e) => {
+            if (Platform.OS !== 'ios' || sökGömd.current) {
+              return;
+            }
+            sökGömd.current = true;
+            const höjd = e.nativeEvent.layout.height + spacing.md;
+            scrollRef.current?.scrollTo({ y: höjd, animated: false });
+          }}
         />
       ) : null}
 
@@ -1038,7 +1148,6 @@ export function SongsScreen({
         // Under sökning fälls mappar med träffar upp, annars göms svaret.
         const open = searching ? inFolder.length > 0 : !collapsed.includes(folder.id);
         const isEditingFolder = editingFolderId === folder.id;
-        const isConfirmingFolder = confirmDeleteFolderId === folder.id;
 
         if (searching && inFolder.length === 0) {
           return null;
@@ -1091,11 +1200,11 @@ export function SongsScreen({
                     onPress={() => {
                       stängSvep();
                       // En tom mapp försvinner direkt. Innehåller den låtar
-                      // ställs varningsfrågan — och är de många krävs draget.
+                      // ställs varningsfrågan med de två vägarna.
                       if (antalIMappen === 0) {
                         deleteFolder(folder.id);
                       } else {
-                        setConfirmDeleteFolderId(folder.id);
+                        bekräftaMappRadering(folder, antalIMappen);
                       }
                     }}
                   >
@@ -1168,48 +1277,6 @@ export function SongsScreen({
               </View>
             </View>
 
-            {locked || !isConfirmingFolder ? null : antalIMappen > 5 ? (
-              /* Många låtar: ett tryck räcker inte, borttagningen bekräftas
-                 med samma draggest som konsertläget. Låtarna blir kvar. */
-              <View style={styles.folderConfirmSlide}>
-                <Text style={styles.confirmText}>
-                  Mappen «{folder.name}» innehåller {antalIMappen} låtar.
-                  Låtarna blir kvar, men mappen försvinner.
-                </Text>
-                <SlideToConfirm
-                  hint="Dra för att ta bort mappen"
-                  onConfirm={() => {
-                    deleteFolder(folder.id);
-                    setConfirmDeleteFolderId(null);
-                  }}
-                />
-                <Button
-                  label="Avbryt"
-                  variant="ghost"
-                  onPress={() => setConfirmDeleteFolderId(null)}
-                />
-              </View>
-            ) : (
-              <View style={styles.actions}>
-                <Text style={styles.confirmText}>
-                  Ta bort mappen «{folder.name}»? Låtarna blir kvar.
-                </Text>
-                <Button
-                  label="Avbryt"
-                  variant="ghost"
-                  onPress={() => setConfirmDeleteFolderId(null)}
-                />
-                <Button
-                  label="Ta bort mapp"
-                  variant="danger"
-                  onPress={() => {
-                    deleteFolder(folder.id);
-                    setConfirmDeleteFolderId(null);
-                  }}
-                />
-              </View>
-            )}
-
             {open ? (
               <View style={styles.folderBody}>
                 {inFolder.length === 0 ? (
@@ -1274,6 +1341,38 @@ export function SongsScreen({
           </View>
         </Card>
       )}
+
+      {/* Varningsdialogen på webben: Apples form — tonad skärm bakom och
+          rutan i mitten med det röda valet sist. Telefonen använder
+          systemets egen dialog och sätter aldrig det här tillståndet. */}
+      {dialog ? (
+        <Modal
+          transparent
+          animationType="fade"
+          visible
+          onRequestClose={() => setDialog(null)}
+        >
+          <View style={styles.alertScrim}>
+            <View style={styles.alertBox}>
+              <Text style={styles.alertTitle}>{dialog.titel}</Text>
+              <Text style={styles.alertText}>{dialog.text}</Text>
+              <View style={styles.alertButtons}>
+                {dialog.knappar.map((knapp) => (
+                  <Button
+                    key={knapp.label}
+                    label={knapp.label}
+                    variant={knapp.variant}
+                    onPress={() => {
+                      setDialog(null);
+                      knapp.onPress?.();
+                    }}
+                  />
+                ))}
+              </View>
+            </View>
+          </View>
+        </Modal>
+      ) : null}
 
       {/* Samma draggest åt båda hållen: in i konsertläget och ut ur det. */}
       {!locked && songs.length > 0 ? (
@@ -1441,10 +1540,6 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     height: 40,
   },
   // Dra-bekräftelsen behöver hela bredden, så den står i egen spalt.
-  folderConfirmSlide: {
-    gap: spacing.sm,
-    marginTop: spacing.xs,
-  },
   // Zonen utanför mapparna behöver egen höjd även när den är tom, annars
   // finns ingen yta att släppa på när allt ligger i mappar. Ramen är osynlig
   // tills fingret svävar över zonen — den finns där hela tiden för att
@@ -1545,21 +1640,42 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  actions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    alignItems: 'center',
-    marginTop: spacing.xs,
-  },
   // Pennan står överst i kortets högra hörn, i linje med rubriken.
   editCorner: {
     alignSelf: 'flex-start',
     padding: 2,
   },
-  confirmText: {
-    color: t.text,
-    fontSize: 13,
+  /** Varningsdialogen på webben, formad som Apples: tonat bakom, ruta i mitten. */
+  alertScrim: {
     flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.md,
+  },
+  alertBox: {
+    width: '100%',
+    maxWidth: 340,
+    backgroundColor: t.surfaceRaised,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: t.border,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  alertTitle: {
+    color: t.text,
+    fontSize: 17,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  alertText: {
+    color: t.textMuted,
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  alertButtons: {
+    gap: spacing.sm,
+    marginTop: spacing.xs,
   },
 });

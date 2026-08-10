@@ -7,6 +7,7 @@ import {
   createFolder,
   moveSongInFolder,
   normalizeSong,
+  placeSongInFolder,
   orderTones,
   parseFolders,
   parseLibrary,
@@ -269,4 +270,27 @@ test('sorteringen sätter körledarens ordning före bokstavsordningen', () => {
 test('oplacerade låtar ligger i bokstavsordning', () => {
   const songs = [iOrdning('b', 'Bo', 0), iOrdning('a', 'Ada', 0)];
   assert.deepEqual(sortSongs(songs).map((s) => s.id), ['a', 'b']);
+});
+
+test('mappflytten sätter låten på släpp-platsen och numrerar om gruppen', () => {
+  const songs = [
+    iOrdning('a', 'Ada', 1, 'f'),
+    iOrdning('b', 'Bo', 2, 'f'),
+    iOrdning('x', 'Xi', 1, null),
+  ];
+  const efter = placeSongInFolder(songs, 'x', 'f', 1);
+  const grupp = sortSongs(efter.filter((s) => s.folderId === 'f'));
+  assert.deepEqual(grupp.map((s) => s.id), ['a', 'x', 'b']);
+  assert.deepEqual(grupp.map((s) => s.sortIndex), [1, 2, 3]);
+});
+
+test('mappflytt utan plats lägger låten sist, inte överst', () => {
+  const songs = [
+    iOrdning('a', 'Ada', 1, 'f'),
+    iOrdning('b', 'Bo', 2, 'f'),
+    iOrdning('x', 'Xi', 1, null),
+  ];
+  const efter = placeSongInFolder(songs, 'x', 'f');
+  const grupp = sortSongs(efter.filter((s) => s.folderId === 'f'));
+  assert.deepEqual(grupp.map((s) => s.id), ['a', 'b', 'x']);
 });
