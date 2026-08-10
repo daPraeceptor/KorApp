@@ -185,25 +185,6 @@ function MutedSpeakerIcon({ color }: { color: string }) {
   );
 }
 
-/** Högtalare med ljudvågor: metronomen hörs. */
-function SpeakerIcon({ color }: { color: string }) {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 20 20">
-      <Path d="M3 7.4 h3 L10.6 4 v12 L6 12.6 H3 z" fill={color} />
-      {[3.2, 6.2].map((r, i) => (
-        <Path
-          key={i}
-          d={`M13 ${10 - r} A ${r} ${r} 0 0 1 13 ${10 + r}`}
-          stroke={color}
-          strokeWidth={1.9}
-          strokeLinecap="round"
-          fill="none"
-        />
-      ))}
-    </Svg>
-  );
-}
-
 export function SongsScreen({
   onOpenPlay,
   locked = false,
@@ -683,25 +664,6 @@ export function SongsScreen({
       </Pressable>
     );
 
-    /** Ikonen visar hur det låter nu; trycket byter läge. */
-    const ljudKnapp = (
-      <Button
-        label={isPlayingTempo ? 'Tysta metronomen' : 'Låt metronomen höras'}
-        renderIcon={(color) =>
-          isPlayingTempo ? (
-            <SpeakerIcon color={color} />
-          ) : (
-            <MutedSpeakerIcon color={color} />
-          )
-        }
-        variant={isPlayingTempo ? 'primary' : 'default'}
-        onPress={() =>
-          isPlayingTempo ? stopMetronome() : void playSongTempo(song)
-        }
-        style={styles.headerTempo}
-      />
-    );
-
     const klaviatur =
       song.tones.length > 0 ? (
         <Keyboard
@@ -883,16 +845,19 @@ export function SongsScreen({
               {locked ? null : ändraKnapp}
             </View>
             {underrubriker}
-            {isExpanded ? (
-              <View style={styles.expandedControls}>
-                <View style={styles.headerMetronome}>{taktvisare}</View>
-                {ljudKnapp}
-              </View>
-            ) : null}
           </View>
         )}
 
-        <View style={styles.quickRow}>
+        {/* Samma tre knappar i båda lägena. Uppfälld står taktvisaren rakt
+            ovanför tempoknappen — de hör ihop: knappen sätter igång det
+            visaren visar. Raden bottenjusteras så att knapparna ligger i
+            linje fast tempospalten är högre. */}
+        <View
+          style={[
+            styles.quickRow,
+            isExpanded ? styles.quickRowExpanded : undefined,
+          ]}
+        >
           {/* En ensam ton har varken ackord eller ordning — bara sig själv,
               och behöver därför bara en knapp. */}
           {song.tones.length > 1 ? (
@@ -923,9 +888,15 @@ export function SongsScreen({
             />
           )}
           {/* Tempot sist i raden: tongivningen hör ihop och ska stå samlad,
-              och metronomen är det enda som fortsätter låta efter trycket.
-              Uppfälld har knappen flyttat upp till taktvisaren i stället. */}
-          {isExpanded ? null : tempoKnapp(styles.quickButton)}
+              och metronomen är det enda som fortsätter låta efter trycket. */}
+          {isExpanded ? (
+            <View style={styles.tempoColumn}>
+              <View style={styles.headerMetronome}>{taktvisare}</View>
+              {tempoKnapp(styles.tempoColumnButton)}
+            </View>
+          ) : (
+            tempoKnapp(styles.quickButton)
+          )}
         </View>
 
         {/* Uppfällt kort: ett piano där bara låtens toner går att spela, i
@@ -1224,32 +1195,28 @@ const makeStyles = (t: Palette) => StyleSheet.create({
    * Taktvisaren tar all plats som blir över mellan titeln och tempoknappen,
    * så att den hamnar så nära radens mitt som innehållet tillåter.
    */
-  // Taktvisaren fyller kolumnens bredd, så att pendeln svänger mitt över
-  // ljudknappen under den.
+  // Taktvisaren fyller spaltens bredd, så att pendeln svänger mitt över
+  // tempoknappen under den.
   headerMetronome: {
     alignSelf: 'stretch',
   },
-  /**
-   * Uppfälld står taktvisaren och ljudknappen i en egen spalt till höger,
-   * under rubriken: animationen mitt ovanför knappen. Bredden bestäms av
-   * knappen — animationen sträcker sig över samma mått.
-   */
-  expandedControls: {
-    alignSelf: 'flex-end',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginTop: spacing.xs,
+  // Knapparna ligger kvar i linje längst ner fast tempospalten är högre.
+  quickRowExpanded: {
+    alignItems: 'flex-end',
   },
   /**
-   * Tempot i rubriken: bara så stort som texten kräver. Det växer inte med
-   * raden, eftersom överflödet hör till taktvisaren bredvid.
+   * Tempospalten tar samma plats i raden som tempoknappen gör hopfälld,
+   * med taktvisaren staplad rakt ovanför knappen.
    */
-  headerTempo: {
-    flexGrow: 0,
-    flexShrink: 0,
-    flexBasis: 'auto',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+  tempoColumn: {
+    flexGrow: 1,
+    flexBasis: 84,
+    gap: spacing.xs,
+  },
+  tempoColumnButton: {
+    alignSelf: 'stretch',
+    paddingHorizontal: 6,
+    paddingVertical: 11,
   },
   /** Greppet: liten yta, men hög nog att träffa med tummen. */
   grip: {
