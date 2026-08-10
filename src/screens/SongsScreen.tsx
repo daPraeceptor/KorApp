@@ -106,14 +106,24 @@ function MiniMetronome({
 }
 
 /** Greppet man drar i för att flytta en låt i ordningen. */
+/**
+ * Apples standardsymbol för omflyttning: tre vågräta streck, som i
+ * Påminnelser och alla andra iOS-listor som går att ordna om.
+ */
 function GripIcon({ color }: { color: string }) {
   return (
-    <Svg width={20} height={20} viewBox="0 0 20 20">
-      {[6, 10, 14].map((y) => (
-        <React.Fragment key={y}>
-          <Circle cx={7} cy={y} r={1.7} fill={color} />
-          <Circle cx={13} cy={y} r={1.7} fill={color} />
-        </React.Fragment>
+    <Svg width={26} height={26} viewBox="0 0 26 26">
+      {[7, 13, 19].map((y) => (
+        <Line
+          key={y}
+          x1={4}
+          y1={y}
+          x2={22}
+          y2={y}
+          stroke={color}
+          strokeWidth={2.2}
+          strokeLinecap="round"
+        />
       ))}
     </Svg>
   );
