@@ -640,14 +640,24 @@ export function SongsScreen({
      * klocka tills ljudet slås på, och låser sig då vid de hörda klicken.
      */
     const taktvisare = (
-      <MetronomeVisual
-        style={settings.metronomeVisual}
-        running={isExpanded || isPlayingTempo}
-        bpm={song.bpm}
-        pulse={isPlayingTempo ? pulse : null}
-        activeBeat={isPlayingTempo && pulse ? pulse.beat : null}
-        silent={!isPlayingTempo}
-      />
+      /**
+       * 30 % mindre än i spelvyn, och upplyft: skalan ritar visaren i 70 %
+       * storlek, omslaget krymper platsen i samma mån, och minusmarginalen
+       * låter den sticka upp ovanför knappraden — i x-led står den kvar
+       * över tempoknappen, i y-led hamnar den till höger om rubriken.
+       */
+      <View style={styles.taktvisareLyft}>
+        <View style={styles.taktvisareSkala}>
+          <MetronomeVisual
+            style={settings.metronomeVisual}
+            running={isExpanded || isPlayingTempo}
+            bpm={song.bpm}
+            pulse={isPlayingTempo ? pulse : null}
+            activeBeat={isPlayingTempo && pulse ? pulse.beat : null}
+            silent={!isPlayingTempo}
+          />
+        </View>
+      </View>
     );
 
     /** Pennan på papperet — Apples redigeringssymbol — öppnar spelvyn. */
@@ -1199,6 +1209,24 @@ const makeStyles = (t: Palette) => StyleSheet.create({
   // tempoknappen under den.
   headerMetronome: {
     alignSelf: 'stretch',
+  },
+  /**
+   * Visarens plats i flödet: 70 % av full höjd (150 → 105) och upplyft med
+   * minusmarginalen så att den ritas bredvid rubriken och undertexterna i
+   * stället för att trycka ner knappraden.
+   */
+  taktvisareLyft: {
+    height: 105,
+    marginTop: -64,
+    justifyContent: 'center',
+  },
+  // Skalningen ritar hela visaren mindre; minusmarginalerna tar bort
+  // skillnaden mellan full och skalad höjd ur flödet (150 → 105).
+  taktvisareSkala: {
+    height: 150,
+    marginTop: -22.5,
+    marginBottom: -22.5,
+    transform: [{ scale: 0.7 }],
   },
   // Knapparna ligger kvar i linje längst ner fast tempospalten är högre.
   quickRowExpanded: {
