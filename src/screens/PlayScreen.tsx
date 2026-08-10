@@ -108,7 +108,12 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
   const [keyboardStart, setKeyboardStart] = useState(48);
   const [wheelDragging, setWheelDragging] = useState(false);
   const [meterOpen, setMeterOpen] = useState(true);
-  const [tonesOpen, setTonesOpen] = useState(true);
+  /**
+   * Tongivningen — tonkortet och klaviaturen — börjar hopfälld, så att
+   * metronomen och alla dess reglage ryms på en iPhone-skärm. Den fälls ut
+   * först när körledaren ber om den.
+   */
+  const [tonesOpen, setTonesOpen] = useState(false);
   const taps = useRef<number[]>([]);
   const föregåendeAntalToner = useRef(live.tones.length);
 
@@ -164,7 +169,14 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
 
   const toggleTonesOpen = useCallback(() => {
     keepKeyboardStill();
-    setTonesOpen((open) => !open);
+    setTonesOpen((open) => {
+      // Fälls tongivningen ihop skall tonvalet inte ligga kvar påslaget —
+      // klaviaturen det väljer på är inte längre synlig.
+      if (open) {
+        setSelectMode(false);
+      }
+      return !open;
+    });
   }, [keepKeyboardStill]);
 
   const toggleTone = useCallback(
@@ -175,18 +187,10 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
     [keepKeyboardStill, toggleSongTone],
   );
 
-  /**
-   * Tonvalet öppnar kortet hopfällt med en instruktion, så att klaviaturen
-   * hamnar i blickfånget i stället för en tom knapprad. Första tonen fäller
-   * upp det igen — då finns det något att se.
-   */
   const toggleSelectMode = useCallback(() => {
     keepKeyboardStill();
-    if (!selectMode && live.tones.length === 0) {
-      setTonesOpen(false);
-    }
     setSelectMode((current) => !current);
-  }, [keepKeyboardStill, selectMode, live.tones.length]);
+  }, [keepKeyboardStill]);
 
   useEffect(() => {
     if (live.tones.length > 0 && föregåendeAntalToner.current === 0) {
@@ -280,6 +284,9 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
           activeBeat={metronomeRunning ? activeBeat : null}
           beatsPerBar={live.beatsPerBar}
           onDraggingChange={setWheelDragging}
+          // Ett tryck mitt på siffrorna startar och stoppar metronomen —
+          // samma gest som på en fysisk metronom man knäpper till.
+          onCenterTap={() => void toggleMetronome()}
         />
       </View>
 
@@ -351,14 +358,13 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
         ) : null}
       </Card>
 
-      {/* Utan sparade toner finns ingenting att ge kören. Kortet väcks ändå
-          så fort man slår på tonvalet, så att man ser var tonerna hamnar. */}
-      {toneCount > 0 || selectMode ? (
-        <Card onLayout={onTonesLayout}>
+      {/* Tongivningen samlar tonkortet och klaviaturen bakom en och samma
+          rubrikrad. Hopfälld visar raden ändå vilka toner som ligger sparade,
+          så skärmen börjar med bara metronomen och dess reglage. */}
+      <Card onLayout={onTonesLayout}>
           <Pressable onPress={toggleTonesOpen} style={styles.cardHeader}>
             <SectionTitle>Tongivning</SectionTitle>
             <Text style={styles.cardHeaderNote}>
-              {/* Hopfälld visar kortet ändå vilka toner som ligger sparade. */}
               {tonesOpen
                 ? `${toneCount}/${MAX_TONES}  ▾`
                 : toneCount === 0
@@ -371,11 +377,11 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
 
           {/* Utan toner finns inget att spela. Då visas instruktionen i stället
               för knappar som ändå inte gör något. */}
-          {toneCount === 0 ? (
+          {!tonesOpen ? null : toneCount === 0 ? (
             <Text style={styles.helpText}>
               Tryck på en tangent på klaviaturen för att lägga till en ton.
             </Text>
-          ) : tonesOpen ? (
+          ) : (
           <>
           <View style={styles.chips}>
             {live.tones.map((midi) => (
@@ -428,10 +434,11 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
             </>
           )}
           </>
-          ) : null}
+          )}
         </Card>
-      ) : null}
 
+      {/* Klaviaturen hör till tongivningen och följer dess rubrikrad. */}
+      {tonesOpen ? (
       <Card style={styles.keyboardCard}>
         <View style={styles.keyboardHeader}>
           <Pressable
@@ -544,6 +551,7 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
           )}
         </View>
       </Card>
+      ) : null}
 
       {/* Sparandet bor längst ner: här skapas en ny låt av det som är inställt
           ovan, eller uppdateras den laddade. */}

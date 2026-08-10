@@ -234,7 +234,6 @@ export function SongsScreen({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const [movingId, setMovingId] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<string[]>([]);
   /** Låten vars kort är uppfällt med spelbart piano. */
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -487,6 +486,70 @@ export function SongsScreen({
     responders.current.set(songId, responder);
     return responder;
   };
+  /**
+   * Svep åt vänster på ett kort: kortet glider åt sidan och avslöjar «Byt
+   * namn» och «Ta bort» — som i iOS egna listor. Ett kort i taget kan stå
+   * öppet; ett tryck var som helst på kortet stänger det igen.
+   */
+  const SVEPBREDD = 168;
+  const [swipedId, setSwipedId] = useState<string | null>(null);
+  const swipedRef = useRef<string | null>(null);
+  /** Kortet som sveps just nu och hur långt det har glidit. */
+  const [sveparId, setSveparId] = useState<string | null>(null);
+  const [svepDx, setSvepDx] = useState(0);
+  const svepBas = useRef(0);
+  const svepResponders = useRef(
+    new Map<string, ReturnType<typeof PanResponder.create>>(),
+  );
+
+  const stängSvep = () => {
+    swipedRef.current = null;
+    setSwipedId(null);
+  };
+
+  const svepResponderFor = (songId: string) => {
+    const redan = svepResponders.current.get(songId);
+    if (redan) {
+      return redan;
+    }
+    const responder = PanResponder.create({
+      // Bara tydligt vågräta rörelser tas: lodräta tillhör listans rullning
+      // och stillastående tryck tillhör kortets knappar.
+      onMoveShouldSetPanResponder: (_event, gesture) =>
+        Math.abs(gesture.dx) > 10 &&
+        Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.2,
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderGrant: () => {
+        svepBas.current = swipedRef.current === songId ? -SVEPBREDD : 0;
+        setSvepDx(svepBas.current);
+        setSveparId(songId);
+        // Ett annat öppet kort stängs så fort ett nytt grepp tas.
+        if (swipedRef.current !== null && swipedRef.current !== songId) {
+          stängSvep();
+        }
+      },
+      onPanResponderMove: (_event, gesture) => {
+        const dx = Math.min(0, Math.max(-SVEPBREDD, svepBas.current + gesture.dx));
+        setSvepDx(dx);
+      },
+      onPanResponderRelease: (_event, gesture) => {
+        const dx = svepBas.current + gesture.dx;
+        if (dx < -SVEPBREDD / 2) {
+          swipedRef.current = songId;
+          setSwipedId(songId);
+        } else if (swipedRef.current === songId) {
+          stängSvep();
+        }
+        setSveparId(null);
+      },
+      onPanResponderTerminate: () => {
+        setSveparId(null);
+      },
+    });
+    svepResponders.current.set(songId, responder);
+    return responder;
+  };
+
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [draftFolderName, setDraftFolderName] = useState('');
   const [confirmDeleteFolderId, setConfirmDeleteFolderId] = useState<string | null>(
@@ -503,9 +566,9 @@ export function SongsScreen({
     if (locked) {
       setEditingId(null);
       setConfirmDeleteId(null);
-      setMovingId(null);
       setEditingFolderId(null);
       setConfirmDeleteFolderId(null);
+      stängSvep();
     }
   }, [locked]);
 
@@ -513,7 +576,6 @@ export function SongsScreen({
     setEditingId(id);
     setDraftTitle(title);
     setConfirmDeleteId(null);
-    setMovingId(null);
   };
 
   const commitRename = () => {
@@ -536,7 +598,6 @@ export function SongsScreen({
     const isCurrent = currentSong?.id === song.id;
     const isEditing = editingId === song.id;
     const isConfirming = confirmDeleteId === song.id;
-    const isMoving = movingId === song.id;
     const isPlayingTempo = isCurrent && metronomeRunning;
     const isExpanded = expandedId === song.id;
 
@@ -659,6 +720,10 @@ export function SongsScreen({
       </>
     );
 
+    const kanSvepas = !locked && !isEditing;
+    const svepX =
+      sveparId === song.id ? svepDx : swipedId === song.id ? -SVEPBREDD : 0;
+
     return (
       /**
        * Höjden mäts på omslaget och inte på kortet: react-native-webs Pressable
@@ -671,6 +736,34 @@ export function SongsScreen({
         ref={(el) => {
           cardRefs.current.set(song.id, el);
         }}
+        style={styles.swipeWrap}
+      >
+      {/* Åtgärderna ligger bakom kortet och syns när det glider åt sidan. */}
+      {kanSvepas && (sveparId === song.id || svepX !== 0) ? (
+        <View style={styles.swipeActions}>
+          <Pressable
+            style={[styles.swipeAction, styles.swipeRename]}
+            onPress={() => {
+              stängSvep();
+              beginRename(song.id, song.title);
+            }}
+          >
+            <Text style={styles.swipeActionText}>Byt namn</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.swipeAction, styles.swipeDelete]}
+            onPress={() => {
+              stängSvep();
+              setConfirmDeleteId(song.id);
+            }}
+          >
+            <Text style={styles.swipeActionText}>Ta bort</Text>
+          </Pressable>
+        </View>
+      ) : null}
+      <View
+        style={svepX !== 0 ? { transform: [{ translateX: svepX }] } : undefined}
+        {...(kanSvepas ? svepResponderFor(song.id).panHandlers : {})}
       >
       <Card
         // Den valda låten får accentramen — samma ram som när metronomen går.
@@ -688,7 +781,12 @@ export function SongsScreen({
         // Trycket fäller aldrig ihop igen — den uppfällda rutan är full av
         // knappar och tangenter, och ett tryck bredvid dem skulle rycka undan
         // det man siktade på. Rutan stängs först när en annan låt väljs.
+        // Står ett kort öppet efter ett svep stänger trycket bara det.
         onPress={() => {
+          if (swipedRef.current !== null) {
+            stängSvep();
+            return;
+          }
           loadSong(song.id);
           setExpandedId(song.id);
         }}
@@ -797,62 +895,8 @@ export function SongsScreen({
             härifrån. Med plats står taktvisaren till höger om klaviaturen. */}
         {isExpanded ? klaviatur : null}
 
-        {isMoving ? (
-          <View style={styles.moveBox}>
-            <Text style={styles.moveLabel}>Flytta till</Text>
-            <View style={styles.chipRow}>
-              <Pressable
-                onPress={() => {
-                  moveSongToFolder(song.id, null);
-                  setMovingId(null);
-                }}
-                style={[styles.chip, song.folderId === null && styles.chipOn]}
-              >
-                <Text
-                  style={[
-                    styles.chipText,
-                    song.folderId === null && styles.chipTextOn,
-                  ]}
-                >
-                  Ingen mapp
-                </Text>
-              </Pressable>
-              {folders.map((folder) => (
-                <Pressable
-                  key={folder.id}
-                  onPress={() => {
-                    moveSongToFolder(song.id, folder.id);
-                    setMovingId(null);
-                  }}
-                  style={[
-                    styles.chip,
-                    song.folderId === folder.id && styles.chipOn,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.chipText,
-                      song.folderId === folder.id && styles.chipTextOn,
-                    ]}
-                  >
-                    {folder.name}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-            {folders.length === 0 ? (
-              <Text style={styles.help}>
-                Du har inga mappar än. Skapa en högst upp i listan.
-              </Text>
-            ) : null}
-            <Button
-              label="Avbryt"
-              variant="ghost"
-              onPress={() => setMovingId(null)}
-            />
-          </View>
-        ) : null}
-
+        {/* Byt namn och Ta bort nås med ett svep åt vänster på kortet, som i
+            iOS egna listor. Flytt sker genom att dra kortet i greppet. */}
         {locked ? null : isConfirming ? (
           <View style={styles.actions}>
             <Text style={styles.confirmText}>Ta bort «{song.title}»?</Text>
@@ -879,27 +923,10 @@ export function SongsScreen({
                 onOpenPlay();
               }}
             />
-            <Button
-              label="Flytta"
-              variant="ghost"
-              onPress={() => {
-                setMovingId(isMoving ? null : song.id);
-                setEditingId(null);
-              }}
-            />
-            <Button
-              label="Byt namn"
-              variant="ghost"
-              onPress={() => beginRename(song.id, song.title)}
-            />
-            <Button
-              label="Ta bort"
-              variant="danger"
-              onPress={() => setConfirmDeleteId(song.id)}
-            />
           </View>
         )}
       </Card>
+      </View>
       </View>
     );
   };
@@ -1064,8 +1091,7 @@ export function SongsScreen({
               <View style={styles.folderBody}>
                 {inFolder.length === 0 ? (
                   <Text style={styles.help}>
-                    Mappen är tom. Dra hit en låt i dess grepp, eller använd
-                    «Flytta».
+                    Mappen är tom. Dra hit en låt i dess grepp.
                   </Text>
                 ) : (
                   inFolder.map((song) => renderSong(song, inFolder))
@@ -1343,42 +1369,41 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 11,
   },
-  moveBox: {
-    backgroundColor: t.surfaceRaised,
-    borderRadius: radius.sm,
-    padding: spacing.sm,
-    gap: spacing.sm,
+  /**
+   * Svepets tre lager: omslaget håller måttet, åtgärderna ligger i botten
+   * och kortet glider ovanpå. Åtgärderna fyller kortets hela höjd så att
+   * träffytan är lika generös som i iOS egna listor.
+   */
+  swipeWrap: {
+    position: 'relative',
   },
-  moveLabel: {
-    color: t.textMuted,
-    fontSize: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  chipRow: {
+  swipeActions: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    right: 0,
+    width: 168,
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
+    borderRadius: radius.md,
+    overflow: 'hidden',
   },
-  chip: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: t.border,
-    backgroundColor: t.surface,
+  swipeAction: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xs,
   },
-  chipOn: {
+  swipeRename: {
     backgroundColor: t.accent,
-    borderColor: t.accent,
   },
-  chipText: {
-    color: t.textMuted,
-    fontSize: 13,
-    fontWeight: '600',
+  swipeDelete: {
+    backgroundColor: t.danger,
   },
-  chipTextOn: {
+  swipeActionText: {
     color: t.onAccent,
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   actions: {
     flexDirection: 'row',

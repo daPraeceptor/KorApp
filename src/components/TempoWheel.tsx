@@ -21,12 +21,16 @@ import { MAX_BPM, MIN_BPM, clampBpm } from '../audio/tempo';
 import { Palette, radius } from '../theme';
 import { useTheme, useThemedStyles } from '../ThemeContext';
 
-/** Gradtal per steg om ett slag per minut. En helt varv motsvarar ca 144 bpm. */
-const DEGREES_PER_BPM = 2.5;
-
 /** Visarens område: 270 grader, med öppningen nedåt. */
 const SWEEP = 270;
 const START_ANGLE = -135;
+
+/**
+ * Gradtal per slag i minuten. Samma som visarens egen skala — 270 grader över
+ * 270 slag — så att bågen och greppkulan följer fingret exakt 1:1: vrider man
+ * fingret ett kvarts varv flyttar sig visaren ett kvarts varv.
+ */
+const DEGREES_PER_BPM = SWEEP / (MAX_BPM - MIN_BPM);
 
 interface Props {
   bpm: number;
@@ -37,6 +41,8 @@ interface Props {
   beatsPerBar?: number;
   /** Anropas när greppet tas och släpps, så att vyn kan låsa sin scroll. */
   onDraggingChange?: (dragging: boolean) => void;
+  /** Ett stilla tryck mitt på siffrorna — startar och stoppar metronomen. */
+  onCenterTap?: () => void;
 }
 
 /** Punkt på cirkeln där 0 grader är rakt upp och positiva grader går medsols. */
@@ -81,6 +87,7 @@ export function TempoWheel({
   activeBeat = null,
   beatsPerBar = 4,
   onDraggingChange,
+  onCenterTap,
 }: Props) {
   const wheelRef = useRef<View>(null);
   const t = useTheme();
@@ -95,6 +102,8 @@ export function TempoWheel({
   const needsBaseline = useRef(true);
   const preciseBpm = useRef(bpm);
   const bpmRef = useRef(bpm);
+  /** Var greppet togs, för att skilja ett tryck i mitten från en vridning. */
+  const startPoint = useRef({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
 
   useEffect(() => {
@@ -123,10 +132,14 @@ export function TempoWheel({
         onStartShouldSetPanResponder: () => true,
         onMoveShouldSetPanResponder: () => true,
         onPanResponderTerminationRequest: () => false,
-        onPanResponderGrant: () => {
+        onPanResponderGrant: (event) => {
           measure();
           needsBaseline.current = true;
           preciseBpm.current = bpmRef.current;
+          startPoint.current = {
+            x: event.nativeEvent.pageX,
+            y: event.nativeEvent.pageY,
+          };
           setDragging(true);
           onDraggingChange?.(true);
         },
@@ -156,16 +169,26 @@ export function TempoWheel({
             onChange(next);
           }
         },
-        onPanResponderRelease: () => {
+        onPanResponderRelease: (_event, gesture) => {
           setDragging(false);
           onDraggingChange?.(false);
+          // Ett stillastående tryck innanför ratten — inte ute vid skalan —
+          // växlar metronomen. Vridningar lämnas i fred: har fingret rört
+          // sig är det en tempoändring, inte ett tryck.
+          if (onCenterTap && Math.hypot(gesture.dx, gesture.dy) < 8) {
+            const dx = startPoint.current.x - center.current.x;
+            const dy = startPoint.current.y - center.current.y;
+            if (Math.hypot(dx, dy) < size / 2 - 46) {
+              onCenterTap();
+            }
+          }
         },
         onPanResponderTerminate: () => {
           setDragging(false);
           onDraggingChange?.(false);
         },
       }),
-    [angleFromTouch, measure, onChange, onDraggingChange],
+    [angleFromTouch, measure, onChange, onDraggingChange, onCenterTap, size],
   );
 
   const cx = size / 2;
