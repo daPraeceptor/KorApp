@@ -152,6 +152,49 @@ function PencilIcon({ color }: { color: string }) {
   );
 }
 
+/** Soptunna: lock med handtag, kropp och tre ränder. */
+function TrashIcon({ color }: { color: string }) {
+  return (
+    <Svg width={24} height={24} viewBox="0 0 24 24">
+      <Line
+        x1={4.5}
+        y1={6.3}
+        x2={19.5}
+        y2={6.3}
+        stroke={color}
+        strokeWidth={1.8}
+        strokeLinecap="round"
+      />
+      <Path
+        d="M9.5 6 V4.8 c0-.7 .6-1.3 1.3-1.3 h2.4 c.7 0 1.3 .6 1.3 1.3 V6"
+        stroke={color}
+        strokeWidth={1.8}
+        strokeLinecap="round"
+        fill="none"
+      />
+      <Path
+        d="M6.3 6.5 l.9 12.9 a2 2 0 0 0 2 1.86 h5.6 a2 2 0 0 0 2-1.86 l.9-12.9"
+        stroke={color}
+        strokeWidth={1.8}
+        strokeLinecap="round"
+        fill="none"
+      />
+      {[9.7, 12, 14.3].map((x) => (
+        <Line
+          key={x}
+          x1={x}
+          y1={9.8}
+          x2={x}
+          y2={17.3}
+          stroke={color}
+          strokeWidth={1.5}
+          strokeLinecap="round"
+        />
+      ))}
+    </Svg>
+  );
+}
+
 /** Webbläsaren tolkar annars dragningen som en sidscroll. */
 const WEB_DRAG_STYLE =
   Platform.OS === 'web'
@@ -741,17 +784,25 @@ export function SongsScreen({
         style={styles.swipeWrap}
       >
       {/* Åtgärden ligger bakom kortet och syns när det glider åt sidan.
-          Namn byts i redigeringsvyn, så svepet rymmer bara borttagningen. */}
+          Namn byts i redigeringsvyn, så svepet rymmer bara borttagningen:
+          en rund soptunna som sakta växer sig fullstor ju längre man drar. */}
       {kanSvepas && (sveparId === song.id || svepX !== 0) ? (
         <View style={styles.swipeActions}>
           <Pressable
-            style={[styles.swipeAction, styles.swipeDelete]}
+            style={[
+              styles.swipeDelete,
+              {
+                transform: [
+                  { scale: 0.3 + 0.7 * Math.min(1, -svepX / SVEPBREDD) },
+                ],
+              },
+            ]}
             onPress={() => {
               stängSvep();
               setConfirmDeleteId(song.id);
             }}
           >
-            <Text style={styles.swipeActionText}>Ta bort</Text>
+            <TrashIcon color={t.onAccent} />
           </Pressable>
         </View>
       ) : null}
@@ -1373,24 +1424,17 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     bottom: 0,
     right: 0,
     width: 88,
-    flexDirection: 'row',
-    borderRadius: radius.md,
-    overflow: 'hidden',
-  },
-  swipeAction: {
-    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: spacing.xs,
   },
+  // Helt rund soptunna. Skalan sätts vid utritningen och följer svepet.
   swipeDelete: {
+    width: 56,
+    height: 56,
+    borderRadius: radius.pill,
     backgroundColor: t.danger,
-  },
-  swipeActionText: {
-    color: t.onAccent,
-    fontSize: 13,
-    fontWeight: '700',
-    textAlign: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   actions: {
     flexDirection: 'row',
