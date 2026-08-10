@@ -7,6 +7,7 @@ import {
   LayoutChangeEvent,
   NativeScrollEvent,
   NativeSyntheticEvent,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -227,8 +228,13 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
       style={styles.screen}
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
-      // Vyn får inte rulla iväg under fingret medan tempohjulet vrids.
-      scrollEnabled={!wheelDragging}
+      // Vyn får inte rulla iväg under fingret medan tempohjulet vrids. På
+      // webben behövs spärren inte — hjulet stänger av sidscrollen med
+      // touchAction — och att stänga av den där gömmer rullningslisten,
+      // vilket breddar innehållet så att hela skärmen hoppar i sidled.
+      scrollEnabled={Platform.OS === 'web' || !wheelDragging}
+      // Ingen rullningslist på telefonen: den behövs inte och stör bilden.
+      showsVerticalScrollIndicator={Platform.OS === 'web'}
       scrollEventThrottle={16}
       onScroll={(e: NativeSyntheticEvent<NativeScrollEvent>) => {
         scrollY.current = e.nativeEvent.contentOffset.y;

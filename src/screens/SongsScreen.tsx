@@ -306,8 +306,10 @@ export function SongsScreen({
   const [dragOffset, setDragOffset] = useState(0);
   /** Grannarnas ordning just nu, så att dragningen ser sina egna byten. */
   const dragGroup = useRef<string[]>([]);
-  /** Hur långt de redan gjorda bytena flyttat kortet. */
+  /** Hur långt de tänkta bytena flyttat kortets plats i räkningen. */
   const dragCommitted = useRef(0);
+  /** Nettosteg att utföra när greppet släpps — listan ordnas om först då. */
+  const pendingMoves = useRef(0);
   /** Mellanrummet mellan korten i gruppen — bytena flyttar kortet höjd + glapp. */
   const dragMellanrum = useRef(0);
   /** Rullningsläget när greppet togs, så att autoscrollen kan räknas bort. */
@@ -377,14 +379,15 @@ export function SongsScreen({
    *
    * Kortet skall alltid ligga kvar under fingret — det är iOS-standarden och
    * det enda som känns rätt. Fingrets väg genom innehållet är dy plus det
-   * listan hunnit rulla sedan greppet, och varje passerad granne räknas bort
-   * med grannens höjd plus mellanrummet, så att förskjutningen inte driver.
+   * listan hunnit rulla sedan greppet. Bytena räknas ut under vägen men
+   * utförs först vid släppet: en lista som ordnar om sig medan man drar
+   * rycker till, och det man håller i skall ligga stilla under fingret.
    */
   const uppdateraDrag = (songId: string) => {
     const rullat = scrollOffset.current - dragScrollStart.current;
     const rel = fingerDy.current + rullat;
 
-    // Bytet sker när fingret passerat halva grannen — samma tröskel åt båda
+    // Bytet räknas när fingret passerat halva grannen — samma tröskel åt båda
     // håll, så att kortet inte fastnar mellan två lägen. En snabb autoscroll
     // kan passera flera grannar mellan två uppdateringar, därav rundan.
     // Tröskeln måste vara halva steget ett byte flyttar räkningen, höjd och
@@ -407,14 +410,16 @@ export function SongsScreen({
         break;
       }
       const riktning: -1 | 1 = kvar > 0 ? 1 : -1;
-      moveSongInFolder(songId, riktning);
+      pendingMoves.current += riktning;
       const ny = [...dragGroup.current];
       [ny[plats], ny[plats + riktning]] = [ny[plats + riktning], ny[plats]];
       dragGroup.current = ny;
       dragCommitted.current += riktning * (höjd + dragMellanrum.current);
       plats += riktning;
     }
-    setDragOffset(rel - dragCommitted.current);
+    // Ingen kompensation här: listan står orörd tills släppet, så kortets
+    // utgångsläge flyttar sig aldrig och fingrets väg är hela förskjutningen.
+    setDragOffset(rel);
 
     // Vilken mapp svävar fingret över? Zonerna mättes vid greppet, så det
     // rullade läggs till för att jämföra i samma koordinater. Bara byten
@@ -500,6 +505,7 @@ export function SongsScreen({
         );
         dragGroup.current = group;
         dragCommitted.current = 0;
+        pendingMoves.current = 0;
         // Mellanrummet mellan grannarna: mappkroppen packar tätare än ytan
         // utanför mapparna. Måtten kommer ur samma stilar som ritar listan.
         dragMellanrum.current =
@@ -522,16 +528,22 @@ export function SongsScreen({
         uppdateraDrag(songId);
       },
       onPanResponderRelease: () => {
-        // Släpp över en annan mapp flyttar låten dit. Samma mapp betyder att
-        // dragningen bara ordnade om, och då är den redan gjord.
+        // Släpp över en annan mapp flyttar låten dit. I samma mapp utförs
+        // de hopsamlade bytena först nu — listan ligger stilla ända tills
+        // fingret släpper.
         const zon = hoverRef.current;
-        if (zon !== null) {
-          const mål = zon === LÖST ? null : zon;
-          const nuvarande = groupFolder.current.get(songId) ?? null;
-          if (mål !== nuvarande) {
-            moveSongToFolder(songId, mål);
+        const mål = zon === null ? null : zon === LÖST ? null : zon;
+        const nuvarande = groupFolder.current.get(songId) ?? null;
+        if (zon !== null && mål !== nuvarande) {
+          moveSongToFolder(songId, mål);
+        } else {
+          const steg = pendingMoves.current;
+          const riktning: -1 | 1 = steg > 0 ? 1 : -1;
+          for (let i = 0; i < Math.abs(steg); i++) {
+            moveSongInFolder(songId, riktning);
           }
         }
+        pendingMoves.current = 0;
         avslutaDrag();
       },
       onPanResponderTerminate: () => {
@@ -784,7 +796,9 @@ export function SongsScreen({
         ref={(el) => {
           cardRefs.current.set(song.id, el);
         }}
-        style={styles.swipeWrap}
+        // Det dragna kortet svävar över grannarna det passerar — utan lyftet
+        // gled det in under kort som ligger senare i listan.
+        style={[styles.swipeWrap, isDragging ? styles.swipeWrapDragging : null]}
       >
       {/* Åtgärden ligger bakom kortet och syns när det glider åt sidan.
           Namn byts i redigeringsvyn, så svepet rymmer bara borttagningen:
@@ -967,8 +981,12 @@ export function SongsScreen({
       scrollEventThrottle={16}
       // Medan ett kort hålls i får listan inte panorera med fingret — det
       // drog innehållet åt fel håll under kortet. Rullning under dragning
-      // sköts i stället av autoscrollen vid skärmkanterna.
-      scrollEnabled={draggingId === null}
+      // sköts i stället av autoscrollen vid skärmkanterna. På webben behövs
+      // spärren inte — greppet stänger av sidscrollen med touchAction — och
+      // en försvinnande rullningslist får hela skärmen att hoppa i sidled.
+      scrollEnabled={Platform.OS === 'web' || draggingId === null}
+      // Ingen rullningslist på telefonen: den behövs inte och stör bilden.
+      showsVerticalScrollIndicator={Platform.OS === 'web'}
       onScroll={(e) => {
         scrollOffset.current = e.nativeEvent.contentOffset.y;
       }}
@@ -1506,6 +1524,10 @@ const makeStyles = (t: Palette) => StyleSheet.create({
    */
   swipeWrap: {
     position: 'relative',
+  },
+  swipeWrapDragging: {
+    zIndex: 20,
+    elevation: 20,
   },
   swipeActions: {
     position: 'absolute',
