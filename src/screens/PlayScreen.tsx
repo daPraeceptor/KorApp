@@ -7,6 +7,7 @@ import {
   LayoutChangeEvent,
   NativeScrollEvent,
   NativeSyntheticEvent,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -244,8 +245,10 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
       }}
     >
       {/* Utan laddad låt finns inget att visa här — listfliken är vägen till
-          låtarna, och en ruta som bara säger "ingen låt" tar plats i onödan. */}
-      {currentSong ? (
+          låtarna, och en ruta som bara säger "ingen låt" tar plats i onödan.
+          På iPhonen är raden borttagen helt: skärmen är trång och titeln
+          står redan i sparkortet längst ner. */}
+      {currentSong && Platform.OS !== 'ios' ? (
         <Pressable style={styles.songBar} onPress={onOpenSongs}>
           <View style={styles.songBarText}>
             {/* Bara titeln. Listfliken är den självklara vägen till låtarna,
