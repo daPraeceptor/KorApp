@@ -624,12 +624,18 @@ const makeStyles = (t: Palette) => StyleSheet.create({
   },
   wheelArea: {
     alignItems: 'center',
-    paddingVertical: spacing.sm,
+    paddingTop: spacing.sm,
+    // Ingen luft under hjulet: knappraden hör ihop med det och ska ligga
+    // nära. Tillsammans med marginalen nedan halveras mellanrummet.
+    paddingBottom: 0,
   },
   transport: {
     flexDirection: 'row',
     gap: spacing.sm,
     alignItems: 'stretch',
+    // Drar upp raden ur vyns radavstånd, så att gapet blir 12 i stället
+    // för 24 punkter.
+    marginTop: -spacing.xs,
   },
   transportMain: {
     flex: 1,
