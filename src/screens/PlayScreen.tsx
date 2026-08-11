@@ -26,6 +26,7 @@ import {
   type SubdivisionId,
 } from '../audio/subdivisions';
 import { TempoWheel } from '../components/TempoWheel';
+import { VolumeNotice } from '../components/VolumeNotice';
 import { Button, Card, SectionTitle, SegmentedControl, Stepper } from '../components/ui';
 import { MAX_BPM, MIN_BPM, clampBpm, tempoFromTaps } from '../audio/tempo';
 import { MetronomeVisualStyle, useAppState } from '../state/AppState';
@@ -253,6 +254,7 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
     >
       {/* Ingen titelrad här: skärmen börjar direkt med metronomen. Titeln
           står i sparkortet längst ner, och sparandet bor där också. */}
+      <VolumeNotice />
       {/* Ett tryck på taktvisaren bläddrar till nästa stil. "Ingen" ingår
           inte i bläddringen — en osynlig visare går inte att trycka på.
           Visaren skjuts en aning nedåt, mot hjulet, så att luften ovanför

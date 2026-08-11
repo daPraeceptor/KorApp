@@ -22,6 +22,7 @@ import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { setHapticsEnabled } from '../haptics';
 
 import { audioEngine } from '../audio/engine';
+import { observeSystemVolume } from '../audio/systemVolume';
 import { DEFAULT_TIMBRE, TimbreId } from '../audio/timbres';
 import { DEFAULT_FOLDERS, DEFAULT_SONGS } from '../store/defaultSongs';
 import { metronome } from '../audio/metronome';
@@ -223,6 +224,12 @@ interface AppStateValue {
   activeBeat: number | null;
   /** Senaste taktslaget med tidpunkt, så att animeringar kan följa ljudet. */
   pulse: BeatPulse | null;
+  /**
+   * Telefonens egen ljudnivå, 0–1, eller null så länge den är okänd. iOS
+   * berättar bara när den ändras, så värdet saknas tills någon rör
+   * volymknapparna — och webben får aldrig veta något alls.
+   */
+  systemVolume: number | null;
   toggleMetronome: () => Promise<void>;
   stopMetronome: () => void;
   /**
@@ -271,6 +278,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [live, setLive] = useState<LiveConfig>(DEFAULT_LIVE);
   const [currentSongId, setCurrentSongId] = useState<string | null>(null);
+  const [systemVolume, setSystemVolume] = useState<number | null>(null);
   const [metronomeRunning, setMetronomeRunning] = useState(false);
   const [pulse, setPulse] = useState<BeatPulse | null>(null);
 
@@ -374,6 +382,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     metronome.update({ accentFirstBeat: settings.accentFirstBeat });
   }, [settings.accentFirstBeat]);
+
+  useEffect(() => observeSystemVolume(setSystemVolume), []);
 
   useEffect(() => {
     setHapticsEnabled(settings.haptics);
@@ -683,6 +693,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       metronomeRunning,
       activeBeat,
       pulse,
+      systemVolume,
       toggleMetronome,
       stopMetronome,
       playTones,
@@ -717,6 +728,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       metronomeRunning,
       activeBeat,
       pulse,
+      systemVolume,
       toggleMetronome,
       stopMetronome,
       playTones,

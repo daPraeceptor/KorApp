@@ -32,6 +32,7 @@ import Svg, { Circle, Line, Path } from 'react-native-svg';
 import { Button, Card, SectionTitle, SlideToConfirm } from '../components/ui';
 import { Keyboard } from '../components/Keyboard';
 import { MetronomeVisual } from '../components/MetronomeVisual';
+import { VolumeNotice } from '../components/VolumeNotice';
 import { haptik } from '../haptics';
 import { BeatPulse, useAppState } from '../state/AppState';
 import { Folder, Song, searchSongs } from '../store/songs';
@@ -1175,6 +1176,8 @@ export function SongsScreen({
         contentH.current = h;
       }}
     >
+      <VolumeNotice />
+
       {locked ? (
         <Card>
           <Text style={styles.help}>
