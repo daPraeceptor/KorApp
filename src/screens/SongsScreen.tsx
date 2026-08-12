@@ -34,6 +34,7 @@ import { Keyboard } from '../components/Keyboard';
 import { MetronomeVisual } from '../components/MetronomeVisual';
 import { VolumeNotice } from '../components/VolumeNotice';
 import { haptik } from '../haptics';
+import { klaviaturSpann } from './klaviaturSpann';
 import { BeatPulse, useAppState } from '../state/AppState';
 import { Folder, Song, searchSongs } from '../store/songs';
 import { noteName, noteNameWithOctave } from '../theory/tuning';
@@ -900,11 +901,15 @@ export function SongsScreen({
       </Pressable>
     );
 
+    const { från: klaviaturFrån, till: klaviaturTill } = klaviaturSpann(
+      song.tones,
+    );
+
     const klaviatur =
       song.tones.length > 0 ? (
         <Keyboard
-          fromMidi={Math.max(0, Math.min(...song.tones) - 2)}
-          toMidi={Math.min(127, Math.max(...song.tones) + 2)}
+          fromMidi={klaviaturFrån}
+          toMidi={klaviaturTill}
           tuning={{
             system: song.tuningSystem,
             tonicPitchClass: song.tonicPitchClass,

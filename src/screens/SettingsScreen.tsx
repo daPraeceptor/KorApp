@@ -204,6 +204,23 @@ export function SettingsScreen() {
       </Card>
 
       <Card>
+        <SectionTitle>Redigeringsvyn</SectionTitle>
+        <View style={styles.row}>
+          <Text style={styles.rowLabel}>Tongivning först</Text>
+          <Switch
+            value={settings.tonesFirst}
+            onValueChange={(tonesFirst) => updateSettings({ tonesFirst })}
+            trackColor={{ false: t.border, true: t.accent }}
+            thumbColor={t.text}
+          />
+        </View>
+        <Text style={styles.help}>
+          Lägger klaviaturen och tongivningens knappar överst, med metronomen
+          under. Avstängt börjar vyn med metronomen, som förut.
+        </Text>
+      </Card>
+
+      <Card>
         <SectionTitle>Startvy</SectionTitle>
         <SegmentedControl
           value={settings.startTab}

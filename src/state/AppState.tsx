@@ -117,6 +117,12 @@ export interface Settings {
    * notstället under repetitionen och ska inte somna mitt i en sats.
    */
   keepAwake: boolean;
+  /**
+   * Vad redigeringsvyn börjar med. Falskt ger metronomen först, sant lägger
+   * tongivningen och klaviaturen överst — för den som mest använder appen
+   * till att ge kören tonen.
+   */
+  tonesFirst: boolean;
 }
 
 export type StartTab = 'auto' | 'play' | 'songs';
@@ -144,6 +150,7 @@ const DEFAULT_SETTINGS: Settings = {
   accentFirstBeat: true,
   haptics: true,
   keepAwake: true,
+  tonesFirst: false,
 };
 
 export const MIN_AUTO_STOP_BEATS = 2;

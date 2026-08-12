@@ -232,6 +232,301 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
   const markTonic = live.tuningSystem === 'just' || settings.markTonicInTempered;
   const cents = displayedNote === null ? 0 : centsFromTempered(displayedNote, tuning);
 
+  /** Takten: visaren, hjulet, transportknapparna och taktarten. */
+  const metronomdelen = (
+    <>
+        {/* Ett tryck på taktvisaren bläddrar till nästa stil. "Ingen" ingår
+            inte i bläddringen — en osynlig visare går inte att trycka på.
+            Visaren skjuts en aning nedåt, mot hjulet, så att luften ovanför
+            den inte gapar mellan skärmkanten och animationen. */}
+        <Pressable onPress={cycleVisual} style={styles.visualShift}>
+          <MetronomeVisual
+            style={settings.metronomeVisual}
+            running={metronomeRunning}
+            bpm={live.bpm}
+            pulse={pulse}
+            activeBeat={activeBeat}
+          />
+        </Pressable>
+
+        <View style={styles.wheelArea}>
+          <TempoWheel
+            bpm={live.bpm}
+            onChange={(bpm) => updateLive({ bpm })}
+            activeBeat={metronomeRunning ? activeBeat : null}
+            beatsPerBar={live.beatsPerBar}
+            onDraggingChange={setWheelDragging}
+            // Ett tryck mitt på siffrorna startar och stoppar metronomen —
+            // samma gest som på en fysisk metronom man knäpper till.
+            onCenterTap={() => void toggleMetronome()}
+          />
+        </View>
+
+        <View style={styles.transport}>
+          <Button
+            label="−1"
+            onPress={() => updateLive({ bpm: clampBpm(live.bpm - 1) })}
+            style={styles.nudge}
+          />
+          <Button
+            label={metronomeRunning ? 'Stoppa' : 'Starta'}
+            variant={metronomeRunning ? 'default' : 'primary'}
+            onPress={() => void toggleMetronome()}
+            style={styles.transportMain}
+          />
+          <Button
+            label="+1"
+            onPress={() => updateLive({ bpm: clampBpm(live.bpm + 1) })}
+            style={styles.nudge}
+          />
+          <Button
+            label="Knacka"
+            onPress={tapTempo}
+            variant="ghost"
+            style={styles.tapButton}
+          />
+        </View>
+
+        {/* Ingen rubrik: raderna säger själva vad de gör, och kortet är alltid
+            framme — utan rubrik finns inget att fälla ihop heller. */}
+        <Card>
+          <View style={styles.row}>
+            <Text style={styles.rowLabel}>Slag per takt</Text>
+            <Stepper
+              value={live.beatsPerBar}
+              min={1}
+              max={12}
+              onChange={(beatsPerBar) => updateLive({ beatsPerBar })}
+            />
+          </View>
+          <Text style={styles.rowLabel}>Underdelning</Text>
+          {/* Fler än fyra underdelningar delas på två rader — åtta knappar på
+              en rad blir frimärken på en telefonskärm. */}
+          {synligaUnderdelningar.length > 4 ? (
+            <>
+              <SegmentedControl
+                value={live.subdivision}
+                onChange={(subdivision) => updateLive({ subdivision })}
+                options={underdelningsval(
+                  synligaUnderdelningar.slice(
+                    0,
+                    Math.ceil(synligaUnderdelningar.length / 2),
+                  ),
+                )}
+              />
+              <SegmentedControl
+                value={live.subdivision}
+                onChange={(subdivision) => updateLive({ subdivision })}
+                options={underdelningsval(
+                  synligaUnderdelningar.slice(
+                    Math.ceil(synligaUnderdelningar.length / 2),
+                  ),
+                )}
+              />
+            </>
+          ) : (
+            <SegmentedControl
+              value={live.subdivision}
+              onChange={(subdivision) => updateLive({ subdivision })}
+              options={underdelningsval(synligaUnderdelningar)}
+            />
+          )}
+        </Card>
+    </>
+  );
+
+  /** Tonerna: tongivningens knappar och klaviaturen under dem. */
+  const tongivningsdelen = (
+    <>
+        {/* Tongivningen står alltid framme — det är den körledaren behöver
+            blixtsnabbt på repetitionen, så rubriken är ingen knapp och rutan
+            går inte att fälla ihop. Utan toner finns ingenting att ge kören,
+            och då visas rutan först när tonvalet slås på. */}
+        {toneCount > 0 || selectMode ? (
+          <Card onLayout={onTonesLayout}>
+            <View style={styles.cardHeader}>
+              <SectionTitle>Tongivning</SectionTitle>
+              <Text style={styles.cardHeaderNote}>
+                {toneCount}/{MAX_TONES}
+              </Text>
+            </View>
+
+            {/* Utan toner finns inget att spela. Då visas instruktionen i stället
+                för knappar som ändå inte gör något. */}
+            {toneCount === 0 ? (
+              <Text style={styles.helpText}>
+                Tryck på en tangent på klaviaturen för att lägga till en ton.
+              </Text>
+            ) : (
+            <>
+            <View style={styles.chips}>
+              {live.tones.map((midi) => (
+                <Pressable
+                  key={midi}
+                  onPress={() => toggleTone(midi)}
+                  style={styles.chip}
+                >
+                  <Text style={styles.chipText}>
+                    {noteNameWithOctave(midi, settings.naming)}
+                  </Text>
+                  <Text style={styles.chipRemove}>×</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            {toneCount === 1 ? (
+              // En ensam ton har varken ackord eller ordning — bara sig själv.
+              <Button
+                label={`Spela ${noteNameWithOctave(live.tones[0], settings.naming)}`}
+                variant="pure"
+                onPress={() => playTones('chord')}
+              />
+            ) : (
+              // De två sätten att ge tonerna, sida vid sida på en rad.
+              <View style={styles.toneButtons}>
+                <Button
+                  label="⇢ I vald ordning"
+                  variant="pure"
+                  onPress={() => playTones('chosen')}
+                  style={styles.toneButton}
+                />
+                <Button
+                  label="Ackord"
+                  onPress={() => playTones('chord')}
+                  style={styles.toneButton}
+                />
+              </View>
+            )}
+            </>
+            )}
+          </Card>
+        ) : null}
+
+        {/* Klaviaturen är för redigeringen — den fälls fram när tonerna skall
+            ändras och håller sig annars undan, så att vyn ryms på en skärm. */}
+        <Card style={styles.keyboardCard}>
+          <Pressable onPress={toggleKeyboardOpen} style={styles.cardHeader}>
+            <SectionTitle>Klaviatur</SectionTitle>
+            <Text style={styles.cardHeaderNote}>{keyboardOpen ? '▾' : '▸'}</Text>
+          </Pressable>
+          {keyboardOpen ? (
+          <>
+          <View style={styles.keyboardHeader}>
+            <Pressable
+              onPress={toggleSelectMode}
+              style={[styles.toggle, selectMode && styles.toggleOn]}
+            >
+              <Text style={[styles.toggleText, selectMode && styles.toggleTextOn]}>
+                Välj toner för tongivning
+              </Text>
+            </Pressable>
+            {/* Stämningen är i grunden av eller på: tempererad är normalläget
+                och ren stämning det man slår till. En omkopplare säger det
+                tydligare än två knappar, och ryms alltid på raden. */}
+            <Pressable
+              onPress={() =>
+                updateLive({
+                  tuningSystem: live.tuningSystem === 'just' ? 'tempered' : 'just',
+                })
+              }
+              style={styles.tuningSwitchRow}
+            >
+              <Text
+                style={[
+                  styles.tuningLabel,
+                  live.tuningSystem === 'just' && styles.tuningLabelOn,
+                ]}
+              >
+                Ren stämning
+              </Text>
+              <Switch
+                value={live.tuningSystem === 'just'}
+                onValueChange={(pa) =>
+                  updateLive({ tuningSystem: pa ? 'just' : 'tempered' })
+                }
+                trackColor={{ false: t.border, true: t.pure }}
+                thumbColor={t.text}
+              />
+            </Pressable>
+          </View>
+
+          <View style={styles.octaveRow}>
+            <Button
+              label="◀ Oktav"
+              variant="ghost"
+              disabled={keyboardStart <= LOWEST_MIDI}
+              onPress={() => setKeyboardStart((start) => Math.max(LOWEST_MIDI, start - 12))}
+            />
+            <Text style={styles.octaveLabel}>
+              {noteNameWithOctave(keyboardStart, settings.naming)} –{' '}
+              {noteNameWithOctave(keyboardStart + KEYBOARD_SPAN, settings.naming)}
+            </Text>
+            <Button
+              label="Oktav ▶"
+              variant="ghost"
+              disabled={keyboardStart >= HIGHEST_START}
+              onPress={() => setKeyboardStart((start) => Math.min(HIGHEST_START, start + 12))}
+            />
+          </View>
+
+          <Keyboard
+            fromMidi={keyboardStart}
+            toMidi={keyboardStart + KEYBOARD_SPAN}
+            tuning={tuning}
+            labels={labels}
+            showLabels={settings.showNoteNames}
+            markTonic={
+              live.tuningSystem === 'just' || settings.markTonicInTempered
+            }
+            selectedTones={live.tones}
+            selectMode={selectMode}
+            // Grundtonen styr både den rena stämningen och solmisationen, så den
+            // sätts utan att stämningssystemet ändras med.
+            onSetTonic={(pitchClass) => updateLive({ tonicPitchClass: pitchClass })}
+            onToggleTone={toggleTone}
+            onNotePlayed={setPlayedNote}
+          />
+
+          <View style={styles.readout}>
+            {/* Tom i vila — ytan behåller sin höjd så att inget hoppar när en
+                ton spelas och avläsningen dyker upp. */}
+            {displayedNote === null ? null : (
+              <>
+                <Text style={styles.readoutNote}>
+                  {noteNameWithOctave(displayedNote, settings.naming)}
+                  {settings.labelSystem !== 'letters'
+                    ? `  ·  ${noteLabel(displayedNote, labels)}`
+                    : ''}
+                </Text>
+                <Text style={styles.readoutDetail}>
+                  {frequencyOf(displayedNote, tuning).toFixed(2)} Hz
+                  {tuning.system === 'just'
+                    ? ` · ${intervalName(displayedNote, tuning.tonicPitchClass)} ${ratioLabel(
+                        displayedNote,
+                        tuning.tonicPitchClass,
+                      )}`
+                    : ''}
+                </Text>
+                {tuning.system === 'just' ? (
+                  <Text
+                    style={[
+                      styles.readoutCents,
+                      Math.abs(cents) < 0.05 && styles.readoutCentsNeutral,
+                    ]}
+                  >
+                    {cents >= 0 ? '+' : '−'}
+                    {Math.abs(cents).toFixed(1)} cent mot tempererad
+                  </Text>
+                ) : null}
+              </>
+            )}
+          </View>
+          </>
+          ) : null}
+        </Card>
+    </>
+  );
+
   return (
     <ScrollView
       ref={scrollRef}
@@ -252,293 +547,14 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
         scrollY.current = e.nativeEvent.contentOffset.y;
       }}
     >
-      {/* Ingen titelrad här: skärmen börjar direkt med metronomen. Titeln
-          står i sparkortet längst ner, och sparandet bor där också. */}
+      {/* Ingen titelrad här: skärmen börjar direkt med det man valt först.
+          Låtens namn står i sparkortet längst ner, och sparandet bor där. */}
       <VolumeNotice />
-      {/* Ett tryck på taktvisaren bläddrar till nästa stil. "Ingen" ingår
-          inte i bläddringen — en osynlig visare går inte att trycka på.
-          Visaren skjuts en aning nedåt, mot hjulet, så att luften ovanför
-          den inte gapar mellan skärmkanten och animationen. */}
-      <Pressable onPress={cycleVisual} style={styles.visualShift}>
-        <MetronomeVisual
-          style={settings.metronomeVisual}
-          running={metronomeRunning}
-          bpm={live.bpm}
-          pulse={pulse}
-          activeBeat={activeBeat}
-        />
-      </Pressable>
 
-      <View style={styles.wheelArea}>
-        <TempoWheel
-          bpm={live.bpm}
-          onChange={(bpm) => updateLive({ bpm })}
-          activeBeat={metronomeRunning ? activeBeat : null}
-          beatsPerBar={live.beatsPerBar}
-          onDraggingChange={setWheelDragging}
-          // Ett tryck mitt på siffrorna startar och stoppar metronomen —
-          // samma gest som på en fysisk metronom man knäpper till.
-          onCenterTap={() => void toggleMetronome()}
-        />
-      </View>
-
-      <View style={styles.transport}>
-        <Button
-          label="−1"
-          onPress={() => updateLive({ bpm: clampBpm(live.bpm - 1) })}
-          style={styles.nudge}
-        />
-        <Button
-          label={metronomeRunning ? 'Stoppa' : 'Starta'}
-          variant={metronomeRunning ? 'default' : 'primary'}
-          onPress={() => void toggleMetronome()}
-          style={styles.transportMain}
-        />
-        <Button
-          label="+1"
-          onPress={() => updateLive({ bpm: clampBpm(live.bpm + 1) })}
-          style={styles.nudge}
-        />
-        <Button
-          label="Knacka"
-          onPress={tapTempo}
-          variant="ghost"
-          style={styles.tapButton}
-        />
-      </View>
-
-      {/* Ingen rubrik: raderna säger själva vad de gör, och kortet är alltid
-          framme — utan rubrik finns inget att fälla ihop heller. */}
-      <Card>
-        <View style={styles.row}>
-          <Text style={styles.rowLabel}>Slag per takt</Text>
-          <Stepper
-            value={live.beatsPerBar}
-            min={1}
-            max={12}
-            onChange={(beatsPerBar) => updateLive({ beatsPerBar })}
-          />
-        </View>
-        <Text style={styles.rowLabel}>Underdelning</Text>
-        {/* Fler än fyra underdelningar delas på två rader — åtta knappar på
-            en rad blir frimärken på en telefonskärm. */}
-        {synligaUnderdelningar.length > 4 ? (
-          <>
-            <SegmentedControl
-              value={live.subdivision}
-              onChange={(subdivision) => updateLive({ subdivision })}
-              options={underdelningsval(
-                synligaUnderdelningar.slice(
-                  0,
-                  Math.ceil(synligaUnderdelningar.length / 2),
-                ),
-              )}
-            />
-            <SegmentedControl
-              value={live.subdivision}
-              onChange={(subdivision) => updateLive({ subdivision })}
-              options={underdelningsval(
-                synligaUnderdelningar.slice(
-                  Math.ceil(synligaUnderdelningar.length / 2),
-                ),
-              )}
-            />
-          </>
-        ) : (
-          <SegmentedControl
-            value={live.subdivision}
-            onChange={(subdivision) => updateLive({ subdivision })}
-            options={underdelningsval(synligaUnderdelningar)}
-          />
-        )}
-      </Card>
-
-      {/* Tongivningen står alltid framme — det är den körledaren behöver
-          blixtsnabbt på repetitionen, så rubriken är ingen knapp och rutan
-          går inte att fälla ihop. Utan toner finns ingenting att ge kören,
-          och då visas rutan först när tonvalet slås på. */}
-      {toneCount > 0 || selectMode ? (
-        <Card onLayout={onTonesLayout}>
-          <View style={styles.cardHeader}>
-            <SectionTitle>Tongivning</SectionTitle>
-            <Text style={styles.cardHeaderNote}>
-              {toneCount}/{MAX_TONES}
-            </Text>
-          </View>
-
-          {/* Utan toner finns inget att spela. Då visas instruktionen i stället
-              för knappar som ändå inte gör något. */}
-          {toneCount === 0 ? (
-            <Text style={styles.helpText}>
-              Tryck på en tangent på klaviaturen för att lägga till en ton.
-            </Text>
-          ) : (
-          <>
-          <View style={styles.chips}>
-            {live.tones.map((midi) => (
-              <Pressable
-                key={midi}
-                onPress={() => toggleTone(midi)}
-                style={styles.chip}
-              >
-                <Text style={styles.chipText}>
-                  {noteNameWithOctave(midi, settings.naming)}
-                </Text>
-                <Text style={styles.chipRemove}>×</Text>
-              </Pressable>
-            ))}
-          </View>
-
-          {toneCount === 1 ? (
-            // En ensam ton har varken ackord eller ordning — bara sig själv.
-            <Button
-              label={`Spela ${noteNameWithOctave(live.tones[0], settings.naming)}`}
-              variant="pure"
-              onPress={() => playTones('chord')}
-            />
-          ) : (
-            // De två sätten att ge tonerna, sida vid sida på en rad.
-            <View style={styles.toneButtons}>
-              <Button
-                label="⇢ I vald ordning"
-                variant="pure"
-                onPress={() => playTones('chosen')}
-                style={styles.toneButton}
-              />
-              <Button
-                label="Ackord"
-                onPress={() => playTones('chord')}
-                style={styles.toneButton}
-              />
-            </View>
-          )}
-          </>
-          )}
-        </Card>
-      ) : null}
-
-      {/* Klaviaturen är för redigeringen — den fälls fram när tonerna skall
-          ändras och håller sig annars undan, så att vyn ryms på en skärm. */}
-      <Card style={styles.keyboardCard}>
-        <Pressable onPress={toggleKeyboardOpen} style={styles.cardHeader}>
-          <SectionTitle>Klaviatur</SectionTitle>
-          <Text style={styles.cardHeaderNote}>{keyboardOpen ? '▾' : '▸'}</Text>
-        </Pressable>
-        {keyboardOpen ? (
-        <>
-        <View style={styles.keyboardHeader}>
-          <Pressable
-            onPress={toggleSelectMode}
-            style={[styles.toggle, selectMode && styles.toggleOn]}
-          >
-            <Text style={[styles.toggleText, selectMode && styles.toggleTextOn]}>
-              Välj toner för tongivning
-            </Text>
-          </Pressable>
-          {/* Stämningen är i grunden av eller på: tempererad är normalläget
-              och ren stämning det man slår till. En omkopplare säger det
-              tydligare än två knappar, och ryms alltid på raden. */}
-          <Pressable
-            onPress={() =>
-              updateLive({
-                tuningSystem: live.tuningSystem === 'just' ? 'tempered' : 'just',
-              })
-            }
-            style={styles.tuningSwitchRow}
-          >
-            <Text
-              style={[
-                styles.tuningLabel,
-                live.tuningSystem === 'just' && styles.tuningLabelOn,
-              ]}
-            >
-              Ren stämning
-            </Text>
-            <Switch
-              value={live.tuningSystem === 'just'}
-              onValueChange={(pa) =>
-                updateLive({ tuningSystem: pa ? 'just' : 'tempered' })
-              }
-              trackColor={{ false: t.border, true: t.pure }}
-              thumbColor={t.text}
-            />
-          </Pressable>
-        </View>
-
-        <View style={styles.octaveRow}>
-          <Button
-            label="◀ Oktav"
-            variant="ghost"
-            disabled={keyboardStart <= LOWEST_MIDI}
-            onPress={() => setKeyboardStart((start) => Math.max(LOWEST_MIDI, start - 12))}
-          />
-          <Text style={styles.octaveLabel}>
-            {noteNameWithOctave(keyboardStart, settings.naming)} –{' '}
-            {noteNameWithOctave(keyboardStart + KEYBOARD_SPAN, settings.naming)}
-          </Text>
-          <Button
-            label="Oktav ▶"
-            variant="ghost"
-            disabled={keyboardStart >= HIGHEST_START}
-            onPress={() => setKeyboardStart((start) => Math.min(HIGHEST_START, start + 12))}
-          />
-        </View>
-
-        <Keyboard
-          fromMidi={keyboardStart}
-          toMidi={keyboardStart + KEYBOARD_SPAN}
-          tuning={tuning}
-          labels={labels}
-          showLabels={settings.showNoteNames}
-          markTonic={
-            live.tuningSystem === 'just' || settings.markTonicInTempered
-          }
-          selectedTones={live.tones}
-          selectMode={selectMode}
-          // Grundtonen styr både den rena stämningen och solmisationen, så den
-          // sätts utan att stämningssystemet ändras med.
-          onSetTonic={(pitchClass) => updateLive({ tonicPitchClass: pitchClass })}
-          onToggleTone={toggleTone}
-          onNotePlayed={setPlayedNote}
-        />
-
-        <View style={styles.readout}>
-          {/* Tom i vila — ytan behåller sin höjd så att inget hoppar när en
-              ton spelas och avläsningen dyker upp. */}
-          {displayedNote === null ? null : (
-            <>
-              <Text style={styles.readoutNote}>
-                {noteNameWithOctave(displayedNote, settings.naming)}
-                {settings.labelSystem !== 'letters'
-                  ? `  ·  ${noteLabel(displayedNote, labels)}`
-                  : ''}
-              </Text>
-              <Text style={styles.readoutDetail}>
-                {frequencyOf(displayedNote, tuning).toFixed(2)} Hz
-                {tuning.system === 'just'
-                  ? ` · ${intervalName(displayedNote, tuning.tonicPitchClass)} ${ratioLabel(
-                      displayedNote,
-                      tuning.tonicPitchClass,
-                    )}`
-                  : ''}
-              </Text>
-              {tuning.system === 'just' ? (
-                <Text
-                  style={[
-                    styles.readoutCents,
-                    Math.abs(cents) < 0.05 && styles.readoutCentsNeutral,
-                  ]}
-                >
-                  {cents >= 0 ? '+' : '−'}
-                  {Math.abs(cents).toFixed(1)} cent mot tempererad
-                </Text>
-              ) : null}
-            </>
-          )}
-        </View>
-        </>
-        ) : null}
-      </Card>
+      {/* Ordningen följer inställningen: den som mest använder appen för
+          tongivning slipper rulla förbi metronomen varje gång. */}
+      {settings.tonesFirst ? tongivningsdelen : metronomdelen}
+      {settings.tonesFirst ? metronomdelen : tongivningsdelen}
 
       {/* Sparandet bor längst ner: här skapas en ny låt av det som är inställt
           ovan, eller uppdateras den laddade. */}
