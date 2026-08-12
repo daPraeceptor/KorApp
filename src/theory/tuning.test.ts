@@ -47,11 +47,11 @@ test('tonklass och oktav räknas rätt, även under MIDI 0', () => {
   assert.equal(octaveOf(59), 3);
 });
 
-test('svensk notation använder H och B där internationell använder B och A♯', () => {
+test('svensk notation använder H och B där internationell använder B och B♭', () => {
   assert.equal(noteName(71, 'swedish'), 'H');
   assert.equal(noteName(70, 'swedish'), 'B');
   assert.equal(noteName(71, 'international'), 'B');
-  assert.equal(noteName(70, 'international'), 'A♯');
+  assert.equal(noteName(70, 'international'), 'B♭');
   assert.equal(noteNameWithOctave(60, 'swedish'), 'C4');
 });
 

@@ -19,16 +19,24 @@ export const A4_MIDI = 69;
 
 export const DEFAULT_A4 = 440;
 
+/**
+ * Appens standardstavning: C♯, E♭, F♯, A♭, B♭ — namnen körvärlden använder
+ * när tonen står för sig själv. Ackordens egen stavning räknas ut i chords.ts
+ * och kan avvika, till exempel D♭ i ett D♭-durackord.
+ *
+ * Svenskan har H där internationell notation har B, och kallar tonen under
+ * den för B (internationellt B♭).
+ */
 const SWEDISH_NAMES = [
   'C',
   'C♯',
   'D',
-  'D♯',
+  'E♭',
   'E',
   'F',
   'F♯',
   'G',
-  'G♯',
+  'A♭',
   'A',
   'B',
   'H',
@@ -38,14 +46,14 @@ const INTERNATIONAL_NAMES = [
   'C',
   'C♯',
   'D',
-  'D♯',
+  'E♭',
   'E',
   'F',
   'F♯',
   'G',
-  'G♯',
+  'A♭',
   'A',
-  'A♯',
+  'B♭',
   'B',
 ] as const;
 
