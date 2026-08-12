@@ -86,4 +86,22 @@ export const DEFAULT_SONGS: Song[] = [
     updatedAt: 0,
     folderId: SOMMAR,
   },
+  {
+    id: 'standard-kom',
+    sortIndex: 5,
+    title: 'Kom',
+    // Tvåtakt med sextondelar under: den underdelningen hör hemma i ett
+    // lugnt grundtempo, annars blir klicken ett surr.
+    bpm: 60,
+    beatsPerBar: 2,
+    subdivision: 'sixteenth',
+    tuningSystem: 'just',
+    // D som grundton. Tonerna ges D3, F♯3 och D2 — treklangens ters och
+    // grundtonen en oktav ner.
+    tonicPitchClass: 2,
+    tones: [50, 54, 38],
+    notes: 'Monica Åslund',
+    updatedAt: 0,
+    folderId: SOMMAR,
+  },
 ];
