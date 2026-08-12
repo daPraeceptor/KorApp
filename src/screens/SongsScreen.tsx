@@ -1101,17 +1101,25 @@ export function SongsScreen({
         >
           {/* En ensam ton har varken ackord eller ordning — bara sig själv,
               och behöver därför bara en knapp. */}
+          {/* Knapparna väljer också låten, som ett tryck på kortet: den man
+              just hörde är den man menar, och tempoknappen gör redan så. */}
           {song.tones.length > 1 ? (
             <>
               <Button
                 label="♪ Ackord"
                 variant="pure"
-                onPress={() => playTones('chord', song)}
+                onPress={() => {
+                  loadSong(song.id);
+                  playTones('chord', song);
+                }}
                 style={styles.quickButton}
               />
               <Button
                 label="♪ ⇢"
-                onPress={() => playTones('chosen', song)}
+                onPress={() => {
+                  loadSong(song.id);
+                  playTones('chosen', song);
+                }}
                 style={styles.quickButton}
               />
             </>
@@ -1124,7 +1132,10 @@ export function SongsScreen({
               }
               variant="pure"
               disabled={song.tones.length === 0}
-              onPress={() => playTones('chord', song)}
+              onPress={() => {
+                loadSong(song.id);
+                playTones('chord', song);
+              }}
               style={styles.quickButton}
             />
           )}
