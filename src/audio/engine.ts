@@ -23,7 +23,10 @@ const VOICE_PEAK = 0.5;
 const NYQUIST_GUARD = 18000;
 
 interface Voice {
-  oscillators: OscillatorNodeLike[];
+  /** Allt som måste stoppas: oscillatorer såväl som buffertspelare. */
+  källor: { stop(when?: number): void }[];
+  /** Allt som ska kopplas loss när tonen tystnat. */
+  noder: { disconnect(): void }[];
   envelope: GainNodeLike;
   stopTimer: ReturnType<typeof setTimeout> | null;
   /** Utklingningstiden hör till klangen tonen startades med. */
@@ -136,12 +139,6 @@ export class AudioEngine {
     this.stopVoice(id, true);
 
     const timbre = TIMBRES[this.timbreId] ?? TIMBRES[DEFAULT_TIMBRE];
-    const partials = timbre
-      .partials(frequency)
-      .filter((partial) => frequency * partial.ratio <= NYQUIST_GUARD);
-    // Normalisera mot summan så att tonens toppnivå blir densamma oavsett hur
-    // många deltoner klangen råkar bestå av.
-    const partialSum = partials.reduce((sum, partial) => sum + partial.gain, 0) || 1;
 
     const now = ctx.currentTime;
     const envelope = ctx.createGain();
@@ -153,7 +150,34 @@ export class AudioEngine {
     );
     envelope.connect(master);
 
+    // Klanger som inte går att beskriva som en hög sinustoner — de som
+    // moduleras eller spelas ur en färdigräknad buffert — bygger sin egen
+    // ljudgraf och lämnar tillbaka den att hänga under enveloppen.
+    if (timbre.bygg) {
+      const bygge = timbre.bygg(ctx, frequency, now, VOICE_PEAK);
+      bygge.utgång.connect(envelope);
+      for (const källa of bygge.källor) {
+        källa.start(now);
+      }
+      this.voices.set(id, {
+        källor: bygge.källor,
+        noder: [...bygge.noder, envelope],
+        envelope,
+        stopTimer: null,
+        release: timbre.release,
+      });
+      return;
+    }
+
+    const partials = timbre
+      .partials(frequency)
+      .filter((partial) => frequency * partial.ratio <= NYQUIST_GUARD);
+    // Normalisera mot summan så att tonens toppnivå blir densamma oavsett hur
+    // många deltoner klangen råkar bestå av.
+    const partialSum = partials.reduce((sum, partial) => sum + partial.gain, 0) || 1;
+
     const oscillators: OscillatorNodeLike[] = [];
+    const partialGains: GainNodeLike[] = [];
     for (const partial of partials) {
       const osc = ctx.createOscillator();
       osc.type = 'sine';
@@ -181,10 +205,12 @@ export class AudioEngine {
       partialGain.connect(envelope);
       osc.start(now);
       oscillators.push(osc);
+      partialGains.push(partialGain);
     }
 
     this.voices.set(id, {
-      oscillators,
+      källor: oscillators,
+      noder: [...oscillators, ...partialGains, envelope],
       envelope,
       stopTimer: null,
       release: timbre.release,
@@ -219,9 +245,9 @@ export class AudioEngine {
       // Om rampen misslyckas stoppas oscillatorerna ändå nedan.
     }
 
-    for (const osc of voice.oscillators) {
+    for (const källa of voice.källor) {
       try {
-        osc.stop(now + release + 0.02);
+        källa.stop(now + release + 0.02);
       } catch {
         // Redan stoppad.
       }
@@ -229,17 +255,12 @@ export class AudioEngine {
 
     setTimeout(
       () => {
-        for (const osc of voice.oscillators) {
+        for (const nod of voice.noder) {
           try {
-            osc.disconnect();
+            nod.disconnect();
           } catch {
             // Redan frikopplad.
           }
-        }
-        try {
-          voice.envelope.disconnect();
-        } catch {
-          // Redan frikopplad.
         }
       },
       (release + 0.15) * 1000,

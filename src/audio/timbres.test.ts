@@ -14,8 +14,15 @@ test('körtonen är standard', () => {
   assert.equal(DEFAULT_TIMBRE, 'choir');
 });
 
+/**
+ * Klanger som bygger sin egen ljudgraf beskriver sig inte med deltoner —
+ * en FM-bärvåg och en modellerad sträng har inga att räkna upp. De provas
+ * för sig i pianos.test.ts, på det ljud de faktiskt ger.
+ */
+const BESKRIVS_AV_DELTONER = TIMBRE_ORDER.filter((id) => !TIMBRES[id].bygg);
+
 test('varje klang ger användbara deltoner', () => {
-  for (const id of TIMBRE_ORDER) {
+  for (const id of BESKRIVS_AV_DELTONER) {
     const partials = TIMBRES[id].partials(C4);
     // Sinustonen består med flit av en enda delton.
     assert.ok(partials.length >= 1, `${id} saknar deltoner`);
@@ -24,15 +31,18 @@ test('varje klang ger användbara deltoner', () => {
         Number.isFinite(partial.gain) && partial.gain > 0,
         `${id} har en delton utan giltig nivå`,
       );
-      assert.ok(partial.ratio >= 1, `${id} har en delton under grundtonen`);
+      // Tongruppens strängar ligger snäppet på var sin sida om deltonen, så
+      // den understa får ligga en aning under — men bara en aning.
+      assert.ok(partial.ratio > 0.99, `${id} har en delton under grundtonen`);
     }
   }
 });
 
 test('varje klang har en grundton som dominerar eller bär tonhöjden', () => {
-  for (const id of TIMBRE_ORDER) {
+  for (const id of BESKRIVS_AV_DELTONER) {
     const partials = TIMBRES[id].partials(C4);
-    const grundton = partials.find((p) => p.ratio === 1);
+    // En tongrupps strängar stäms nästan lika, därför "nästan ett".
+    const grundton = partials.find((p) => Math.abs(p.ratio - 1) < 0.01);
     assert.ok(grundton, `${id} saknar grundton`);
   }
 });
@@ -40,10 +50,13 @@ test('varje klang har en grundton som dominerar eller bär tonhöjden', () => {
 test('klanger som utger sig för att visa stämningen bär femte och sjätte deltonen', () => {
   // Utan dem finns skillnaden mellan tempererad och ren stämning inte i ljudet,
   // hur rätt frekvenserna än är räknade.
-  for (const id of TIMBRE_ORDER.filter((x) => TIMBRES[x].revealsTuning)) {
+  for (const id of BESKRIVS_AV_DELTONER.filter((x) => TIMBRES[x].revealsTuning)) {
     const partials = TIMBRES[id].partials(C4);
     for (const ratio of [5, 6]) {
-      const partial = partials.find((p) => p.ratio === ratio);
+      // En styv sträng lägger deltonen någon procent över den jämna
+      // multipeln. Det är just den avvikelsen som gör ett piano till ett
+      // piano, så leta efter den närmaste i stället för den exakta.
+      const partial = partials.find((p) => Math.abs(p.ratio - ratio) < ratio * 0.05);
       assert.ok(partial, `${id} saknar delton ${ratio}`);
       const andel = partial.gain / partials[0].gain;
       assert.ok(
@@ -83,7 +96,7 @@ test('inga deltoner hamnar över hörselområdet för höga toner', () => {
   // Klaviaturen går upp till C6. Deltoner över 18 kHz filtreras i motorn, men
   // en klang ska inte bestå av nästan bara sådana.
   const C6 = 1046.5;
-  for (const id of TIMBRE_ORDER) {
+  for (const id of BESKRIVS_AV_DELTONER) {
     const partials = TIMBRES[id].partials(C6);
     const horbara = partials.filter((p) => p.ratio * C6 <= 18000);
     // Grundtonen måste alltid finnas kvar, och klangen får inte tappa mer än

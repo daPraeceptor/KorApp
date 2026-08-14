@@ -36,6 +36,21 @@ export interface OscillatorNodeLike extends AudioNodeLike {
   stop(when?: number): void;
 }
 
+/** Färdigräknat ljud, en kanal i taget. */
+export interface AudioBufferLike {
+  readonly length: number;
+  readonly sampleRate: number;
+  getChannelData(channel: number): Float32Array;
+  copyToChannel?(source: Float32Array, channelNumber: number): void;
+}
+
+export interface AudioBufferSourceNodeLike extends AudioNodeLike {
+  buffer: any;
+  readonly playbackRate: AudioParamLike;
+  start(when?: number): void;
+  stop(when?: number): void;
+}
+
 export interface AudioContextLike {
   readonly currentTime: number;
   readonly destination: any;
@@ -44,6 +59,13 @@ export interface AudioContextLike {
   createGain(): GainNodeLike;
   createOscillator(): OscillatorNodeLike;
   createBiquadFilter(): BiquadFilterNodeLike;
+  /** Skapar en tom ljudbuffert att räkna in ljud i. */
+  createBuffer(
+    numberOfChannels: number,
+    length: number,
+    sampleRate: number,
+  ): AudioBufferLike;
+  createBufferSource(): AudioBufferSourceNodeLike;
   resume(): Promise<void>;
   close(): Promise<void>;
 }

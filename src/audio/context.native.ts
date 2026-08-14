@@ -9,6 +9,8 @@ import { AudioContext, AudioManager } from 'react-native-audio-api';
 export type {
   AudioParamLike,
   AudioNodeLike,
+  AudioBufferLike,
+  AudioBufferSourceNodeLike,
   GainNodeLike,
   BiquadFilterNodeLike,
   OscillatorNodeLike,
