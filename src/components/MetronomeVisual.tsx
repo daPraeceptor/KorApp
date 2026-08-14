@@ -10,7 +10,8 @@ import { StyleSheet, View } from 'react-native';
 import Svg, { Circle, G, Line, Path } from 'react-native-svg';
 
 import { beatPosition } from '../audio/beatPosition';
-import { BeatPulse, MetronomeVisualStyle } from '../state/AppState';
+import { MetronomeVisualStyle } from '../state/AppState';
+import { getPulse } from '../state/pulse';
 import { Palette, radius } from '../theme';
 import { useTheme, useThemedStyles } from '../ThemeContext';
 
@@ -29,9 +30,16 @@ interface Props {
   style: MetronomeVisualStyle;
   running: boolean;
   bpm: number;
-  pulse: BeatPulse | null;
-  /** Taktdel som just hörs, för att markera ettan. */
-  activeBeat: number | null;
+  /**
+   * Sant när visaren ska följa de hörda klicken, alltså när det är den här
+   * takten som spelas. Slaget hämtas då direkt ur pulsbutiken vid varje bild.
+   *
+   * Den ligger inte i det delade tillståndet med flit: taktslagen kommer
+   * flera gånger i sekunden, och skulle de gå genom React skulle allt som
+   * råkar dela tillstånd med visaren ritas om lika ofta — i låtlistan varje
+   * kort i hela biblioteket.
+   */
+  följerPulsen?: boolean;
   /**
    * Sant när takten visas utan ljud. Då finns inga klick att följa, och
    * bilden går på egen klocka.
@@ -64,8 +72,7 @@ export function MetronomeVisual({
   style,
   running,
   bpm,
-  pulse,
-  activeBeat,
+  följerPulsen = false,
   silent = false,
   groundWidth,
 }: Props) {
@@ -90,8 +97,12 @@ export function MetronomeVisual({
     return null;
   }
 
+  // Läses vid varje bild i stället för att komma som en egenskap: bilden
+  // ritas ändå om av sin egen bildslinga, och då behöver ingen ritas om i
+  // onödan bara för att ett taktslag hörts.
+  const pulse = följerPulsen ? getPulse() : null;
   const { phase, direction } = beatPosition(running, pulse, bpm, silent, Date.now());
-  const onBeat = activeBeat === 0;
+  const onBeat = pulse !== null && pulse.beat === 0;
 
   if (style === 'ball') {
     const height = bounceHeight(bpm);

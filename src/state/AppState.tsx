@@ -57,78 +57,68 @@ import {
   withValidFolders,
 } from '../store/songs';
 
+import {
+  MAX_AUTO_STOP_BEATS,
+  MIN_AUTO_STOP_BEATS,
+  type MetronomeVisualStyle,
+  type Settings,
+  type StartTab,
+  parseSettings,
+} from './settings';
+import { setPulse } from './pulse';
+
 export type { PlayDirection } from '../store/songs';
+export type { MetronomeVisualStyle, Settings, StartTab } from './settings';
+export { MAX_AUTO_STOP_BEATS, MIN_AUTO_STOP_BEATS } from './settings';
 
 /** Eget namn på vakenhetslåset, så att bara vår egen låsning släpps. */
 const KEEP_AWAKE_TAG = 'korapp-metronom';
 
+/**
+ * Hur länge en ändring får ligga och vänta innan den skrivs till lagringen.
+ *
+ * Varje ändring skriver hela biblioteket. Utan fördröjning betyder det en
+ * fullständig sparning per tangenttryck i en titel, och en per granne man
+ * drar en låt förbi — hundratals kilobyte i sekunden för något som ändå
+ * bara behöver stå rätt när appen stängs.
+ */
+const SPARFÖRDRÖJNING_MS = 400;
+
+/**
+ * Sparar till lagringen, men inte oftare än nödvändigt. Sista värdet vinner,
+ * och en sista skrivning görs alltid — annars skulle den senaste ändringen
+ * kunna bli kvar i väntan när appen läggs undan.
+ */
+function useFördröjdSparning<T>(nyckel: string, värde: T, aktiv: boolean): void {
+  const senaste = useRef(värde);
+  const aktivNu = useRef(aktiv);
+  senaste.current = värde;
+  aktivNu.current = aktiv;
+
+  useEffect(() => {
+    if (!aktiv) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      void AsyncStorage.setItem(nyckel, JSON.stringify(senaste.current));
+    }, SPARFÖRDRÖJNING_MS);
+    return () => clearTimeout(timer);
+  }, [nyckel, värde, aktiv]);
+
+  // Appen kan stängas mitt i väntan. Då skrivs det som ligger och väntar direkt.
+  useEffect(
+    () => () => {
+      if (aktivNu.current) {
+        void AsyncStorage.setItem(nyckel, JSON.stringify(senaste.current));
+      }
+    },
+    [nyckel],
+  );
+}
+
 const SONGS_KEY = 'korapp.songs.v1';
 const SETTINGS_KEY = 'korapp.settings.v1';
 const FOLDERS_KEY = 'korapp.folders.v1';
-
-export interface Settings {
-  /** Kammartonens frekvens. Många orglar och blåsorkestrar ligger på 442. */
-  a4: number;
-  naming: NoteNaming;
-  volume: number;
-  /**
-   * Standardhastighet för tongivningen. Varje låt bär sitt eget värde; det här
-   * är vad en ny låt börjar med.
-   */
-  defaultToneGapBpm: number;
-  /** Om tonnamn skrivs ut på klaviaturens tangenter. */
-  showNoteNames: boolean;
-  /** Bokstäver, solmisation eller romerska tonplatssiffror. */
-  labelSystem: LabelSystem;
-  /** Om solmisation och tonplatser räknas från C eller från grundtonen. */
-  labelReference: LabelReference;
-  /**
-   * Om grundtonstangenten märks ut även i tempererad stämning. I ren stämning
-   * märks den alltid ut, eftersom allt annat stäms mot den.
-   */
-  markTonicInTempered: boolean;
-  /** Klangfärg för tongivningen och klaviaturen. */
-  toneTimbre: TimbreId;
-  /** Appens färgtema. */
-  themeId: ThemeId;
-  /** Visar swing, punkterat och kvintol bland underdelningarna. */
-  showAdvancedSubdivisions: boolean;
-  /** Hur takten visas grafiskt i spelvyn. */
-  metronomeVisual: MetronomeVisualStyle;
-  /**
-   * Vilken flik appen öppnar i. "auto" väljer listan när det finns sparade
-   * låtar och skapandet annars — utan låtar finns ingen lista att visa.
-   */
-  startTab: StartTab;
-  /**
-   * Stoppar metronomen av sig själv efter ett antal slag, men bara när
-   * den startats från låtlistan. Där vill man oftast bara känna tempot en
-   * stund; i spelvyn ska den gå tills man säger till.
-   */
-  autoStopFromList: boolean;
-  /** Antal hörbara slag — underdelningar inräknade — innan stoppet. */
-  autoStopBeats: number;
-  /** Ettan klingar ljusare än de andra taktdelarna. */
-  accentFirstBeat: boolean;
-  /** Telefonen svarar med en liten stöt när något grips eller slår om. */
-  haptics: boolean;
-  /**
-   * Skärmen slocknar inte medan metronomen går. Telefonen ligger framme på
-   * notstället under repetitionen och ska inte somna mitt i en sats.
-   */
-  keepAwake: boolean;
-  /**
-   * Vad redigeringsvyn börjar med. Falskt ger metronomen först, sant lägger
-   * tongivningen och klaviaturen överst — för den som mest använder appen
-   * till att ge kören tonen.
-   */
-  tonesFirst: boolean;
-}
-
-export type StartTab = 'auto' | 'play' | 'songs';
-
-/** Klassisk pendel, streck fram och tillbaka, studsande boll, eller ingen alls. */
-export type MetronomeVisualStyle = 'pendulum' | 'bar' | 'ball' | 'none';
 
 const DEFAULT_SETTINGS: Settings = {
   a4: DEFAULT_A4,
@@ -152,10 +142,6 @@ const DEFAULT_SETTINGS: Settings = {
   keepAwake: true,
   tonesFirst: false,
 };
-
-export const MIN_AUTO_STOP_BEATS = 2;
-export const MAX_AUTO_STOP_BEATS = 64;
-
 
 /** De värden spelvyn arbetar med just nu. */
 export interface LiveConfig {
@@ -187,12 +173,14 @@ function liveFromSong(song: Song): LiveConfig {
   };
 }
 
-/** Ett hört taktslag: vilken taktdel, när det inföll, och hur många i rad. */
-export interface BeatPulse {
-  beat: number;
-  at: number;
-  count: number;
-}
+export type { BeatPulse } from './pulse';
+export { usePulse } from './pulse';
+
+/**
+ * Taktslagen skrivs till sin egen butik i stället för till tillståndet här.
+ * Det är den som gör att en lista på hundratals låtar kan ligga framme medan
+ * metronomen går: bara det som faktiskt ritar takten ritas om.
+ */
 
 /** Det som behövs för att kunna ge en uppsättning toner i rätt stämning. */
 export interface ToneSource {
@@ -227,10 +215,9 @@ interface AppStateValue {
 
   /** Sant medan metronomen går, oavsett vilken vy som startade den. */
   metronomeRunning: boolean;
-  /** Taktdelen som just hörs, för den visuella markeringen. */
-  activeBeat: number | null;
-  /** Senaste taktslaget med tidpunkt, så att animeringar kan följa ljudet. */
-  pulse: BeatPulse | null;
+  // Taktslagen ligger inte här utan hämtas med usePulse, av var och en som
+  // faktiskt ritar takten. De kommer flera gånger i sekunden, och låg de i
+  // det delade tillståndet skulle hela appen ritas om i samma takt.
   /**
    * Telefonens egen ljudnivå, 0–1, eller null så länge den är okänd. iOS
    * berättar bara när den ändras, så värdet saknas tills någon rör
@@ -287,10 +274,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [currentSongId, setCurrentSongId] = useState<string | null>(null);
   const [systemVolume, setSystemVolume] = useState<number | null>(null);
   const [metronomeRunning, setMetronomeRunning] = useState(false);
-  const [pulse, setPulse] = useState<BeatPulse | null>(null);
 
-  // Undviker att skriva tillbaka det inlästa värdet direkt efter start.
-  const hydrated = useRef(false);
   /**
    * Slag kvar innan metronomen stoppar sig själv, eller null när den ska
    * gå tills någon säger till. Armeras bara av starter från låtlistan.
@@ -328,17 +312,14 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
           songsJson === null ? DEFAULT_SONGS : parseLibrary(songsJson);
         // Låtar vars mapp saknas hamnar löst i listan i stället för att döljas.
         setSongs(sortSongs(withValidFolders(laddadeLatar, laddadeMappar)));
-        if (settingsJson) {
-          try {
-            const parsed = JSON.parse(settingsJson) as Partial<Settings>;
-            setSettings((current) => ({ ...current, ...parsed }));
-          } catch {
-            // Trasiga inställningar ersätts av standardvärdena.
-          }
-        }
+        // Varje fält prövas för sig: ett värde som inte går att känna igen
+        // faller tillbaka på standardvärdet i stället för att följa med in i
+        // appen. Ett tokigt värde ska inte kunna tysta ljudet.
+        setSettings((current) => parseSettings(settingsJson, current));
       } finally {
+        // Först här börjar skrivningarna gälla, så att inläsningen inte
+        // skriver tillbaka standardvärdena ovanpå det som redan står sparat.
         if (!cancelled) {
-          hydrated.current = true;
           setLoaded(true);
         }
       }
@@ -349,26 +330,13 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  useEffect(() => {
-    if (!hydrated.current) {
-      return;
-    }
-    void AsyncStorage.setItem(SONGS_KEY, JSON.stringify(songs));
-  }, [songs]);
-
-  useEffect(() => {
-    if (!hydrated.current) {
-      return;
-    }
-    void AsyncStorage.setItem(FOLDERS_KEY, JSON.stringify(folders));
-  }, [folders]);
-
-  useEffect(() => {
-    if (!hydrated.current) {
-      return;
-    }
-    void AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-  }, [settings]);
+  // Skrivningarna väntar en kort stund och slår ihop det som hinner ändras
+  // under tiden. En dragning i listan flyttar en låt förbi en granne i taget,
+  // och varje bokstav i en titel är en ändring — utan fördröjning skulle
+  // hela biblioteket skrivas om för vart och ett av dem.
+  useFördröjdSparning(SONGS_KEY, songs, loaded);
+  useFördröjdSparning(FOLDERS_KEY, folders, loaded);
+  useFördröjdSparning(SETTINGS_KEY, settings, loaded);
 
   useEffect(() => {
     audioEngine.setVolume(settings.volume);
@@ -458,7 +426,6 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
 
   const hasUnsavedChanges = currentSong ? !liveMatchesSong(live, currentSong) : false;
 
-  const activeBeat = pulse ? pulse.beat : null;
 
   // Paletten byggs om bara när temat byts, inte vid varje omritning.
   const palette = useMemo(() => buildPalette(settings.themeId), [settings.themeId]);
@@ -698,8 +665,6 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       tuning,
       labels,
       metronomeRunning,
-      activeBeat,
-      pulse,
       systemVolume,
       toggleMetronome,
       stopMetronome,
@@ -733,8 +698,6 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       tuning,
       labels,
       metronomeRunning,
-      activeBeat,
-      pulse,
       systemVolume,
       toggleMetronome,
       stopMetronome,

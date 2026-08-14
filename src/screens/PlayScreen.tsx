@@ -60,8 +60,6 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
     hasUnsavedChanges,
     labels,
     metronomeRunning,
-    activeBeat,
-    pulse,
     toggleMetronome,
     playTones,
     updateLive,
@@ -244,8 +242,7 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
             style={settings.metronomeVisual}
             running={metronomeRunning}
             bpm={live.bpm}
-            pulse={pulse}
-            activeBeat={activeBeat}
+            följerPulsen={metronomeRunning}
           />
         </Pressable>
 
@@ -253,7 +250,9 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
           <TempoWheel
             bpm={live.bpm}
             onChange={(bpm) => updateLive({ bpm })}
-            activeBeat={metronomeRunning ? activeBeat : null}
+            // Hjulet hämtar själv vilken taktdel som hörs, så att spelvyn
+            // inte behöver ritas om vid varje slag.
+            running={metronomeRunning}
             beatsPerBar={live.beatsPerBar}
             onDraggingChange={setWheelDragging}
             // Ett tryck mitt på siffrorna startar och stoppar metronomen —

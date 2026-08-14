@@ -21,6 +21,30 @@ import { analyseraAckord } from '../src/theory/chords.ts';
 import { beatPosition } from '../src/audio/beatPosition.ts';
 import { TIMBRES } from '../src/audio/timbres.ts';
 import { tempoFromTaps } from '../src/audio/tempo.ts';
+import { type Settings, parseSettings } from '../src/state/settings.ts';
+
+/** Inställningar att falla tillbaka på när det lagrade inte går att tyda. */
+const FÖRVAL_A4: Settings = {
+  a4: 440,
+  naming: 'international',
+  volume: 0.8,
+  defaultToneGapBpm: 80,
+  showNoteNames: true,
+  labelSystem: 'letters',
+  labelReference: 'tonic',
+  markTonicInTempered: false,
+  toneTimbre: 'choir',
+  themeId: 'konsertsal',
+  showAdvancedSubdivisions: false,
+  metronomeVisual: 'ball',
+  startTab: 'auto',
+  autoStopFromList: false,
+  autoStopBeats: 16,
+  accentFirstBeat: true,
+  haptics: true,
+  keepAwake: true,
+  tonesFirst: false,
+};
 
 const HELA_KLAVIATUREN = Array.from({ length: 128 }, (_, i) => i);
 
@@ -51,21 +75,22 @@ test('varje ton på klaviaturen ger en hörbar frekvens i båda stämningarna', 
   );
 });
 
-test('trasiga inställningar når fram till ljudmotorn', () => {
-  // Inställningarna läses in med JSON.parse och läggs ovanpå standardvärdena
-  // utan kontroll, så det här är vad en trasig fil kan ge frekvensräkningen.
-  const värden = [NaN, Infinity, -Infinity, 0, -440, 1e308];
+test('trasiga inställningar når inte fram till ljudmotorn', () => {
+  // Det här är vägen en trasig inställningsfil tar in i frekvensräkningen.
+  const värden = [NaN, Infinity, -Infinity, 0, -440, 1e308, '442', null, {}, 900];
   const dåliga: string[] = [];
   for (const a4 of värden) {
-    const f = frequencyOf(69, { system: 'tempered', tonicPitchClass: 0, a4 });
-    const fRen = frequencyOf(64, { system: 'just', tonicPitchClass: 0, a4 });
+    const inläst = parseSettings(JSON.stringify({ a4 }), FÖRVAL_A4);
+    const f = frequencyOf(69, { system: 'tempered', tonicPitchClass: 0, a4: inläst.a4 });
+    const fRen = frequencyOf(64, { system: 'just', tonicPitchClass: 0, a4: inläst.a4 });
     if (!Number.isFinite(f) || f <= 0 || !Number.isFinite(fRen) || fRen <= 0) {
-      dåliga.push(`a4=${a4} → ${f} Hz / ${fRen} Hz (ren)`);
+      dåliga.push(`a4=${String(a4)} → ${inläst.a4} → ${f} Hz / ${fRen} Hz (ren)`);
     }
   }
   for (const rad of dåliga) {
     console.log(`  [a4] ${rad}`);
   }
+  console.log(`  [a4] ${värden.length} trasiga kammartoner gav alla en spelbar frekvens`);
   assert.equal(
     dåliga.length,
     0,

@@ -5,6 +5,7 @@ import type { TuningSystem } from '../theory/tuning';
 // SubdivisionId är en typ och måste märkas som sådan, annars försöker Node
 // importera den i körläge när testerna går.
 import { type SubdivisionId, toSubdivisionId } from '../audio/subdivisions.ts';
+import { DEFAULT_BPM, clampBeatsPerBar, clampBpm } from '../audio/tempo.ts';
 
 /**
  * Riktning genom en låts toner vid uppspelning.
@@ -80,9 +81,18 @@ export function parseFolders(json: string | null): Folder[] {
     if (!Array.isArray(parsed)) {
       return [];
     }
+    // Samma skäl som för låtarna: två mappar med samma id går inte att skilja åt.
+    const sedda = new Set<string>();
     return parsed
       .map(normalizeFolder)
-      .filter((folder): folder is Folder => folder !== null);
+      .filter((folder): folder is Folder => folder !== null)
+      .filter((folder) => {
+        if (sedda.has(folder.id)) {
+          return false;
+        }
+        sedda.add(folder.id);
+        return true;
+      });
   } catch {
     return [];
   }
@@ -157,13 +167,18 @@ export function normalizeSong(raw: unknown): Song | null {
   }
 
   // Ordningen bevaras med flit: den kan vara vald av körledaren och betyder
-  // i vilken följd stämmorna får sina toner.
+  // i vilken följd stämmorna får sina toner. Samma ton två gånger tas däremot
+  // bort — klaviaturen kan inte skapa en sådan lista, och två röster på samma
+  // frekvens hörs bara som en enda alltför stark ton.
   const tones = Array.isArray(value.tones)
-    ? value.tones
-        .filter((tone): tone is number => typeof tone === 'number' && Number.isFinite(tone))
-        .map((tone) => Math.round(tone))
-        .filter((tone) => tone >= 0 && tone <= 127)
-        .slice(0, MAX_TONES)
+    ? [
+        ...new Set(
+          value.tones
+            .filter((tone): tone is number => typeof tone === 'number' && Number.isFinite(tone))
+            .map((tone) => Math.round(tone))
+            .filter((tone) => tone >= 0 && tone <= 127),
+        ),
+      ].slice(0, MAX_TONES)
     : [];
 
   const number = (input: unknown, fallback: number) =>
@@ -172,8 +187,8 @@ export function normalizeSong(raw: unknown): Song | null {
   return {
     id: value.id,
     title: value.title,
-    bpm: Math.min(300, Math.max(30, Math.round(number(value.bpm, 90)))),
-    beatsPerBar: Math.max(1, Math.round(number(value.beatsPerBar, 4))),
+    bpm: clampBpm(number(value.bpm, DEFAULT_BPM)),
+    beatsPerBar: clampBeatsPerBar(number(value.beatsPerBar, 4)),
     // Underdelningen sparades förr som antal klick per slag.
     subdivision: toSubdivisionId(value.subdivision),
     tuningSystem: value.tuningSystem === 'just' ? 'just' : 'tempered',
@@ -196,9 +211,20 @@ export function parseLibrary(json: string | null): Song[] {
     if (!Array.isArray(parsed)) {
       return [];
     }
+    // Två låtar med samma id är inget appen kan skilja på: att ta bort den
+    // ena skulle ta bort båda, och att ändra den ena ändra båda. Den första
+    // behålls, resten faller bort.
+    const sedda = new Set<string>();
     return parsed
       .map(normalizeSong)
-      .filter((song): song is Song => song !== null);
+      .filter((song): song is Song => song !== null)
+      .filter((song) => {
+        if (sedda.has(song.id)) {
+          return false;
+        }
+        sedda.add(song.id);
+        return true;
+      });
   } catch {
     // Trasig lagring ska inte hindra appen från att starta.
     return [];

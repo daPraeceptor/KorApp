@@ -329,7 +329,6 @@ export function Slider({
           // Knappen centreras över sitt läge utan att kunna hamna utanför banan.
           { left: `${andel * 100}%`, marginLeft: -SLIDER_KNOB / 2 },
         ]}
-        pointerEvents="none"
       >
         <View style={[styles.sliderKnobDot, { backgroundColor: t.accent }]} />
       </View>
@@ -538,6 +537,8 @@ const makeStyles = (t: Palette) => StyleSheet.create({
   },
   sliderKnob: {
     position: 'absolute',
+    // Greppkulan är bara att titta på: dragningen fångas av banan under den.
+    pointerEvents: 'none',
     width: SLIDER_KNOB,
     height: SLIDER_KNOB,
     borderRadius: radius.pill,

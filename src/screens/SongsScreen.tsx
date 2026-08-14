@@ -14,7 +14,10 @@ import React, {
 } from 'react';
 import {
   Alert,
+  Animated,
   Dimensions,
+  Easing,
+  type LayoutChangeEvent,
   LayoutAnimation,
   Modal,
   PanResponder,
@@ -35,7 +38,7 @@ import { MetronomeVisual } from '../components/MetronomeVisual';
 import { VolumeNotice } from '../components/VolumeNotice';
 import { haptik } from '../haptics';
 import { klaviaturSpann } from './klaviaturSpann';
-import { BeatPulse, useAppState } from '../state/AppState';
+import { useAppState, usePulse } from '../state/AppState';
 import { Folder, Song, searchSongs } from '../store/songs';
 import { noteName, noteNameWithOctave } from '../theory/tuning';
 import { Palette, radius, spacing } from '../theme';
@@ -45,21 +48,100 @@ import { useTheme, useThemedStyles } from '../ThemeContext';
  * Liten metronom som pendlar i låtens eget tempo. En blick över listan visar
  * hur låtarnas tempon förhåller sig till varandra, utan siffror.
  */
-function MiniMetronome({
-  bpm,
-  color,
-  pulse,
+const MINI_UTSLAG = 0.42;
+const MINI_NÅL = 13;
+
+/**
+ * Hur länge listan väntar efter senaste tangenttrycket innan den filtreras om.
+ * Kort nog att kännas omedelbart, långt nog att en hel inskrivning bara ger
+ * en enda omritning i stället för en per bokstav.
+ */
+const SÖKFÖRDRÖJNING_MS = 180;
+
+/**
+ * Sökrutan, med sin text hos sig själv.
+ *
+ * Bokstäverna hör bara rutan till. Låg texten i låtlistans eget tillstånd
+ * skulle varje tangenttryck rita om hela listan — i ett stort bibliotek tar
+ * det längre tid än man hinner mellan två bokstäver, och skrivandet hakar.
+ * Härifrån går bara den färdiga sökningen vidare, och först efter en paus.
+ */
+function Sökruta({
+  onSök,
+  style,
+  placeholderColor,
+  onLayout,
 }: {
-  bpm: number;
-  color: string;
-  /**
-   * Senaste hörda taktslaget när den här låtens tempo spelas. Med det ankras
-   * pendeln i ljudet och vänder precis på klicket — en fristående klocka
-   * glider annars ur fas med det man hör.
-   */
-  pulse?: BeatPulse | null;
+  onSök: (sökning: string) => void;
+  style: ViewStyle | ViewStyle[];
+  placeholderColor: string;
+  onLayout?: (händelse: LayoutChangeEvent) => void;
 }) {
+  const [text, setText] = useState('');
+  const senaste = useRef('');
+
+  useEffect(() => {
+    if (text === senaste.current) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      senaste.current = text;
+      onSök(text);
+    }, SÖKFÖRDRÖJNING_MS);
+    return () => clearTimeout(timer);
+  }, [text, onSök]);
+
+  return (
+    <TextInput
+      value={text}
+      onChangeText={setText}
+      placeholder="Sök bland låtarna"
+      placeholderTextColor={placeholderColor}
+      style={style}
+      returnKeyType="search"
+      clearButtonMode="while-editing"
+      onLayout={onLayout}
+    />
+  );
+}
+
+/** Metronomlådan: en låg trapets. Står stilla medan nålen svänger. */
+function MiniLåda({ color }: { color: string }) {
+  return (
+    <Svg width={22} height={20} viewBox="0 0 22 20">
+      <Path d="M7 19 L9.2 12 h3.6 L15 19 z" fill={color} opacity={0.35} />
+    </Svg>
+  );
+}
+
+/** Pendelns nål och lod, ritade rakt upp. Vinkeln läggs på utifrån. */
+function MiniNål({ color }: { color: string }) {
+  return (
+    <Svg width={22} height={20} viewBox="0 0 22 20">
+      <Line
+        x1={11}
+        y1={17.5}
+        x2={11}
+        y2={17.5 - MINI_NÅL}
+        stroke={color}
+        strokeWidth={1.8}
+        strokeLinecap="round"
+      />
+      <Circle cx={11} cy={17.5 - (MINI_NÅL - 4)} r={2.1} fill={color} />
+    </Svg>
+  );
+}
+
+/**
+ * Pendeln för den låt vars tempo faktiskt hörs.
+ *
+ * Bara den här varianten räknar sitt läge i JavaScript, och den finns i ett
+ * enda exemplar: den ankras i de hörda klicken så att nålen vänder precis på
+ * slaget. En fristående klocka glider annars ur fas med det man hör.
+ */
+function MiniMetronomeIPuls({ bpm, color }: { bpm: number; color: string }) {
   const [, tick] = useReducer((count: number) => count + 1, 0);
+  const pulse = usePulse(true);
 
   useEffect(() => {
     let raf = 0;
@@ -71,45 +153,121 @@ function MiniMetronome({
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  // Ett slag per svängning från kant till kant, som på en riktig metronom.
   const beatMs = 60000 / bpm;
   let vinkel: number;
   if (pulse) {
-    // Samma räkning som stora taktvisaren: andel av slaget sedan klicket,
-    // med vändning i ytterläget precis på slaget.
+    // Andel av slaget sedan klicket, med vändning i ytterläget på slaget.
     const fas = Math.min(Math.max((Date.now() - pulse.at) / beatMs, 0), 1);
     const riktning = pulse.count % 2 === 1 ? -1 : 1;
-    vinkel = riktning * 0.42 * Math.cos(Math.PI * fas);
+    vinkel = riktning * MINI_UTSLAG * Math.cos(Math.PI * fas);
   } else {
     const beats = (Date.now() / 1000) * (bpm / 60);
-    vinkel = Math.sin(Math.PI * beats) * 0.42;
+    vinkel = Math.sin(Math.PI * beats) * MINI_UTSLAG;
   }
-  const längd = 13;
-  const toppX = 11 + längd * Math.sin(vinkel);
-  const toppY = 17.5 - längd * Math.cos(vinkel);
 
   return (
-    <Svg width={22} height={20} viewBox="0 0 22 20">
-      {/* Kroppen: en låg trapets som antyder metronomlådan. */}
-      <Path d="M7 19 L9.2 12 h3.6 L15 19 z" fill={color} opacity={0.35} />
-      <Line
-        x1={11}
-        y1={17.5}
-        x2={toppX}
-        y2={toppY}
-        stroke={color}
-        strokeWidth={1.8}
-        strokeLinecap="round"
-      />
-      <Circle
-        cx={11 + (längd - 4) * Math.sin(vinkel)}
-        cy={17.5 - (längd - 4) * Math.cos(vinkel)}
-        r={2.1}
-        fill={color}
-      />
-    </Svg>
+    <View style={styles_mini.ram}>
+      <MiniLåda color={color} />
+      <View
+        style={[
+          styles_mini.nål,
+          { transform: [{ rotate: `${(vinkel * 180) / Math.PI}deg` }] },
+        ]}
+      >
+        <MiniNål color={color} />
+      </View>
+    </View>
   );
 }
+
+/**
+ * Liten metronom som pendlar i låtens eget tempo. En blick över listan visar
+ * hur låtarnas tempon förhåller sig till varandra, utan siffror.
+ *
+ * Svängningen körs av Animated med native driver, inte av en egen bildslinga.
+ * Skillnaden är hela poängen i en lång lista: en bildslinga per låt betyder
+ * att varje kort ritas om sextio gånger i sekunden, alla samtidigt, och med
+ * några hundra låtar äter det upp huvudtråden — samma tråd som metronomens
+ * schemaläggare behöver för att hinna boka nästa klick i tid. Med Animated
+ * ligger rörelsen utanför React och kostar ingen omritning alls.
+ */
+function MiniMetronome({
+  bpm,
+  color,
+  följerPulsen = false,
+}: {
+  bpm: number;
+  color: string;
+  /** Sant för den låt vars tempo hörs just nu. */
+  följerPulsen?: boolean;
+}) {
+  const svängning = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (följerPulsen) {
+      return;
+    }
+    // Ett slag per svängning från kant till kant, som på en riktig metronom.
+    const halvslag = 60000 / bpm;
+    const åtSidan = (till: number) =>
+      Animated.timing(svängning, {
+        toValue: till,
+        duration: halvslag,
+        // Nålen saktar in mot vändlägena och far snabbast genom mitten.
+        easing: Easing.inOut(Easing.sin),
+        // Webben saknar den inbyggda drivningen men skriver ändå stilen
+        // direkt på noden, utan att gå via React.
+        useNativeDriver: Platform.OS !== 'web',
+      });
+    const rörelse = Animated.loop(
+      Animated.sequence([åtSidan(1), åtSidan(-1)]),
+    );
+    rörelse.start();
+    return () => rörelse.stop();
+  }, [bpm, följerPulsen, svängning]);
+
+  if (följerPulsen) {
+    return <MiniMetronomeIPuls bpm={bpm} color={color} />;
+  }
+
+  const grader = (MINI_UTSLAG * 180) / Math.PI;
+  return (
+    <View style={styles_mini.ram}>
+      <MiniLåda color={color} />
+      <Animated.View
+        style={[
+          styles_mini.nål,
+          {
+            transform: [
+              {
+                rotate: svängning.interpolate({
+                  inputRange: [-1, 1],
+                  outputRange: [`-${grader}deg`, `${grader}deg`],
+                }),
+              },
+            ],
+          },
+        ]}
+      >
+        <MiniNål color={color} />
+      </Animated.View>
+    </View>
+  );
+}
+
+/**
+ * Pendeln vrids kring sitt fäste nere i lådan, inte kring bildens mitt.
+ * Lådan ritas för sig och står stilla.
+ */
+const styles_mini = {
+  ram: { width: 22, height: 20 } as const,
+  nål: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    transformOrigin: '11px 17.5px',
+  } as const,
+};
 
 /** Greppet man drar i för att flytta en låt i ordningen. */
 /**
@@ -252,7 +410,6 @@ export function SongsScreen({
     currentSong,
     settings,
     metronomeRunning,
-    pulse,
     loadSong,
     updateSong,
     deleteSong,
@@ -296,7 +453,8 @@ export function SongsScreen({
       });
     }, 120);
   };
-  const [query, setQuery] = useState('');
+  /** Den färdigskrivna sökningen. Bokstäverna på väg dit bor i sökrutan. */
+  const [filter, setFilter] = useState('');
   /**
    * Varningsdialogen på webben, formad som Apples egen. Telefonen använder
    * systemets Alert i stället, så där förblir det här null.
@@ -732,8 +890,8 @@ export function SongsScreen({
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [draftFolderName, setDraftFolderName] = useState('');
 
-  const searching = query.trim().length > 0;
-  const matches = useMemo(() => searchSongs(songs, query), [songs, query]);
+  const searching = filter.trim().length > 0;
+  const matches = useMemo(() => searchSongs(songs, filter), [songs, filter]);
   const loose = matches.filter((song) => song.folderId === null);
 
   // Halvfärdiga redigeringar stängs när låset slår till, annars står en
@@ -876,8 +1034,9 @@ export function SongsScreen({
             style={settings.metronomeVisual}
             running={isExpanded || isPlayingTempo}
             bpm={song.bpm}
-            pulse={isPlayingTempo ? pulse : null}
-            activeBeat={isPlayingTempo && pulse ? pulse.beat : null}
+            // Bara den låt som faktiskt hörs följer klicken. De andra ritar
+            // takten på egen klocka och behöver inte veta något om pulsen.
+            följerPulsen={isPlayingTempo}
             silent={!isPlayingTempo}
             // 80 % bredare än standardstrecket: spalten är smal och bollen
             // behöver något att landa på i ögats mening.
@@ -1075,7 +1234,7 @@ export function SongsScreen({
                 <MiniMetronome
                   bpm={song.bpm}
                   color={isPlayingTempo ? t.accent : t.textMuted}
-                  pulse={isPlayingTempo ? pulse : null}
+                  följerPulsen={isPlayingTempo}
                 />
               )}
               <Text style={styles.title} numberOfLines={2}>
@@ -1204,14 +1363,10 @@ export function SongsScreen({
       ) : null}
 
       {songs.length > 0 ? (
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Sök bland låtarna"
-          placeholderTextColor={t.textMuted}
+        <Sökruta
+          onSök={setFilter}
           style={styles.search}
-          returnKeyType="search"
-          clearButtonMode="while-editing"
+          placeholderColor={t.textMuted}
           // På telefonen börjar listan nedrullad förbi sökrutan, som i iOS
           // egna listor: den dras fram med ett neddrag när den behövs.
           onLayout={(e) => {
@@ -1228,8 +1383,8 @@ export function SongsScreen({
       {searching ? (
         <Text style={styles.searchInfo}>
           {matches.length === 0
-            ? `Ingen låt matchar «${query.trim()}».`
-            : `${matches.length} ${matches.length === 1 ? 'träff' : 'träffar'} på «${query.trim()}».`}
+            ? `Ingen låt matchar «${filter.trim()}».`
+            : `${matches.length} ${matches.length === 1 ? 'träff' : 'träffar'} på «${filter.trim()}».`}
         </Text>
       ) : null}
 
@@ -1578,10 +1733,7 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     borderColor: t.accent,
     elevation: 8,
     zIndex: 20,
-    shadowColor: '#000',
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
+    boxShadow: '0px 6px 12px rgba(0, 0, 0, 0.35)',
   },
   input: {
     backgroundColor: t.surfaceRaised,

@@ -13,7 +13,7 @@ import {
   subdivisionOr,
   toSubdivisionId,
 } from './subdivisions.ts';
-import { clampBpm } from './tempo.ts';
+import { DEFAULT_BPM, clampBeatsPerBar, clampBpm } from './tempo.ts';
 
 export { MAX_BPM, MIN_BPM, clampBpm, tempoFromTaps } from './tempo.ts';
 
@@ -31,11 +31,23 @@ export interface MetronomeState {
 }
 
 export const DEFAULT_METRONOME: MetronomeState = {
-  bpm: 90,
+  bpm: DEFAULT_BPM,
   beatsPerBar: 4,
   subdivision: DEFAULT_SUBDIVISION,
   accentFirstBeat: true,
 };
+
+/**
+ * Första taktgränsen räknat från `start` som ligger vid eller efter `tidigast`.
+ * Räknas i ett steg i stället för i en slinga, så att den håller även när
+ * hoppet är stort.
+ */
+function nextBoundary(start: number, beatSeconds: number, tidigast: number): number {
+  if (start >= tidigast) {
+    return start;
+  }
+  return start + Math.ceil((tidigast - start) / beatSeconds) * beatSeconds;
+}
 
 export class Metronome {
   private engine: AudioEngine;
@@ -74,7 +86,7 @@ export class Metronome {
   update(patch: Partial<MetronomeState>): void {
     const next = { ...this.state, ...patch };
     next.bpm = clampBpm(next.bpm);
-    next.beatsPerBar = Math.max(1, Math.round(next.beatsPerBar));
+    next.beatsPerBar = clampBeatsPerBar(next.beatsPerBar);
     next.subdivision = toSubdivisionId(next.subdivision);
 
     const restartCounting =
@@ -89,6 +101,16 @@ export class Metronome {
       // lägen än den gamla, och skulle annars peka utanför sin egen lista.
       this.beatIndex = 0;
       this.offsetIndex = 0;
+      // Taktslaget vi står i är till hälften spelat, och en bit av det som
+      // kommer ligger redan inbokad hos ljudkortet. Börjar den nya räkningen
+      // där slaget började skulle dess etta hamna före ljud som redan är på
+      // väg ut — man hör ett snubblande dubbelslag. Den nya takten tar därför
+      // vid vid nästa taktgräns bortom det som hunnit bokas.
+      this.beatStart = nextBoundary(
+        this.beatStart,
+        60 / next.bpm,
+        this.engine.currentTime + SCHEDULE_AHEAD,
+      );
     }
   }
 
@@ -136,6 +158,21 @@ export class Metronome {
     const now = this.engine.currentTime;
     const beatSeconds = 60 / this.state.bpm;
 
+    // Ibland har tiden runnit ifrån schemaläggaren: telefonen låg släckt, en
+    // tung omritning höll huvudtråden, eller webbläsaren strypte timern i en
+    // dold flik. Ljudkortets klocka gick vidare hela tiden.
+    //
+    // Det som skulle hörts då hörs inte bättre nu. Bokades de missade slagen
+    // ändå skulle var och ett klämmas fram till nuet och allihop låta på
+    // samma millisekund — ett knäpp i stället för en puls. Räkningen hoppar
+    // därför fram i hela taktslag, så att pulsen ligger kvar i sitt rutnät.
+    if (now - this.beatStart > beatSeconds) {
+      const missade = Math.floor((now - this.beatStart) / beatSeconds);
+      this.beatStart += missade * beatSeconds;
+      this.beatIndex += missade;
+      this.offsetIndex = 0;
+    }
+
     for (;;) {
       const spec = subdivisionOr(this.state.subdivision);
       // Underdelningen kan ha bytts mitt i ett taktslag till en med färre lägen.
@@ -154,26 +191,30 @@ export class Metronome {
       const isSubdivision = this.offsetIndex !== 0;
       const positionInBar = this.beatIndex % this.state.beatsPerBar;
 
-      let variant: ClickVariant;
-      if (isSubdivision) {
-        variant = 'subdivision';
-      } else if (positionInBar === 0 && this.state.accentFirstBeat) {
-        variant = 'accent';
-      } else {
-        variant = 'beat';
-      }
+      // Underdelningar inom det taktslag vi hoppade in i kan ligga bakom oss,
+      // liksom allt som hann passera under en kort hackning. De räknas förbi
+      // utan att bokas — ett klick vars stund är över ska förbli tyst.
+      if (tickTime >= now) {
+        let variant: ClickVariant;
+        if (isSubdivision) {
+          variant = 'subdivision';
+        } else if (positionInBar === 0 && this.state.accentFirstBeat) {
+          variant = 'accent';
+        } else {
+          variant = 'beat';
+        }
 
-      this.engine.scheduleClick(tickTime, variant);
+        this.engine.scheduleClick(tickTime, variant);
 
-      if (!isSubdivision && this.onBeat) {
         const delayMs = Math.max((tickTime - now) * 1000, 0);
-        // Blinket får ligga någon millisekund fel; det är bara en visuell markering.
-        setTimeout(() => this.onBeat?.(positionInBar), delayMs);
-      }
+        if (!isSubdivision && this.onBeat) {
+          // Blinket får ligga någon millisekund fel; det är bara en visuell markering.
+          setTimeout(() => this.onBeat?.(positionInBar), delayMs);
+        }
 
-      if (this.onClick) {
-        const delayMs = Math.max((tickTime - now) * 1000, 0);
-        setTimeout(() => this.onClick?.(), delayMs);
+        if (this.onClick) {
+          setTimeout(() => this.onClick?.(), delayMs);
+        }
       }
 
       this.offsetIndex += 1;

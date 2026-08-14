@@ -18,6 +18,7 @@ import Svg, { Circle, G, Line, Path } from 'react-native-svg';
 import { haptik } from '../haptics';
 
 import { MAX_BPM, MIN_BPM, clampBpm } from '../audio/tempo';
+import { usePulse } from '../state/pulse';
 import { Palette, radius } from '../theme';
 import { useTheme, useThemedStyles } from '../ThemeContext';
 
@@ -36,8 +37,11 @@ interface Props {
   bpm: number;
   onChange: (bpm: number) => void;
   size?: number;
-  /** Taktdel som just nu hörs, för blinket i mitten. Null när metronomen är stoppad. */
-  activeBeat?: number | null;
+  /**
+   * Sant medan metronomen går. Hjulet prenumererar då på taktslagen själv,
+   * för blinket i mitten — så att vyn omkring det slipper ritas om i takt.
+   */
+  running?: boolean;
   beatsPerBar?: number;
   /** Anropas när greppet tas och släpps, så att vyn kan låsa sin scroll. */
   onDraggingChange?: (dragging: boolean) => void;
@@ -84,7 +88,7 @@ export function TempoWheel({
   bpm,
   onChange,
   size = 260,
-  activeBeat = null,
+  running = false,
   beatsPerBar = 4,
   onDraggingChange,
   onCenterTap,
@@ -190,6 +194,11 @@ export function TempoWheel({
     [angleFromTouch, measure, onChange, onDraggingChange, onCenterTap, size],
   );
 
+  // Bara prenumeration medan metronomen går: en stillastående metronom har
+  // inga slag att blinka på, och då ska hjulet inte ritas om alls.
+  const puls = usePulse(running);
+  const aktivTaktdel = running && puls ? puls.beat : null;
+
   const cx = size / 2;
   const cy = size / 2;
   const trackRadius = size / 2 - 18;
@@ -265,7 +274,7 @@ export function TempoWheel({
         </G>
       </Svg>
 
-      <View style={styles.readout} pointerEvents="none">
+      <View style={styles.readout}>
         <Text style={styles.bpm}>{bpm}</Text>
         <Text style={styles.unit}>slag/min</Text>
         <View style={styles.beats}>
@@ -275,7 +284,7 @@ export function TempoWheel({
               style={[
                 styles.beatDot,
                 index === 0 && styles.beatDotFirst,
-                activeBeat === index && styles.beatDotActive,
+                aktivTaktdel === index && styles.beatDotActive,
               ]}
             />
           ))}
@@ -292,6 +301,9 @@ const makeStyles = (t: Palette) => StyleSheet.create({
   },
   readout: {
     position: 'absolute',
+    // Siffrorna ligger över hjulet men får inte ta emot greppet — det hör
+    // till hjulet under, som ska kunna vridas var man än sätter fingret.
+    pointerEvents: 'none',
     top: 0,
     left: 0,
     right: 0,

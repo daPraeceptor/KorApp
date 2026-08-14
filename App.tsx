@@ -180,7 +180,7 @@ function Shell() {
 
         {/* Låset flyter över innehållet så att det syns var man än rullat. */}
         {locked ? (
-          <View style={styles.lockBadge} pointerEvents="none">
+          <View style={styles.lockBadge}>
             <LockGlyph color={t.accent} />
           </View>
         ) : null}
@@ -280,6 +280,8 @@ const makeStyles = (t: Palette) => StyleSheet.create({
   },
   lockBadge: {
     position: 'absolute',
+    // Märket är en upplysning, inte en knapp: tryck går igenom det.
+    pointerEvents: 'none',
     top: spacing.sm,
     right: spacing.md,
     backgroundColor: t.surfaceRaised,

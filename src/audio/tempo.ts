@@ -2,9 +2,36 @@
 
 export const MIN_BPM = 30;
 export const MAX_BPM = 300;
+export const DEFAULT_BPM = 90;
 
+export const MIN_BEATS_PER_BAR = 1;
+/**
+ * Spelvyn erbjuder ett till tolv slag per takt. Gränsen här är satt högre än
+ * så, eftersom den bara ska fånga det orimliga — ett bibliotek skrivet av en
+ * annan version ska få behålla sin taktart, inte klippas ner till vyns urval.
+ */
+export const MAX_BEATS_PER_BAR = 32;
+
+/**
+ * Tempot inom sina gränser, som ett helt tal.
+ *
+ * Ett värde som inte är ett tal blir standardtempot i stället för att smitta
+ * vidare: NaN överlever både Math.max och Math.min, och en metronom med NaN
+ * mellan slagen skulle aldrig komma fram till nästa taktslag.
+ */
 export function clampBpm(bpm: number): number {
+  if (!Number.isFinite(bpm)) {
+    return DEFAULT_BPM;
+  }
   return Math.min(MAX_BPM, Math.max(MIN_BPM, Math.round(bpm)));
+}
+
+/** Antal slag per takt inom sina gränser, som ett helt tal. */
+export function clampBeatsPerBar(beats: number): number {
+  if (!Number.isFinite(beats)) {
+    return 4;
+  }
+  return Math.min(MAX_BEATS_PER_BAR, Math.max(MIN_BEATS_PER_BAR, Math.round(beats)));
 }
 
 /**

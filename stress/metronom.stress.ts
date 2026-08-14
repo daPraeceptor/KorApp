@@ -15,6 +15,7 @@ import { SUBDIVISION_ORDER } from '../src/audio/subdivisions.ts';
 interface Klick {
   tid: number;
   variant: ClickVariant;
+  bokatVid: number;
 }
 
 /** Ljudmotor som antecknar i stället för att låta, med en klocka vi styr. */
@@ -40,7 +41,10 @@ function fejkmotor(maxKlick = 5_000_000) {
         if (klick.length >= maxKlick) {
           throw new Error('SKENAR: schemaläggaren bokar klick utan slut');
         }
-        klick.push({ tid, variant });
+        // Klockslaget vid bokningen sparas också: ett klick som bokas efter
+        // sin egen tid går inte att spela när det skulle ha låtit, utan
+        // kläms fram till nuet av ljudmotorn.
+        klick.push({ tid, variant, bokatVid: nu });
       },
     } as never,
   };
@@ -94,14 +98,17 @@ test('webbfliken stryps till ett fönster i sekunden', async () => {
     f.gåTill(t);
     fönster(m);
   }
-  const efterslapp = f.klick.filter((k) => k.tid < 10 - 0.12);
-  // Alla klick som bokas efter att deras tid passerat blir hörbart klumpade.
+  // Ett klick som bokas efter sin egen tid kläms fram till nuet av ljudmotorn,
+  // och flera sådana i rad hörs som ett enda knäpp i stället för en puls.
+  const iEfterhand = f.klick.filter((k) => k.tid < k.bokatVid);
   const klumpade = f.klick.filter((k, i) => i > 0 && k.tid < f.klick[i - 1].tid + 1e-9);
   console.log(
-    `  [strypt flik] ${f.klick.length} klick bokade, ${efterslapp.length} av dem i efterhand, ` +
+    `  [strypt flik] ${f.klick.length} klick bokade under 10 s, ${iEfterhand.length} i efterhand, ` +
       `${klumpade.length} ur ordning.`,
   );
   m.stop();
+  assert.equal(iEfterhand.length, 0, 'klick bokades efter att deras tid passerat');
+  assert.equal(klumpade.length, 0, 'klick bokades ovanpå varandra');
 });
 
 test('en timme i högsta tempo glider inte', async () => {
