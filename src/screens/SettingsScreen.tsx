@@ -1,6 +1,7 @@
 /** Inställningar: kammarton, tonnamn, volym och hur körtonerna ges. */
 import React, { useState } from 'react';
 import {
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -520,6 +521,36 @@ export function SettingsScreen() {
           Avvikelse i cent, där 100 cent är en halvton på pianot.
         </Text>
       </Card>
+
+      {/*
+        * Tacket är inte artighet utan villkor: flygelns prov är licensierade
+        * under CC BY, som kräver att upphovsmannen namnges, att licensen
+        * anges, och att det framgår att materialet är bearbetat. Alla tre
+        * står här. Tas det bort får appen inte längre använda ljudet.
+        */}
+      <Card>
+        <SectionTitle>Tack</SectionTitle>
+        <Text style={styles.help}>
+          Flygeln är Salamander Grand Piano V3 — en Yamaha C5 inspelad av
+          Alexander Holm, använd under licensen CC BY 3.0.
+        </Text>
+        <Text style={styles.footnote}>
+          Proven är bearbetade: ett urval av tonerna, transponerade till
+          tonhöjderna däremellan, med kortad utklingning och justerad nivå.
+        </Text>
+        <Pressable
+          onPress={() => {
+            // Öppnar i webbläsaren. Misslyckas det är det inget att göra åt,
+            // och en trasig länk ska inte fälla inställningsvyn.
+            void Linking.openURL(
+              'https://creativecommons.org/licenses/by/3.0/',
+            ).catch(() => {});
+          }}
+          hitSlop={8}
+        >
+          <Text style={styles.link}>creativecommons.org/licenses/by/3.0</Text>
+        </Pressable>
+      </Card>
     </ScrollView>
   );
 }
@@ -596,6 +627,11 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     color: t.textMuted,
     fontSize: 11,
     lineHeight: 16,
+  },
+  link: {
+    color: t.tone,
+    fontSize: 13,
+    textDecorationLine: 'underline',
   },
   themeGrid: {
     flexDirection: 'row',
