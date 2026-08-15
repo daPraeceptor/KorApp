@@ -40,6 +40,7 @@ export interface OscillatorNodeLike extends AudioNodeLike {
 export interface AudioBufferLike {
   readonly length: number;
   readonly sampleRate: number;
+  readonly numberOfChannels: number;
   getChannelData(channel: number): Float32Array;
   copyToChannel?(source: Float32Array, channelNumber: number): void;
 }

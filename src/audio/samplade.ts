@@ -15,6 +15,11 @@
  * det packas upp överallt appen finns — ljudmotorn bär libvorbis på både iOS
  * och Android, och webbläsarna klarar det själva.
  *
+ * Bara början av varje prov behålls i minnet. Avkodat ljud lagras som
+ * okomprimerad float32, och hela banken skulle väga nära hundra megabyte på
+ * webben och det dubbla i mobilappen — trettio gånger filernas storlek, och
+ * nästan allt av det utklingning som aldrig hinner spelas. Se PROVLÄNGD.
+ *
  * Var proven finns skiljer sig åt mellan plattformarna, och det avgörs av
  * pianoprov.ts respektive pianoprov.native.ts: mobilappen buntar in hela
  * klaviaturen, webben hämtar körregistret. Skillnaden syns här bara som att
@@ -37,6 +42,22 @@ export type Prov =
 
 const PROV: Prov[] = PLATTFORMENS_PROV;
 
+/**
+ * Så mycket av varje prov som behålls.
+ *
+ * Längre än så hinner ingen ton spelas: ett ackord klingar i en sekund, och
+ * den långsammaste tongivningen ger 1,38 sekunder per ton, plus ett släpp på
+ * en fjärdedels sekund. Två sekunder lämnar marginal åt båda — se provet i
+ * samplade.test.ts, som räknar fram kravet ur appens egna gränser.
+ *
+ * Undantaget är en hållen tangent, som förr klingade så länge provet räckte.
+ * Den tystnar nu efter två sekunder.
+ */
+export const PROVLÄNGD = 2;
+
+/** Uttoning i slutet, så att kapningen inte hörs som ett knäpp. */
+const UTTONING = 0.15;
+
 const A4 = 69;
 export const provfrekvens = (midi: number) => 440 * Math.pow(2, (midi - A4) / 12);
 
@@ -50,6 +71,34 @@ export interface Sampelbank {
 
 /** Flygeln, med de prov plattformen bär. */
 export const SALAMANDER: Sampelbank = { id: 'salamander', prov: PROV };
+
+/**
+ * Behåller början av ett prov och tonar ut slutet.
+ *
+ * Kapningen sker efter avkodningen, inte i filen: proven på disk är orörda i
+ * full längd och full kvalitet. Det är bara minnet som krymper.
+ */
+function kapa(ctx: AudioContextLike, källa: AudioBufferLike): AudioBufferLike {
+  const sr = källa.sampleRate;
+  const längd = Math.min(källa.length, Math.round(PROVLÄNGD * sr));
+  if (längd >= källa.length) {
+    return källa;
+  }
+
+  const kanaler = källa.numberOfChannels ?? 1;
+  const kort = ctx.createBuffer(kanaler, längd, sr);
+  const toning = Math.min(längd, Math.round(UTTONING * sr));
+
+  for (let k = 0; k < kanaler; k += 1) {
+    const från = källa.getChannelData(k);
+    const till = kort.getChannelData(k);
+    for (let i = 0; i < längd; i += 1) {
+      const kvar = längd - i;
+      till[i] = kvar < toning ? från[i] * (kvar / toning) : från[i];
+    }
+  }
+  return kort;
+}
 
 /** Färdigladdade prov, en uppsättning per ljudkontext och bank. */
 const laddade = new WeakMap<object, Map<string, Map<number, AudioBufferLike>>>();
@@ -98,9 +147,12 @@ export function laddaBank(ctx: AudioContextLike, bank: Sampelbank): Promise<void
             if (!svar.ok) {
               throw new Error(`${svar.status}`);
             }
-            buffertar.set(prov.midi, await ctx.decodeAudioData(await svar.arrayBuffer()));
+            buffertar.set(
+              prov.midi,
+              kapa(ctx, await ctx.decodeAudioData(await svar.arrayBuffer())),
+            );
           } else {
-            buffertar.set(prov.midi, await ctx.decodeAudioData(prov.modul));
+            buffertar.set(prov.midi, kapa(ctx, await ctx.decodeAudioData(prov.modul)));
           }
         } catch (fel) {
           // Ett prov som inte går att hämta ska inte stjälpa hela banken:
