@@ -17,7 +17,15 @@ set -euo pipefail
 
 VARD="ftp://ns2.inleed.net"
 ROT="/public_html"
-NETRC="${HOME}/_netrc"
+
+# Inloggningen ligger utanför projektet, så att den aldrig kan följa med in i
+# ett bygge eller en incheckning: _netrc bredvid projektmappen, där varje sajt
+# har sin egen fil. En annan kan pekas ut för en enskild körning med NETRC=...
+# framför kommandot.
+#
+# Sökvägen gick tidigare till hemkatalogen, en nivå fel, och skriptet stannade
+# därför direkt med "hittar inte".
+NETRC="${NETRC:-$(cd "$(dirname "$0")/.." && pwd)/_netrc}"
 DIST="$(cd "$(dirname "$0")" && pwd)/dist"
 
 if [ ! -f "$NETRC" ]; then
