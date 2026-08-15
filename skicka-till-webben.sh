@@ -19,13 +19,13 @@ VARD="ftp://ns2.inleed.net"
 ROT="/public_html"
 
 # Inloggningen ligger utanför projektet, så att den aldrig kan följa med in i
-# ett bygge eller en incheckning: _netrc bredvid projektmappen, där varje sajt
-# har sin egen fil. En annan kan pekas ut för en enskild körning med NETRC=...
-# framför kommandot.
+# ett bygge eller en incheckning: _netrc_kormetronom bredvid projektmappen,
+# där varje sajt har sin egen fil uppkallad efter sig. En annan kan pekas ut
+# för en enskild körning med NETRC=... framför kommandot.
 #
 # Sökvägen gick tidigare till hemkatalogen, en nivå fel, och skriptet stannade
 # därför direkt med "hittar inte".
-NETRC="${NETRC:-$(cd "$(dirname "$0")/.." && pwd)/_netrc}"
+NETRC="${NETRC:-$(cd "$(dirname "$0")/.." && pwd)/_netrc_kormetronom}"
 DIST="$(cd "$(dirname "$0")" && pwd)/dist"
 
 if [ ! -f "$NETRC" ]; then
