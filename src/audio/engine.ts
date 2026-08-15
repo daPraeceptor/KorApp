@@ -16,8 +16,35 @@ import { DEFAULT_TIMBRE, TIMBRES, type TimbreId } from './timbres.ts';
 /** Nivå som exponentiella ramper går mot i stället för noll, som de inte klarar. */
 const SILENCE = 0.0001;
 
-/** Sammanlagd toppnivå för en enskild ton, så att flera toner inte klipper. */
+/** Toppnivå för en ensam ton. */
 const VOICE_PEAK = 0.5;
+
+/**
+ * Så högt tongivningen får nå tillsammans, hur många toner som än ljuder.
+ *
+ * Toner startade i samma ögonblick börjar alla på fasen noll, och deras
+ * deltoner ligger därför i fas i anslaget. Ett ackord toppar alltså på nära
+ * summan av tonernas nivåer — ett åttastämmigt på fyra gånger full
+ * utstyrning, vilket klipper hårt och hörbart. Därför får tonbussen bära
+ * ett tak, och tonernas nivå räknas ner mot det när de blir fler.
+ */
+const TONE_CEILING = 0.85;
+
+/**
+ * Nivån varje ton ska ligga på när så här många ljuder samtidigt.
+ *
+ * En ensam ton rör sig inte ur fläcken: det vanligaste fallet ska låta
+ * precis som förut. Först när tonerna blir flera räknas de ner, och då bara
+ * så mycket som krävs för att summan ska hålla sig under taket.
+ */
+export function tonbussNivå(antalRöster: number): number {
+  // Ett tal som inte är ett tal överlever både Math.max och Math.round, och
+  // en nivå på NaN gör ljudmotorn tyst i stället för svagare.
+  const röster = Number.isFinite(antalRöster)
+    ? Math.max(1, Math.round(antalRöster))
+    : 1;
+  return Math.min(VOICE_PEAK, TONE_CEILING / röster);
+}
 
 /** Deltoner ovanför hörselområdet hoppas över, de ger bara vikning. */
 const NYQUIST_GUARD = 18000;
@@ -48,7 +75,15 @@ export type ToneMode = 'together' | 'sequence';
 export class AudioEngine {
   private ctx: AudioContextLike | null = null;
   private master: GainNodeLike | null = null;
+  /**
+   * Alla toner går genom en egen buss, metronomklicken förbi den. Det är på
+   * bussen tonernas gemensamma nivå räknas ner när de blir flera — klicken
+   * ska höras lika starkt vare sig kören just fått sina toner eller inte.
+   */
+  private toneBus: GainNodeLike | null = null;
   private voices = new Map<string, Voice>();
+  /** Toner som släppts men ännu klingar ut. De räknas med i nivån. */
+  private utklingande = 0;
   private volume = 0.8;
   private timbreId: TimbreId = DEFAULT_TIMBRE;
   /** Timers och röster som hör till en pågående tongivning, så den kan avbrytas. */
@@ -62,6 +97,9 @@ export class AudioEngine {
       this.master = this.ctx.createGain();
       this.master.gain.value = this.volume;
       this.master.connect(this.ctx.destination);
+      this.toneBus = this.ctx.createGain();
+      this.toneBus.gain.value = 1;
+      this.toneBus.connect(this.master);
     }
     await unlockAudioContext(this.ctx);
     return this.ctx;
@@ -78,6 +116,32 @@ export class AudioEngine {
   /** Klangen som nya toner startas med. Redan klingande toner behåller sin. */
   setTimbre(id: TimbreId): void {
     this.timbreId = TIMBRES[id] ? id : DEFAULT_TIMBRE;
+  }
+
+  /**
+   * Ställer tonbussen efter hur många toner som ljuder.
+   *
+   * Ändringen glider över ett par hundradels sekund. Ett hopp i nivån mitt i
+   * en klingande ton skulle höras som ett knäpp, och en långsam glidning som
+   * en tonstyrka som svajar — det här ligger mitt emellan, och märks som att
+   * ett ackord helt enkelt är lika starkt som en ensam ton.
+   */
+  private uppdateraTonbuss(): void {
+    const ctx = this.ctx;
+    const buss = this.toneBus;
+    if (!ctx || !buss) {
+      return;
+    }
+    const röster = this.voices.size + this.utklingande;
+    const nivå = röster === 0 ? 1 : tonbussNivå(röster) / VOICE_PEAK;
+    const nu = ctx.currentTime;
+    try {
+      buss.gain.cancelScheduledValues(nu);
+      buss.gain.setValueAtTime(buss.gain.value, nu);
+      buss.gain.linearRampToValueAtTime(nivå, nu + 0.03);
+    } catch {
+      buss.gain.value = nivå;
+    }
   }
 
   setVolume(value: number): void {
@@ -131,8 +195,8 @@ export class AudioEngine {
   /** Startar en ton som klingar tills stopVoice anropas. Används av klaviaturen. */
   startVoice(id: string, frequency: number): void {
     const ctx = this.ctx;
-    const master = this.master;
-    if (!ctx || !master) {
+    const buss = this.toneBus;
+    if (!ctx || !buss) {
       return;
     }
 
@@ -148,7 +212,7 @@ export class AudioEngine {
       Math.max(timbre.sustain, SILENCE),
       now + timbre.attack + timbre.decay,
     );
-    envelope.connect(master);
+    envelope.connect(buss);
 
     // Klanger som inte går att beskriva som en hög sinustoner — de som
     // moduleras eller spelas ur en färdigräknad buffert — bygger sin egen
@@ -166,6 +230,7 @@ export class AudioEngine {
         stopTimer: null,
         release: timbre.release,
       });
+      this.uppdateraTonbuss();
       return;
     }
 
@@ -215,6 +280,7 @@ export class AudioEngine {
       stopTimer: null,
       release: timbre.release,
     });
+    this.uppdateraTonbuss();
   }
 
   /** Släpper en ton med mjuk utklingning. */
@@ -225,6 +291,9 @@ export class AudioEngine {
       return;
     }
     this.voices.delete(id);
+    // Tonen är släppt men hörs fortfarande. Räknades den bort redan nu skulle
+    // bussen höjas mitt i utklingningen, och kvarvarande toner skulle svälla.
+    this.utklingande += 1;
 
     if (voice.stopTimer) {
       clearTimeout(voice.stopTimer);
@@ -262,6 +331,8 @@ export class AudioEngine {
             // Redan frikopplad.
           }
         }
+        this.utklingande = Math.max(0, this.utklingande - 1);
+        this.uppdateraTonbuss();
       },
       (release + 0.15) * 1000,
     );
@@ -330,6 +401,8 @@ export class AudioEngine {
     const ctx = this.ctx;
     this.ctx = null;
     this.master = null;
+    this.toneBus = null;
+    this.utklingande = 0;
     if (ctx) {
       void ctx.close().catch(() => {});
     }
