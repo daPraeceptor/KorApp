@@ -20,9 +20,11 @@ under utvecklingen.
 - **Tongivning på fyra sätt.** Hela ackordet på en gång, en i taget nedifrån och
   upp, uppifrån och ner, eller i den ordning tonerna valdes. Hastigheten sparas
   per låt.
-- **Sex klangfärger.** Körton, piano, inspelad flygel, stämgaffel, flöjt och
-  ren sinus. Alla utom sinustonen bär femte och sjätte deltonen, så att
-  skillnaden mellan stämningarna hörs oavsett vilken klang som är vald.
+- **Fem klangfärger.** Inspelad flygel, körton, stämgaffel, flöjt och ren
+  sinus. Alla utom sinustonen bär femte och sjätte deltonen, så att skillnaden
+  mellan stämningarna hörs oavsett vilken klang som är vald. Alla ligger
+  dessutom på samma uppmätta styrka, så att ett klangbyte inte ändrar
+  ljudnivån.
 - **Inspelad flygel.** Salamander Grand Piano — en Yamaha C5 inspelad av
   Alexander Holm, CC-BY 3.0 — med ett prov var liten ters. Mobilappen bär hela
   klaviaturen, medan webbversionen bara laddar körregistret C2–C6: appen buntar
