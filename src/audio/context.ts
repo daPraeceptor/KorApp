@@ -66,6 +66,12 @@ export interface AudioContextLike {
     sampleRate: number,
   ): AudioBufferLike;
   createBufferSource(): AudioBufferSourceNodeLike;
+  /**
+   * Avkodar en ljudfil till en buffert. Webben tar råbyten; mobilens ljudmotor
+   * tar dessutom emot ett modulnummer från require, eller en filsökväg, och
+   * läser filen själv.
+   */
+  decodeAudioData(data: ArrayBuffer | number | string): Promise<AudioBufferLike>;
   resume(): Promise<void>;
   close(): Promise<void>;
 }

@@ -12,10 +12,18 @@
  */
 
 import type { AudioContextLike, AudioNodeLike } from './context.ts';
+import { STANDARDKLANG } from './standardklang.ts';
+import {
+  SALAMANDER,
+  type Sampelbank,
+  laddaBank,
+  laddadeProv,
+  väljProv,
+} from './samplade.ts';
 
 export type TimbreId =
   | 'choir'
-  | 'piano'
+  | 'salamander'
   | 'tuningFork'
   | 'flute'
   | 'sine';
@@ -43,14 +51,17 @@ export interface RöstBygge {
 
 /**
  * Bygger tonens ljudgraf åt en klang som inte går att beskriva som en hög
- * sinustoner — den som moduleras, eller spelas ur en färdigräknad buffert.
+ * sinustoner — den som moduleras, eller spelas ur ett inspelat prov.
+ *
+ * Null betyder att klangen inte kan ljuda än, till exempel för att proven
+ * fortfarande hämtas. Då blir tonen tyst i stället för fel.
  */
 export type RöstByggare = (
   ctx: AudioContextLike,
   frekvens: number,
   nu: number,
   toppnivå: number,
-) => RöstBygge;
+) => RöstBygge | null;
 
 export interface Timbre {
   id: TimbreId;
@@ -73,13 +84,60 @@ export interface Timbre {
    * saknar övertoner helt och därför inte kan sväva mot något.
    */
   revealsTuning: boolean;
+  /**
+   * Klangens egen styrka, så att alla upplevs lika starka.
+   *
+   * Deltoner som ligger tätt förstärker varandra: en ren sinuston blir nästan
+   * sex gånger starkare än en inspelad flygelton fast båda får samma toppnivå
+   * av ljudmotorn. Talen här är mätta som RMS över en halv sekund vid C4 och
+   * satta så att alla hamnar på samma upplevda nivå.
+   */
+  nivå?: number;
   partials: (fundamental: number) => PartialSpec[];
   /** Sätts av de klanger som bygger sin egen ljudgraf i stället för deltoner. */
   bygg?: RöstByggare;
+  /**
+   * Hämtar det klangen behöver innan den kan ljuda. Anropas när klangen väljs,
+   * så att tangenterna svarar direkt när de väl trycks ned.
+   */
+  förbered?: (ctx: AudioContextLike) => Promise<void>;
 }
 
 const fixedPartials =
   (list: ReadonlyArray<PartialSpec>) => () => list as PartialSpec[];
+
+/**
+ * En klang som spelar inspelade prov.
+ *
+ * Tonen mellan två prov görs genom att spela det närmaste provet fortare
+ * eller långsammare. Hastigheten räknas ur den begärda frekvensen, så att
+ * ren stämning träffar exakt.
+ */
+function byggProv(bank: Sampelbank): RöstByggare {
+  return (ctx, frekvens, nu, toppnivå) => {
+    const buffertar = laddadeProv(ctx, bank);
+    if (!buffertar) {
+      // Proven är inte här än. Sätt igång hämtningen och låt tonen vara tyst
+      // den här gången — nästa tryck hörs.
+      void laddaBank(ctx, bank);
+      return null;
+    }
+    const val = väljProv(buffertar, frekvens);
+    if (!val) {
+      return null;
+    }
+
+    const spelare = ctx.createBufferSource();
+    spelare.buffer = val.buffert;
+    spelare.playbackRate.value = val.hastighet;
+
+    const ut = ctx.createGain();
+    ut.gain.setValueAtTime(toppnivå, nu);
+    spelare.connect(ut);
+
+    return { utgång: ut, källor: [spelare], noder: [spelare, ut] };
+  };
+}
 
 export const TIMBRES: Record<TimbreId, Timbre> = {
   choir: {
@@ -90,6 +148,8 @@ export const TIMBRES: Record<TimbreId, Timbre> = {
     decay: 0.12,
     sustain: 0.75,
     release: 0.35,
+    // uppmätt 0,137
+    nivå: 0.95,
     revealsTuning: true,
     partials: fixedPartials([
       { ratio: 1, gain: 1 },
@@ -101,25 +161,26 @@ export const TIMBRES: Record<TimbreId, Timbre> = {
     ]),
   },
 
-  piano: {
-    id: 'piano',
-    label: 'Piano',
-    description: 'Anslag som klingar av, ungefär som en stämd flygel.',
-    attack: 0.004,
-    decay: 0.9,
-    sustain: 0.12,
-    release: 0.4,
+  /**
+   * Inspelad flygel. Ett prov var liten ters, se samplade.ts för hur tonerna
+   * däremellan görs.
+   */
+  salamander: {
+    id: 'salamander',
+    label: 'Flygel',
+    description:
+      'Inspelad Yamaha C5 — Salamander Grand Piano av Alexander Holm, CC-BY 3.0. Hela utklingningen som den spelades in.',
+    attack: 0.002,
+    decay: 0.01,
+    // Provet bär sin egen utklingning; enveloppen sköter bara släppet.
+    sustain: 1,
+    release: 0.25,
+    // uppmätt 0,054 — provet är inspelat måttligt och har utrymme kvar
+    nivå: 2.4,
     revealsTuning: true,
-    partialDecay: 2.6,
-    partials: fixedPartials([
-      { ratio: 1, gain: 1, decayScale: 1.4 },
-      { ratio: 2, gain: 0.55, decayScale: 1 },
-      { ratio: 3, gain: 0.32, decayScale: 0.8 },
-      { ratio: 4, gain: 0.2, decayScale: 0.6 },
-      { ratio: 5, gain: 0.16, decayScale: 0.5 },
-      { ratio: 6, gain: 0.1, decayScale: 0.4 },
-      { ratio: 8, gain: 0.05, decayScale: 0.3 },
-    ]),
+    partials: fixedPartials([{ ratio: 1, gain: 1 }]),
+    bygg: byggProv(SALAMANDER),
+    förbered: (ctx) => laddaBank(ctx, SALAMANDER),
   },
 
   tuningFork: {
@@ -130,6 +191,8 @@ export const TIMBRES: Record<TimbreId, Timbre> = {
     decay: 0.5,
     sustain: 0.55,
     release: 0.5,
+    // uppmätt 0,227
+    nivå: 0.57,
     revealsTuning: true,
     partials: fixedPartials([
       { ratio: 1, gain: 1 },
@@ -149,6 +212,8 @@ export const TIMBRES: Record<TimbreId, Timbre> = {
     decay: 0.2,
     sustain: 0.8,
     release: 0.3,
+    // uppmätt 0,191
+    nivå: 0.68,
     revealsTuning: true,
     partials: fixedPartials([
       { ratio: 1, gain: 1 },
@@ -169,20 +234,30 @@ export const TIMBRES: Record<TimbreId, Timbre> = {
     decay: 0.2,
     sustain: 0.85,
     release: 0.35,
+    // uppmätt 0,309 — tätast av alla, och därför starkast
+    nivå: 0.42,
     revealsTuning: false,
     partials: fixedPartials([{ ratio: 1, gain: 1 }]),
   },
 };
 
 export const TIMBRE_ORDER: TimbreId[] = [
+  'salamander',
   'choir',
-  'piano',
   'tuningFork',
   'flute',
   'sine',
 ];
 
-export const DEFAULT_TIMBRE: TimbreId = 'choir';
+/**
+ * Klangen appen börjar i. Skiljer sig mellan plattformarna: mobilappen bär
+ * flygelns prov i sig och börjar därför i den, medan webben börjar i körtonen
+ * för att slippa hämta tre megabyte innan någon bett om en ton.
+ *
+ * Ändelsen står utskriven för Node och plockas bort av Metro, som därmed
+ * väljer standardklang.native.ts i mobilbygget. Se metro.config.js.
+ */
+export const DEFAULT_TIMBRE: TimbreId = STANDARDKLANG;
 
 /**
  * Hämtar en klang och faller tillbaka på standard om id:t inte finns.

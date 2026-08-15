@@ -45,3 +45,7 @@ yarn-error.*
 /ios
 /android
 dist-ios/
+
+# Webbens pianoprov kopieras hit ur assets/piano av verktyg/kopiera-webbprov.mjs.
+# Härledda filer hör inte hemma i historiken.
+/public/piano/

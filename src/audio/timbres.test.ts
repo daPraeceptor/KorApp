@@ -1,6 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { DEFAULT_TIMBRE, TIMBRES, TIMBRE_ORDER, timbreOr } from './timbres.ts';
 
 const C4 = 261.626;
@@ -10,8 +14,19 @@ test('alla klanger i listan finns och är listade en gång', () => {
   assert.deepEqual([...TIMBRE_ORDER].sort(), Object.keys(TIMBRES).sort());
 });
 
-test('körtonen är standard', () => {
+test('förvalet skiljer sig mellan plattformarna', () => {
+  // Node ser webbens fil: där är körtonen förval, eftersom flygelns prov
+  // annars skulle hämtas hem innan någon bett om en ton.
   assert.equal(DEFAULT_TIMBRE, 'choir');
+
+  // Mobilappens fil läses som text — Metro väljer den, inte Node.
+  const rot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+  const källa = readFileSync(join(rot, 'src', 'audio', 'standardklang.native.ts'), 'utf8');
+  assert.match(
+    källa,
+    /STANDARDKLANG: TimbreId = 'salamander'/,
+    'mobilappen ska börja i flygeln, som ligger inbuntad',
+  );
 });
 
 /**
@@ -67,28 +82,12 @@ test('klanger som utger sig för att visa stämningen bär femte och sjätte del
   }
 });
 
-test('anslagsklanger klingar av, liggande klanger gör det inte', () => {
-  for (const id of ['piano'] as const) {
-    assert.ok(TIMBRES[id].partialDecay, `${id} ska klinga av`);
-    assert.ok(TIMBRES[id].sustain < 0.2, `${id} ska inte ligga kvar`);
-  }
+test('liggande klanger ligger kvar', () => {
+  // Anslagsklangen är numera den inspelade flygeln, och den bär sitt förlopp
+  // i provet i stället för i en envelopp. Kvar att pröva är de som ska ligga.
   for (const id of ['choir', 'flute', 'sine'] as const) {
     assert.equal(TIMBRES[id].partialDecay, undefined, `${id} ska ligga kvar`);
     assert.ok(TIMBRES[id].sustain > 0.5, `${id} ska ligga kvar`);
-  }
-});
-
-test('anslagsklangernas ljusa deltoner dör före de mörka', () => {
-  for (const id of ['piano'] as const) {
-    const partials = TIMBRES[id].partials(C4);
-    for (let i = 1; i < partials.length; i += 1) {
-      const forra = partials[i - 1].decayScale ?? 1;
-      const denna = partials[i].decayScale ?? 1;
-      assert.ok(
-        denna <= forra,
-        `${id}: delton ${partials[i].ratio} klingar längre än den under`,
-      );
-    }
   }
 });
 

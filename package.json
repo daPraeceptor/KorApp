@@ -31,6 +31,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "web:preview": "expo start --web --port 8082",
+    "prov:webb": "node verktyg/kopiera-webbprov.mjs",
+    "bygg:webb": "node verktyg/kopiera-webbprov.mjs && expo export -p web",
     "test": "node --test src/**/*.test.ts",
     "test:stress": "node --test stress/*.stress.ts"
   },

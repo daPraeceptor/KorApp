@@ -457,8 +457,10 @@ export function SettingsScreen() {
           höra den.
         </Text>
 
+        <Button label="Tongivning" variant="pure" onPress={testToneGap} />
+
         <View style={styles.row}>
-          <Text style={styles.rowLabel}>Tempo mellan tonerna</Text>
+          <Text style={styles.rowLabel}>Tempo på tongivning</Text>
           <Text style={styles.rowValue}>
             {settings.defaultToneGapBpm} slag/min
           </Text>
@@ -470,11 +472,10 @@ export function SettingsScreen() {
           step={1}
           onChange={(defaultToneGapBpm) => updateSettings({ defaultToneGapBpm })}
         />
-        <Button label="Testa tempot" variant="pure" onPress={testToneGap} />
         <Text style={styles.help}>
           Tempot mellan tonerna när de ges en i taget. Gäller alla låtar.
-          Testknappen spelar spelvyns toner, eller ett C-durackord uppifrån och
-          ner om inga är valda.
+          Knappen ovanför spelar spelvyns toner, eller ett C-durackord uppifrån
+          och ner om inga är valda.
         </Text>
         <Text style={styles.footnote}>
           Tonerna sparas alltid i den ordning du väljer dem. Knapparna i spelvyn

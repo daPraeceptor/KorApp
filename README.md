@@ -20,9 +20,13 @@ under utvecklingen.
 - **Tongivning på fyra sätt.** Hela ackordet på en gång, en i taget nedifrån och
   upp, uppifrån och ner, eller i den ordning tonerna valdes. Hastigheten sparas
   per låt.
-- **Fem klangfärger.** Körton, piano, stämgaffel, flöjt och ren sinus. Alla
-  utom sinustonen bär femte och sjätte deltonen, så att skillnaden mellan
-  stämningarna hörs oavsett vilken klang som är vald.
+- **Sex klangfärger.** Körton, piano, inspelad flygel, stämgaffel, flöjt och
+  ren sinus. Alla utom sinustonen bär femte och sjätte deltonen, så att
+  skillnaden mellan stämningarna hörs oavsett vilken klang som är vald.
+- **Inspelad flygel.** Salamander Grand Piano — en Yamaha C5 inspelad av
+  Alexander Holm, CC-BY 3.0 — med ett prov var liten ters. Mobilappen bär hela
+  klaviaturen, medan webbversionen bara laddar körregistret C2–C6: appen buntar
+  in sina prov en gång för alla, men webbsidan hämtar hem dem varje besök.
 - **Bevarad tonordning.** Tonerna sparas alltid i den följd de valdes, till
   exempel stämmornas insatsordning, och sorteras varken vid inläsning eller
   uppspelning. Knapparna avgör i vilken ordning de faktiskt ges.
@@ -55,6 +59,7 @@ npm install
 Kör i webbläsaren under utveckling:
 
 ```bash
+npm run prov:webb   # kopierar flygelns prov till public/, behövs en gång
 npm run web
 ```
 
@@ -75,6 +80,14 @@ npx eas build --platform ios
 npx eas build --platform android
 ```
 
+Webbygget måste ha flygelns prov kopierade till `public/` först, vilket
+`npm run bygg:webb` gör i ett svep:
+
+```bash
+npm run bygg:webb
+bash skicka-till-webben.sh
+```
+
 ## Tester
 
 Stämningsmatematiken och tempoberäkningen är enhetstestade:
@@ -91,6 +104,8 @@ npm test
 | `src/audio/context.ts` | Ljudkontext för webben |
 | `src/audio/context.native.ts` | Samma gränssnitt för iOS och Android |
 | `src/audio/engine.ts` | Metronomklick och tonsyntes |
+| `src/audio/samplade.ts` | Den inspelade flygeln: laddning och tonval |
+| `src/audio/pianoprov.ts` | Vilka prov webben respektive mobilappen bär |
 | `src/audio/metronome.ts` | Schemaläggning av taktslag |
 | `src/audio/tempo.ts` | Tempogränser och knacktempo |
 | `src/store/songs.ts` | Låtmodellen och inläsning från lagring |

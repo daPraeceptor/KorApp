@@ -119,6 +119,22 @@ export class AudioEngine {
   }
 
   /**
+   * Hämtar hem det den valda klangen behöver för att kunna ljuda.
+   *
+   * Klanger byggda av oscillatorer behöver ingenting och blir klara direkt.
+   * De som spelar inspelade prov måste hämta dem först, och det ska ske när
+   * klangen väljs — inte när körledaren trycker på en tangent.
+   */
+  async förberedKlang(): Promise<void> {
+    const timbre = TIMBRES[this.timbreId] ?? TIMBRES[DEFAULT_TIMBRE];
+    if (!timbre.förbered) {
+      return;
+    }
+    const ctx = await this.ensure();
+    await timbre.förbered(ctx);
+  }
+
+  /**
    * Ställer tonbussen efter hur många toner som ljuder.
    *
    * Ändringen glider över ett par hundradels sekund. Ett hopp i nivån mitt i
@@ -203,8 +219,22 @@ export class AudioEngine {
     this.stopVoice(id, true);
 
     const timbre = TIMBRES[this.timbreId] ?? TIMBRES[DEFAULT_TIMBRE];
+    // Klangens egen styrka, så att en flygelton och en körton upplevs lika
+    // starka trots att deras vågformer är helt olika täta.
+    const toppnivå = VOICE_PEAK * (timbre.nivå ?? 1);
 
     const now = ctx.currentTime;
+
+    // Klanger som inte går att beskriva som en hög sinustoner — de som
+    // moduleras eller spelas ur ett inspelat prov — bygger sin egen ljudgraf
+    // och lämnar tillbaka den att hänga under enveloppen. Bygget görs före
+    // enveloppen: säger klangen nej, för att den ännu väntar på sina prov,
+    // ska inga noder bli hängande efter sig.
+    const bygge = timbre.bygg ? timbre.bygg(ctx, frequency, now, toppnivå) : null;
+    if (timbre.bygg && !bygge) {
+      return;
+    }
+
     const envelope = ctx.createGain();
     envelope.gain.setValueAtTime(SILENCE, now);
     envelope.gain.linearRampToValueAtTime(1, now + timbre.attack);
@@ -214,11 +244,7 @@ export class AudioEngine {
     );
     envelope.connect(buss);
 
-    // Klanger som inte går att beskriva som en hög sinustoner — de som
-    // moduleras eller spelas ur en färdigräknad buffert — bygger sin egen
-    // ljudgraf och lämnar tillbaka den att hänga under enveloppen.
-    if (timbre.bygg) {
-      const bygge = timbre.bygg(ctx, frequency, now, VOICE_PEAK);
+    if (bygge) {
       bygge.utgång.connect(envelope);
       for (const källa of bygge.källor) {
         källa.start(now);
@@ -248,7 +274,7 @@ export class AudioEngine {
       osc.type = 'sine';
       osc.frequency.setValueAtTime(frequency * partial.ratio, now);
 
-      const level = (partial.gain * VOICE_PEAK) / partialSum;
+      const level = (partial.gain * toppnivå) / partialSum;
       const partialGain = ctx.createGain();
       partialGain.gain.setValueAtTime(level, now);
 
@@ -360,6 +386,9 @@ export class AudioEngine {
   ): Promise<void> {
     this.stopTones();
     await this.ensure();
+    // Väntar in prov som ännu inte hämtats, så att första tongivningen efter
+    // ett klangbyte hörs som alla andra.
+    await this.förberedKlang();
     const { mode = 'together', chordDuration = 1, spacing = 0.75 } = options;
 
     const batchId = `tone-${Date.now()}`;

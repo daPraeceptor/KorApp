@@ -41,7 +41,7 @@ test('sparade inställningar läses tillbaka oförändrade', () => {
     volume: 0.35,
     labelSystem: 'solfege',
     themeId: 'pergament',
-    toneTimbre: 'piano',
+    toneTimbre: 'flute',
     metronomeVisual: 'pendulum',
     autoStopFromList: true,
     autoStopBeats: 32,

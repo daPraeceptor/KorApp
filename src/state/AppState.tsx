@@ -344,6 +344,9 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     audioEngine.setTimbre(settings.toneTimbre);
+    // Klanger som spelar inspelade prov hämtar hem dem redan nu, så att den
+    // första tangenten hörs lika snabbt som alla följande.
+    void audioEngine.förberedKlang().catch(() => {});
   }, [settings.toneTimbre]);
 
   useEffect(() => {
