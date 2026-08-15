@@ -11,19 +11,11 @@
  * femte och sjätte delton, i stället för att vara helt rena sinustoner.
  */
 
-import type {
-  AudioContextLike,
-  AudioNodeLike,
-  AudioBufferLike,
-} from './context.ts';
-import { fmRecept, renderaSträng, strängPartialer, strängTid } from './pianos.ts';
+import type { AudioContextLike, AudioNodeLike } from './context.ts';
 
 export type TimbreId =
   | 'choir'
   | 'piano'
-  | 'pianoStrangar'
-  | 'pianoFM'
-  | 'pianoModell'
   | 'tuningFork'
   | 'flute'
   | 'sine';
@@ -89,136 +81,6 @@ export interface Timbre {
 const fixedPartials =
   (list: ReadonlyArray<PartialSpec>) => () => list as PartialSpec[];
 
-/** Nivån en modulator ska ha vid en viss tidpunkt, aldrig exakt noll. */
-const TYST = 0.0001;
-
-/**
- * FM-pianot.
- *
- * Bärvågen är en ren sinuston. All klang uppstår av att dess frekvens rubbas
- * av två andra sinustoner, och av att djupet i den rubbningen faller undan
- * inom bråkdelen av en sekund. Det är därför tonen klarnar av: när
- * modulatorerna tystnat är det som återstår en ren ton, precis som en sträng
- * som klingat av sina övertoner.
- */
-function byggFM(
-  ctx: AudioContextLike,
-  frekvens: number,
-  nu: number,
-  toppnivå: number,
-): RöstBygge {
-  const recept = fmRecept(frekvens);
-
-  const bärvåg = ctx.createOscillator();
-  bärvåg.type = 'sine';
-  bärvåg.frequency.setValueAtTime(recept.bärvåg, nu);
-
-  const ut = ctx.createGain();
-  // Tonen klingar av av sig själv; enveloppen ovanför sköter bara släppet.
-  ut.gain.setValueAtTime(toppnivå, nu);
-  ut.gain.exponentialRampToValueAtTime(toppnivå * 0.02, nu + recept.tid);
-  bärvåg.connect(ut);
-
-  const källor: RöstBygge['källor'] = [bärvåg];
-  const noder: RöstBygge['noder'] = [bärvåg, ut];
-
-  for (const modulator of [recept.kropp, recept.anslag]) {
-    if (!modulator) {
-      continue;
-    }
-    const osc = ctx.createOscillator();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(modulator.frekvens, nu);
-
-    // Modulatorns nivå mäts i hertz: den läggs rakt på bärvågens frekvens.
-    const djup = ctx.createGain();
-    djup.gain.setValueAtTime(modulator.djup, nu);
-    djup.gain.exponentialRampToValueAtTime(TYST, nu + modulator.tid);
-
-    osc.connect(djup);
-    djup.connect(bärvåg.frequency);
-    källor.push(osc);
-    noder.push(osc, djup);
-  }
-
-  return { utgång: ut, källor, noder };
-}
-
-/**
- * Färdigräknade strängar, en per ljudkontext och tonhöjd.
- *
- * Att räkna fram en sträng tar några millisekunder, och samma ton begärs om
- * och om igen under en repetition. Bufferten hör till sin kontext, därför en
- * karta per kontext — stängs den tas hela kartan bort med den.
- */
-const strängbuffertar = new WeakMap<object, Map<string, AudioBufferLike>>();
-
-/**
- * Så många framräknade toner sparas. En bastons buffert är nära en megabyte,
- * och en kör rör sig ändå bara mellan en handfull tonhöjder under en
- * repetition. Den som legat längst tas bort först.
- */
-const SPARADE_STRÄNGAR = 24;
-
-function strängBuffert(ctx: AudioContextLike, frekvens: number): AudioBufferLike {
-  let förKontext = strängbuffertar.get(ctx as unknown as object);
-  if (!förKontext) {
-    förKontext = new Map();
-    strängbuffertar.set(ctx as unknown as object, förKontext);
-  }
-  // Tiondels hertz räcker som nyckel: ren och tempererad stämning skiljer
-  // sig mer än så, och örat hör inte mindre.
-  const nyckel = frekvens.toFixed(1);
-  const färdig = förKontext.get(nyckel);
-  if (färdig) {
-    // Läs om den, så att den räknas som nyligen använd.
-    förKontext.delete(nyckel);
-    förKontext.set(nyckel, färdig);
-    return färdig;
-  }
-  while (förKontext.size >= SPARADE_STRÄNGAR) {
-    const äldst = förKontext.keys().next().value;
-    if (äldst === undefined) {
-      break;
-    }
-    förKontext.delete(äldst);
-  }
-
-  const data = renderaSträng(frekvens, ctx.sampleRate);
-  const buffert = ctx.createBuffer(1, data.length, ctx.sampleRate);
-  if (buffert.copyToChannel) {
-    buffert.copyToChannel(data, 0);
-  } else {
-    buffert.getChannelData(0).set(data);
-  }
-  förKontext.set(nyckel, buffert);
-  return buffert;
-}
-
-/**
- * Modellpianot: strängen räknas fram som ljuddata och spelas som ett prov.
- *
- * Ljudprovet är alltså inte inspelat utan uträknat, tonen som begärdes och
- * ingen annan. Därför behövs ingen transponering — och därmed inget av det
- * som annars gör transponerade prov onaturliga, där hela klangen glider med
- * tonhöjden i stället för att stå kvar där instrumentet har den.
- */
-function byggModell(
-  ctx: AudioContextLike,
-  frekvens: number,
-  nu: number,
-  toppnivå: number,
-): RöstBygge {
-  const spelare = ctx.createBufferSource();
-  spelare.buffer = strängBuffert(ctx, frekvens);
-
-  const ut = ctx.createGain();
-  ut.gain.setValueAtTime(toppnivå, nu);
-  spelare.connect(ut);
-
-  return { utgång: ut, källor: [spelare], noder: [spelare, ut] };
-}
-
 export const TIMBRES: Record<TimbreId, Timbre> = {
   choir: {
     id: 'choir',
@@ -258,56 +120,6 @@ export const TIMBRES: Record<TimbreId, Timbre> = {
       { ratio: 6, gain: 0.1, decayScale: 0.4 },
       { ratio: 8, gain: 0.05, decayScale: 0.3 },
     ]),
-  },
-
-  /**
-   * FÖRSÖK 1: strängarna beskrivna delton för delton.
-   * Se pianos.ts för vad som gör en pianodelton till en pianodelton.
-   */
-  pianoStrangar: {
-    id: 'pianoStrangar',
-    label: 'Flygel — strängar',
-    description:
-      'Sexton deltoner på sina verkliga, sträckta lägen, var och en med sin egen utklingning, och de lägsta dubblerade som en tongrupps strängar. Trognast av de tre, och tyngst att spela.',
-    attack: 0.002,
-    decay: 0.01,
-    // Utklingningen sköts av varje delton för sig, inte av enveloppen.
-    sustain: 1,
-    release: 0.28,
-    revealsTuning: true,
-    // Deltonernas tider anges i hela sekunder, därför faktorn ett.
-    partialDecay: 1,
-    partials: strängPartialer,
-  },
-
-  /** FÖRSÖK 2: frekvensmodulering, som i DX7:ans klassiska pianoklang. */
-  pianoFM: {
-    id: 'pianoFM',
-    label: 'Flygel — FM',
-    description:
-      'Två modulatorer på en bärvåg, med moduleringsdjup som faller undan. Ljust i anslaget och mjukt en halv sekund senare — samma knep som elpianot från 1983, och det billigaste av de tre.',
-    attack: 0.002,
-    decay: 0.01,
-    sustain: 1,
-    release: 0.25,
-    revealsTuning: true,
-    partials: fixedPartials([{ ratio: 1, gain: 1 }]),
-    bygg: byggFM,
-  },
-
-  /** FÖRSÖK 3: en fysikalisk sträng, framräknad till ett ljudprov. */
-  pianoModell: {
-    id: 'pianoModell',
-    label: 'Flygel — modell',
-    description:
-      'En hammare som slår an en modellerad sträng. Tonen räknas fram till ett ljudprov första gången den behövs, och spelas sedan som en inspelning. Här beskrivs inte klangen utan strängen — utklingningen kommer av sig själv.',
-    attack: 0.002,
-    decay: 0.01,
-    sustain: 1,
-    release: 0.22,
-    revealsTuning: true,
-    partials: fixedPartials([{ ratio: 1, gain: 1 }]),
-    bygg: byggModell,
   },
 
   tuningFork: {
@@ -365,9 +177,6 @@ export const TIMBRES: Record<TimbreId, Timbre> = {
 export const TIMBRE_ORDER: TimbreId[] = [
   'choir',
   'piano',
-  'pianoStrangar',
-  'pianoFM',
-  'pianoModell',
   'tuningFork',
   'flute',
   'sine',

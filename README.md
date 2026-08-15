@@ -20,14 +20,9 @@ under utvecklingen.
 - **Tongivning på fyra sätt.** Hela ackordet på en gång, en i taget nedifrån och
   upp, uppifrån och ner, eller i den ordning tonerna valdes. Hastigheten sparas
   per låt.
-- **Åtta klangfärger.** Körton, piano, tre flygelförsök, stämgaffel, flöjt och
-  ren sinus. Alla utom sinustonen bär femte och sjätte deltonen, så att
-  skillnaden mellan stämningarna hörs oavsett vilken klang som är vald.
-- **Tre försök till flygel.** Samma instrument angripet från tre håll:
-  *strängar* beskriver sexton deltoner på sina sträckta lägen med var sin
-  utklingning, *FM* rubbar en bärvågs frekvens med två modulatorer vars djup
-  faller undan, och *modell* räknar fram själva strängen till ett ljudprov
-  första gången tonen behövs. Se `src/audio/pianos.ts`.
+- **Fem klangfärger.** Körton, piano, stämgaffel, flöjt och ren sinus. Alla
+  utom sinustonen bär femte och sjätte deltonen, så att skillnaden mellan
+  stämningarna hörs oavsett vilken klang som är vald.
 - **Bevarad tonordning.** Tonerna sparas alltid i den följd de valdes, till
   exempel stämmornas insatsordning, och sorteras varken vid inläsning eller
   uppspelning. Knapparna avgör i vilken ordning de faktiskt ges.
@@ -96,7 +91,6 @@ npm test
 | `src/audio/context.ts` | Ljudkontext för webben |
 | `src/audio/context.native.ts` | Samma gränssnitt för iOS och Android |
 | `src/audio/engine.ts` | Metronomklick och tonsyntes |
-| `src/audio/pianos.ts` | De tre flygelmodellerna: deltoner, FM och sträng |
 | `src/audio/metronome.ts` | Schemaläggning av taktslag |
 | `src/audio/tempo.ts` | Tempogränser och knacktempo |
 | `src/store/songs.ts` | Låtmodellen och inläsning från lagring |
