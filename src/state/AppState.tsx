@@ -141,9 +141,6 @@ const DEFAULT_SETTINGS: Settings = {
   haptics: true,
   keepAwake: true,
   tonesFirst: false,
-  // Telefonen får läggas ner när appen är låst för konsert, men står upp
-  // medan man arbetar i den — se rotation.ts.
-  rotation: 'konsert',
 };
 
 /** De värden spelvyn arbetar med just nu. */

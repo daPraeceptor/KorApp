@@ -19,7 +19,6 @@ import type {
   LabelSystem,
   NoteNaming,
 } from '../theory/tuning.ts';
-import type { Rotation } from '../rotation.ts';
 
 export type StartTab = 'auto' | 'play' | 'songs';
 
@@ -87,11 +86,6 @@ export interface Settings {
    * notstället under repetitionen och ska inte somna mitt i en sats.
    */
   keepAwake: boolean;
-  /**
-   * När telefonen får vridas: aldrig, bara i konsertläge, eller alltid.
-   * Saknar verkan på webben, där fönstret bestämmer.
-   */
-  rotation: Rotation;
   /**
    * Vad redigeringsvyn börjar med. Falskt ger metronomen först, sant lägger
    * tongivningen och klaviaturen överst — för den som mest använder appen
@@ -188,7 +182,6 @@ export function normalizeSettings(raw: unknown, fallback: Settings): Settings {
     haptics: flagga(v.haptics, fallback.haptics),
     keepAwake: flagga(v.keepAwake, fallback.keepAwake),
     tonesFirst: flagga(v.tonesFirst, fallback.tonesFirst),
-    rotation: ettAv<Rotation>(v.rotation, ['aldrig', 'konsert', 'alltid'], fallback.rotation),
   };
 }
 

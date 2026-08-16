@@ -8,10 +8,6 @@ import { LockGlyph, SlideToConfirm } from './src/components/ui';
 import { PlayScreen } from './src/screens/PlayScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { SongsScreen } from './src/screens/SongsScreen';
-import { fårVridas } from './src/rotation';
-// Ändelsen plockas bort av Metro, som väljer rotationslas.native.ts på
-// telefonen. Se metro.config.js.
-import { ställRotation } from './src/rotationslas.ts';
 import { AppStateProvider, useAppState } from './src/state/AppState';
 import { Palette, radius, spacing } from './src/theme';
 import { useTheme, useThemedStyles } from './src/ThemeContext';
@@ -153,15 +149,6 @@ function Shell() {
    * med flit inte: en omstart låser upp, så att ingen blir kvar utestängd.
    */
   const [locked, setLocked] = useState(false);
-
-  /**
-   * Rotationen hänger ihop med hänglåset. I konsertläge ligger telefonen på
-   * notstället och får gärna ligga ner; medan man arbetar i appen är en skärm
-   * som kastar om sig bara i vägen. Vad som gäller när avgörs i inställningen.
-   */
-  useEffect(() => {
-    void ställRotation(fårVridas(settings.rotation, locked));
-  }, [settings.rotation, locked]);
 
   const openTab = (id: Tab) => {
     if (!locked) {

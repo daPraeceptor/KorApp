@@ -19,7 +19,6 @@ import {
   Stepper,
 } from '../components/ui';
 import { audioEngine } from '../audio/engine';
-import { ROTATION_VAL } from '../rotation';
 import {
   MAX_AUTO_STOP_BEATS,
   MIN_AUTO_STOP_BEATS,
@@ -188,26 +187,6 @@ export function SettingsScreen() {
         </Text>
       </Card>
 
-      {/*
-        * Rotationen hänger ihop med hänglåset i stället för att vara en ensam
-        * av- och påknapp: de två lägena drar åt olika håll. Se rotation.ts.
-        */}
-      <Card>
-        <SectionTitle>Vridning</SectionTitle>
-        <SegmentedControl
-          value={settings.rotation}
-          onChange={(rotation) => updateSettings({ rotation })}
-          options={ROTATION_VAL.map(({ id, label }) => ({ value: id, label }))}
-        />
-        <Text style={styles.help}>
-          {ROTATION_VAL.find((v) => v.id === settings.rotation)?.beskrivning}
-        </Text>
-        <Text style={styles.footnote}>
-          Liggande skärm ger bredare tempohjul och en klaviatur som syns på
-          längre håll — bra när telefonen ligger på notstället. Gäller inte i
-          webbläsaren, där fönstret bestämmer.
-        </Text>
-      </Card>
 
       <Card>
         <SectionTitle>Känsel</SectionTitle>

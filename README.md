@@ -49,6 +49,10 @@ under utvecklingen.
   mappar — en per konsert eller termin — flyttas mellan dem, och sökas fram på
   titel. Direkt i listan finns knappar för att starta låtens tempo och ge dess
   toner, utan att gå via spelvyn.
+- **Stående och liggande.** Appen följer telefonens vridning, och därmed
+  telefonens eget rotationslås — appen har med flit inget eget. Liggande ger
+  bredare tempohjul och en klaviatur som syns på längre håll, och tangenterna
+  behåller sin form i båda riktningarna.
 - **Svenska eller internationella tonnamn.** Internationellt (B) är standard;
   svenskt (H) går att välja i inställningarna.
 
