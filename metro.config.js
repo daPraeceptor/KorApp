@@ -13,6 +13,18 @@ const { getDefaultConfig } = require('expo/metro-config');
 
 const config = getDefaultConfig(__dirname);
 
+/**
+ * Flygelns prov är Ogg Vorbis, och Metro känner bara igen aac, caf, m4a, mp3
+ * och wav som ljudtillgångar. Utan tillägget försöker den läsa en .ogg som
+ * JavaScript, och hela mobilbygget faller i buntningen — vilket den också
+ * gjorde, eftersom webben aldrig går den vägen: där hämtas proven över nätet
+ * och require() körs aldrig.
+ *
+ * Formatet valdes för att ljudmotorn bär libvorbis på båda plattformarna, se
+ * samplade.ts.
+ */
+config.resolver.assetExts = [...config.resolver.assetExts, 'ogg'];
+
 const standardUpplosning = config.resolver.resolveRequest;
 config.resolver.resolveRequest = (context, moduleName, platform) => {
   const namn =
