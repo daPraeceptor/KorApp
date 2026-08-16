@@ -31,6 +31,7 @@ const FÖRVAL: Settings = {
   haptics: true,
   keepAwake: true,
   tonesFirst: false,
+  rotation: 'konsert',
 };
 
 test('sparade inställningar läses tillbaka oförändrade', () => {
