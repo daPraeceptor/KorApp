@@ -135,32 +135,52 @@ export function laddaBank(ctx: AudioContextLike, bank: Sampelbank): Promise<void
 
   const arbete = (async () => {
     const buffertar = new Map<number, AudioBufferLike>();
-    await Promise.all(
+
+    // Hämtningen får ske parallellt. Komprimerat väger hela banken några
+    // megabyte, och på telefonen ligger proven redan i appen.
+    //
+    // Webben hämtar sina prov över nätet och lämnar råbyten till avkodaren.
+    // Mobilappen har dem redan i sig och lämnar i stället modulnumret, som
+    // ljudmotorn slår upp och läser själv.
+    const hämtade = await Promise.all(
       bank.prov.map(async (prov) => {
-        // Webben hämtar sina prov över nätet och lämnar råbyten till
-        // avkodaren. Mobilappen har dem redan i sig och lämnar i stället
-        // modulnumret, som ljudmotorn slår upp och läser själv.
         const varifrån = 'url' in prov ? prov.url : `modul ${prov.modul}`;
         try {
-          if ('url' in prov) {
-            const svar = await fetch(prov.url);
-            if (!svar.ok) {
-              throw new Error(`${svar.status}`);
-            }
-            buffertar.set(
-              prov.midi,
-              kapa(ctx, await ctx.decodeAudioData(await svar.arrayBuffer())),
-            );
-          } else {
-            buffertar.set(prov.midi, kapa(ctx, await ctx.decodeAudioData(prov.modul)));
+          if (!('url' in prov)) {
+            return { midi: prov.midi, data: prov.modul as ArrayBuffer | number };
           }
+          const svar = await fetch(prov.url);
+          if (!svar.ok) {
+            throw new Error(`${svar.status}`);
+          }
+          return { midi: prov.midi, data: (await svar.arrayBuffer()) as ArrayBuffer | number };
         } catch (fel) {
           // Ett prov som inte går att hämta ska inte stjälpa hela banken:
           // grannprovet får täcka tonen i stället.
           console.warn(`Provet ${varifrån} kunde inte laddas: ${String(fel)}`);
+          return null;
         }
       }),
     );
+
+    // Avkodningen sker däremot en i taget, och det är viktigt.
+    //
+    // Ett avkodat prov ligger okomprimerat i minnet: sexton sekunder stereo
+    // väger sex megabyte. Avkodas alla trettio samtidigt finns de alla i
+    // minnet innan kapningen hunnit krympa någon av dem — en topp på nära
+    // hundrasjuttio megabyte, vilket är precis den sorts topp iOS avslutar
+    // appen för när den läggs undan. En i taget är toppen ett prov.
+    for (const post of hämtade) {
+      if (!post) {
+        continue;
+      }
+      try {
+        buffertar.set(post.midi, kapa(ctx, await ctx.decodeAudioData(post.data)));
+      } catch (fel) {
+        console.warn(`Provet ${post.midi} kunde inte avkodas: ${String(fel)}`);
+      }
+    }
+
     förKontext(laddade, ctx).set(bank.id, buffertar);
   })();
 
