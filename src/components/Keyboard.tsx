@@ -17,8 +17,16 @@ import {
   Text,
   View,
   ViewStyle,
+  useWindowDimensions,
 } from 'react-native';
 import { haptik } from '../haptics';
+import {
+  BLACK_KEY_HEIGHT,
+  BLACK_KEY_WIDTH,
+  WHITE_KEY_HEIGHT,
+  WHITE_KEY_WIDTH,
+  klaviaturmått,
+} from './klaviaturmatt.ts';
 
 import { audioEngine } from '../audio/engine';
 import {
@@ -34,10 +42,7 @@ import {
 import { Palette, radius } from '../theme';
 import { useTheme, useThemedStyles } from '../ThemeContext';
 
-const WHITE_KEY_WIDTH = 52;
-const WHITE_KEY_HEIGHT = 184;
-const BLACK_KEY_WIDTH = 34;
-const BLACK_KEY_HEIGHT = 116;
+
 
 /** Längsta tiden mellan två tryck för att de ska räknas som ett dubbeltryck. */
 const DOUBLE_TAP_MS = 350;
@@ -113,6 +118,9 @@ export function Keyboard({
 }: Props) {
   const t = useTheme();
   const styles = useThemedStyles(makeStyles);
+  // Skärmhöjden avgör hur hög klaviaturen får bli. I liggande läge är det
+  // höjden som tar slut först.
+  const { height: fönsterhöjd } = useWindowDimensions();
   const [pressed, setPressed] = useState<number[]>([]);
   const lastTap = useRef<{ midi: number; at: number } | null>(null);
   /** Ytans bredd, mätt för att kunna breddas kant till kant. */
@@ -215,14 +223,14 @@ export function Keyboard({
     );
   };
 
-  // Kant till kant: tangenterna breddas tills klaviaturen fyller ytan. Är
-  // spannet bredare än ytan behåller tangenterna sitt vanliga mått och
-  // klaviaturen rullar i sidled i stället.
-  const keyWidth =
-    fillWidth && containerWidth > 0 && whiteKeys.length > 0
-      ? Math.max(WHITE_KEY_WIDTH, containerWidth / whiteKeys.length)
-      : WHITE_KEY_WIDTH;
-  const blackWidth = (BLACK_KEY_WIDTH / WHITE_KEY_WIDTH) * keyWidth;
+  // Kant till kant: tangenterna breddas tills klaviaturen fyller ytan, men
+  // bara så länge formen bär. Är spannet bredare än ytan rullar den i sidled.
+  const {
+    tangentbredd: keyWidth,
+    tangenthöjd: keyHeight,
+    svartbredd: blackWidth,
+    svarthöjd: blackHeight,
+  } = klaviaturmått(containerWidth, whiteKeys.length, fönsterhöjd, fillWidth);
 
   return (
     <ScrollView
@@ -234,7 +242,7 @@ export function Keyboard({
       <View
         style={[
           styles.keyboard,
-          { width: whiteKeys.length * keyWidth },
+          { width: whiteKeys.length * keyWidth, height: keyHeight },
           WEB_NO_SELECT,
         ]}
       >
@@ -249,7 +257,7 @@ export function Keyboard({
               onPressOut={() => release(midi)}
               style={[
                 styles.whiteKey,
-                keyWidth !== WHITE_KEY_WIDTH ? { width: keyWidth } : null,
+                { width: keyWidth, height: keyHeight },
                 active && styles.whiteKeyPressed,
                 tonic && styles.tonicKey,
               ]}
@@ -282,8 +290,9 @@ export function Keyboard({
                 styles.blackKey,
                 {
                   left: (whiteIndex + 1) * keyWidth - blackWidth / 2,
+                  width: blackWidth,
+                  height: blackHeight,
                 },
-                keyWidth !== WHITE_KEY_WIDTH ? { width: blackWidth } : null,
                 active && styles.blackKeyPressed,
                 tonic && styles.tonicKeyBlack,
               ]}

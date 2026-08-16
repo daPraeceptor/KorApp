@@ -15,6 +15,7 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from 'react-native';
 
 import { Keyboard } from '../components/Keyboard';
@@ -52,6 +53,17 @@ const KEYBOARD_SPAN = 24;
 export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
   const t = useTheme();
   const styles = useThemedStyles(makeStyles);
+  /**
+   * I liggande läge är höjden det som tar slut. Hjulet och taktvisaren
+   * krymper då i stället för att trycka ner allt annat under skärmkanten;
+   * i stående läge ändras ingenting, eftersom taken ligger på dagens mått.
+   */
+  const { height: fönsterhöjd, width: fönsterbredd } = useWindowDimensions();
+  const trångtPåHöjden = fönsterhöjd < 620;
+  const hjulstorlek = Math.round(
+    Math.max(170, Math.min(260, fönsterhöjd * 0.34, fönsterbredd - 96)),
+  );
+  const visarskala = trångtPåHöjden ? 0.62 : 1;
   const {
     live,
     settings,
@@ -237,7 +249,22 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
             inte i bläddringen — en osynlig visare går inte att trycka på.
             Visaren skjuts en aning nedåt, mot hjulet, så att luften ovanför
             den inte gapar mellan skärmkanten och animationen. */}
-        <Pressable onPress={cycleVisual} style={styles.visualShift}>
+        <Pressable
+          onPress={cycleVisual}
+          style={[
+            styles.visualShift,
+            // Skalning i stället för egna mått: geometrin inuti visaren är
+            // uppbyggd kring en fast höjd, och den ska inte behöva veta om
+            // att skärmen ligger ner. Marginalerna tar bort luften skalningen
+            // annars lämnar efter sig.
+            trångtPåHöjden
+              ? {
+                  transform: [{ scale: visarskala }],
+                  marginVertical: (-150 * (1 - visarskala)) / 2,
+                }
+              : null,
+          ]}
+        >
           <MetronomeVisual
             style={settings.metronomeVisual}
             running={metronomeRunning}
@@ -249,6 +276,7 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
         <View style={styles.wheelArea}>
           <TempoWheel
             bpm={live.bpm}
+            size={hjulstorlek}
             onChange={(bpm) => updateLive({ bpm })}
             // Hjulet hämtar själv vilken taktdel som hörs, så att spelvyn
             // inte behöver ritas om vid varje slag.

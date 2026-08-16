@@ -3,7 +3,7 @@
     "name": "Körmetronom",
     "slug": "peter",
     "version": "0.1",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#101018",
