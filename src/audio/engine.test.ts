@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { tonbussNivå } from './engine.ts';
+import { nästaBussnivå, tonbussNivå } from './engine.ts';
 import { MAX_TONES } from '../store/songs.ts';
 
 /** Toppnivån ljudkortet klarar innan det klipper. */
@@ -48,5 +48,40 @@ test('orimliga antal ger ändå en spelbar nivå', () => {
       Number.isFinite(nivå) && nivå > 0 && nivå <= 0.5,
       `${String(antal)} röster gav nivån ${nivå}`,
     );
+  }
+});
+
+test('bussen stiger inte medan något hörs', () => {
+  // Det här är puckeln: trycker man fram en ny tongivning medan den förra
+  // klingar ut räknas båda, och bussen ställs lågt. När den gamla svansen
+  // tar slut skulle bussen stiga — och den nya tonen svälla mitt i, som ett
+  // andra anslag. En liggande klang avslöjar det direkt.
+  const treToner = nästaBussnivå(1, 3);
+  const sexUnderUtklingning = nästaBussnivå(treToner, 6);
+  assert.ok(sexUnderUtklingning < treToner, 'fler toner ska sänka nivån');
+
+  // Svansarna tystnar, tre toner kvar som fortfarande ljuder.
+  const efteråt = nästaBussnivå(sexUnderUtklingning, 3);
+  assert.equal(
+    efteråt,
+    sexUnderUtklingning,
+    'nivån får inte stiga medan tonerna fortfarande hörs',
+  );
+});
+
+test('bussen börjar om när allt tystnat', () => {
+  const låg = nästaBussnivå(1, 8);
+  assert.ok(låg < 1);
+  assert.equal(nästaBussnivå(låg, 0), 1, 'i tystnad ska nivån återställas');
+});
+
+test('nivån sjunker så mycket som behövs, men inte mer', () => {
+  let nivå = 1;
+  for (const röster of [1, 2, 4, 8]) {
+    const föregående = nivå;
+    nivå = nästaBussnivå(nivå, röster);
+    assert.ok(nivå <= föregående, `${röster} toner höjde nivån`);
+    // Summan ska hålla sig under taket vid varje steg.
+    assert.ok(röster * nivå * 0.5 <= 0.851, `${röster} toner summerar för högt`);
   }
 });

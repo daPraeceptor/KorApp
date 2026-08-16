@@ -46,6 +46,29 @@ export function tonbussNivå(antalRöster: number): number {
   return Math.min(VOICE_PEAK, TONE_CEILING / röster);
 }
 
+/**
+ * Bussens nästa nivå, givet var den ligger och hur många toner som ljuder.
+ *
+ * Nivån får sjunka när tonerna blir fler, men aldrig stiga så länge något
+ * hörs. Skälet är en puckel som annars uppstår: trycker man fram en ny
+ * tongivning medan den förra ännu klingar ut räknas båda, och bussen ställs
+ * lågt. När den gamla tonens svans tar slut ett halvt sekund senare skulle
+ * bussen stiga igen — och den nya tonen, som fortfarande ligger kvar, svälla
+ * mitt i. Det hörs som ett andra anslag efter det första.
+ *
+ * En liggande klang avslöjar det direkt medan en flygelton redan hunnit
+ * klinga av så mycket att höjningen knappt märks. Därför stiger bussen först
+ * när allt tystnat, och en ensam ton efter ett ackord får hellre vara för
+ * svag en stund än att växa medan den ljuder.
+ */
+export function nästaBussnivå(nuvarande: number, antalRöster: number): number {
+  if (antalRöster <= 0) {
+    return 1;
+  }
+  const mål = tonbussNivå(antalRöster) / VOICE_PEAK;
+  return Math.min(nuvarande, mål);
+}
+
 /** Deltoner ovanför hörselområdet hoppas över, de ger bara vikning. */
 const NYQUIST_GUARD = 18000;
 
@@ -84,6 +107,8 @@ export class AudioEngine {
   private voices = new Map<string, Voice>();
   /** Toner som släppts men ännu klingar ut. De räknas med i nivån. */
   private utklingande = 0;
+  /** Bussens nivå just nu, så att den inte kan stiga medan något hörs. */
+  private bussnivå = 1;
   private volume = 0.8;
   private timbreId: TimbreId = DEFAULT_TIMBRE;
   /** Timers och röster som hör till en pågående tongivning, så den kan avbrytas. */
@@ -98,6 +123,7 @@ export class AudioEngine {
       this.master.gain.value = this.volume;
       this.master.connect(this.ctx.destination);
       this.toneBus = this.ctx.createGain();
+      this.bussnivå = 1;
       this.toneBus.gain.value = 1;
       this.toneBus.connect(this.master);
     }
@@ -137,10 +163,10 @@ export class AudioEngine {
   /**
    * Ställer tonbussen efter hur många toner som ljuder.
    *
-   * Ändringen glider över ett par hundradels sekund. Ett hopp i nivån mitt i
-   * en klingande ton skulle höras som ett knäpp, och en långsam glidning som
-   * en tonstyrka som svajar — det här ligger mitt emellan, och märks som att
-   * ett ackord helt enkelt är lika starkt som en ensam ton.
+   * Ändringen glider över ett par hundradels sekund: ett hopp mitt i en
+   * klingande ton hörs som ett knäpp, och en långsam glidning som en
+   * tonstyrka som svajar. Vilken nivå det glids till avgörs av
+   * nästaBussnivå, som aldrig låter den stiga medan något hörs.
    */
   private uppdateraTonbuss(): void {
     const ctx = this.ctx;
@@ -149,7 +175,12 @@ export class AudioEngine {
       return;
     }
     const röster = this.voices.size + this.utklingande;
-    const nivå = röster === 0 ? 1 : tonbussNivå(röster) / VOICE_PEAK;
+    const nivå = nästaBussnivå(this.bussnivå, röster);
+    if (nivå === this.bussnivå) {
+      return;
+    }
+    this.bussnivå = nivå;
+
     const nu = ctx.currentTime;
     try {
       buss.gain.cancelScheduledValues(nu);
@@ -432,6 +463,7 @@ export class AudioEngine {
     this.master = null;
     this.toneBus = null;
     this.utklingande = 0;
+    this.bussnivå = 1;
     if (ctx) {
       void ctx.close().catch(() => {});
     }
