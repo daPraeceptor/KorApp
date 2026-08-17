@@ -63,6 +63,7 @@ import {
   type MetronomeVisualStyle,
   type Settings,
   type StartTab,
+  SENASTE_MIGRATION,
   parseSettings,
 } from './settings';
 import { setPulse } from './pulse';
@@ -141,6 +142,8 @@ const DEFAULT_SETTINGS: Settings = {
   haptics: true,
   keepAwake: true,
   tonesFirst: false,
+  // En ny installation har inget gammalt val att skriva om.
+  migrationer: SENASTE_MIGRATION,
 };
 
 /** De värden spelvyn arbetar med just nu. */

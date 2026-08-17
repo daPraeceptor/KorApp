@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  SENASTE_MIGRATION,
   MAX_A4,
   MAX_AUTO_STOP_BEATS,
   MIN_A4,
@@ -31,6 +32,7 @@ const FÖRVAL: Settings = {
   haptics: true,
   keepAwake: true,
   tonesFirst: false,
+  migrationer: 1,
 };
 
 test('sparade inställningar läses tillbaka oförändrade', () => {
@@ -120,4 +122,33 @@ test('okända fält från en nyare version skräpar inte ner', () => {
   const s = normalizeSettings({ framtidaFält: 'något', a4: 442 }, FÖRVAL);
   assert.equal((s as unknown as Record<string, unknown>).framtidaFält, undefined);
   assert.equal(s.a4, 442);
+});
+
+test('en gammal lagring får plattformens klang en enda gång', () => {
+  // Telefoner som valde sin klang innan den inspelade flygeln fanns ska få
+  // höra den utan att leta i inställningarna.
+  const påTelefonen = { ...FÖRVAL, toneTimbre: 'salamander' as const };
+  const gammal = { ...FÖRVAL, toneTimbre: 'choir' as const };
+  delete (gammal as Record<string, unknown>).migrationer;
+
+  const efter = normalizeSettings(gammal, påTelefonen);
+  assert.equal(efter.toneTimbre, 'salamander', 'klangen skulle ha ställts om');
+  assert.equal(efter.migrationer, SENASTE_MIGRATION, 'migreringen ska bokföras');
+});
+
+test('men bara en gång — sedan är valet användarens igen', () => {
+  const påTelefonen = { ...FÖRVAL, toneTimbre: 'salamander' as const };
+  const redanMigrerad = {
+    ...FÖRVAL,
+    toneTimbre: 'choir' as const,
+    migrationer: SENASTE_MIGRATION,
+  };
+
+  const efter = normalizeSettings(redanMigrerad, påTelefonen);
+  assert.equal(efter.toneTimbre, 'choir', 'ett val efter migreringen ska stå kvar');
+});
+
+test('en ny installation har inget gammalt val att skriva om', () => {
+  // Förvalen bär det senaste talet, så att inget körs på en tom lagring.
+  assert.equal(FÖRVAL.migrationer, SENASTE_MIGRATION);
 });

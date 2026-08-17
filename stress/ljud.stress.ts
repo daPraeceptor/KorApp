@@ -44,6 +44,7 @@ const FÖRVAL_A4: Settings = {
   haptics: true,
   keepAwake: true,
   tonesFirst: false,
+  migrationer: 1,
 };
 
 const HELA_KLAVIATUREN = Array.from({ length: 128 }, (_, i) => i);

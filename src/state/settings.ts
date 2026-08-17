@@ -35,6 +35,19 @@ export const MAX_A4 = 466;
 /** Under en tiondel hörs metronomen inte i en sal. */
 export const MIN_VOLUME = 0.1;
 
+/**
+ * Hur många engångsändringar som körts på de sparade inställningarna.
+ *
+ * En sparad inställning väger tyngre än ett förval — den är ett val någon
+ * gjort. Men ibland behöver ett gammalt val ändå skrivas om en gång, och då
+ * räknas det här talet upp. Lagringen bär sitt eget tal, och skiljer det sig
+ * från det senaste körs mellanskillnaden och talet skrivs om.
+ *
+ * 1: klangfärgen ställs om till plattformens förval, så att telefoner som
+ *    valt sin klang före den inspelade flygeln också får höra den.
+ */
+export const SENASTE_MIGRATION = 1;
+
 export interface Settings {
   /** Kammartonens frekvens. Många orglar och blåsorkestrar ligger på 442. */
   a4: number;
@@ -86,6 +99,11 @@ export interface Settings {
    * notstället under repetitionen och ska inte somna mitt i en sats.
    */
   keepAwake: boolean;
+  /**
+   * Vilka engångsändringar som körts på just den här lagringen.
+   * Se SENASTE_MIGRATION.
+   */
+  migrationer: number;
   /**
    * Vad redigeringsvyn börjar med. Falskt ger metronomen först, sant lägger
    * tongivningen och klaviaturen överst — för den som mest använder appen
@@ -143,6 +161,9 @@ export function normalizeSettings(raw: unknown, fallback: Settings): Settings {
   }
   const v = raw as Record<string, unknown>;
 
+  // Engångsändringar. En lagring utan tal är äldre än den första av dem.
+  const körda = Math.max(0, Math.round(tal(v.migrationer, 0, SENASTE_MIGRATION, 0)));
+
   return {
     a4: Math.round(talIOmråde(v.a4, MIN_A4, MAX_A4, fallback.a4)),
     naming: ettAv<NoteNaming>(v.naming, ['swedish', 'international'], fallback.naming),
@@ -158,11 +179,18 @@ export function normalizeSettings(raw: unknown, fallback: Settings): Settings {
     ),
     labelReference: ettAv<LabelReference>(v.labelReference, ['c', 'tonic'], fallback.labelReference),
     markTonicInTempered: flagga(v.markTonicInTempered, fallback.markTonicInTempered),
-    toneTimbre: ettAv<TimbreId>(
-      v.toneTimbre,
-      Object.keys(TIMBRES) as TimbreId[],
-      fallback.toneTimbre,
-    ),
+    // Migrering 1 ställer om klangen till plattformens förval en enda gång:
+    // telefoner som valde sin klang innan den inspelade flygeln fanns ska få
+    // höra den utan att leta i inställningarna.
+    toneTimbre:
+      körda < 1
+        ? fallback.toneTimbre
+        : ettAv<TimbreId>(
+            v.toneTimbre,
+            Object.keys(TIMBRES) as TimbreId[],
+            fallback.toneTimbre,
+          ),
+    migrationer: SENASTE_MIGRATION,
     themeId: ettAv<ThemeId>(v.themeId, Object.keys(THEME_META) as ThemeId[], fallback.themeId),
     showAdvancedSubdivisions: flagga(
       v.showAdvancedSubdivisions,
