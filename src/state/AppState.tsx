@@ -67,6 +67,7 @@ import {
   parseSettings,
 } from './settings';
 import { setPulse } from './pulse';
+import { T } from '../i18n';
 
 export type { PlayDirection } from '../store/songs';
 export type { MetronomeVisualStyle, Settings, StartTab } from './settings';
@@ -542,7 +543,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
 
   const addSong = useCallback(
     (title: string, folderId: string | null = null) => {
-      const song = createSong({ title: title.trim() || 'Ny låt', ...live, folderId });
+      const song = createSong({ title: title.trim() || T.spel.nyLåt, ...live, folderId });
       setSongs((current) => sortSongs([...current, song]));
       setCurrentSongId(song.id);
       return song;

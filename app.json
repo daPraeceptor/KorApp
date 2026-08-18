@@ -15,7 +15,12 @@
           "audio"
         ],
         "ITSAppUsesNonExemptEncryption": false,
-        "NSMicrophoneUsageDescription": "Körmetronom spelar inte in något ljud och begär aldrig tillgång till mikrofonen. Texten krävs ändå av Apple, eftersom appens ljudbibliotek innehåller funktioner för ljudinspelning."
+        "NSMicrophoneUsageDescription": "Körmetronom spelar inte in något ljud och begär aldrig tillgång till mikrofonen. Texten krävs ändå av Apple, eftersom appens ljudbibliotek innehåller funktioner för ljudinspelning.",
+        "CFBundleLocalizations": [
+          "sv",
+          "en"
+        ],
+        "CFBundleDevelopmentRegion": "sv"
       }
     },
     "android": {
@@ -36,13 +41,18 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "react-native-audio-api"
+      "react-native-audio-api",
+      "expo-localization"
     ],
     "extra": {
       "eas": {
         "projectId": "b84c7c7e-9f5f-44c4-9de6-9d35777a3ac8"
       }
     },
-    "owner": "peterholmstrands-team"
+    "owner": "peterholmstrands-team",
+    "locales": {
+      "sv": "./sprak/sv.json",
+      "en": "./sprak/en.json"
+    }
   }
 }

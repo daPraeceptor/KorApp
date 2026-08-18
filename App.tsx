@@ -4,6 +4,7 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 
+import { T } from './src/i18n';
 import { LockGlyph, SlideToConfirm } from './src/components/ui';
 import { PlayScreen } from './src/screens/PlayScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
@@ -23,7 +24,7 @@ function UnlockBar({ onUnlock }: { onUnlock: () => void }) {
   return (
     <View style={styles.tabBar}>
       <SlideToConfirm
-        hint="Dra låset åt höger för att låsa upp"
+        hint={T.skal.låsUpp}
         onConfirm={onUnlock}
       />
     </View>

@@ -11,6 +11,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { T } from '../i18n';
 import { useAppState } from '../state/AppState';
 import { Palette, radius, spacing } from '../theme';
 import { useThemedStyles } from '../ThemeContext';
@@ -29,14 +30,9 @@ export function VolumeNotice() {
   return (
     <View style={styles.notice}>
       <Text style={styles.title}>
-        {systemVolume <= 0.001
-          ? 'Telefonens ljud är avstängt'
-          : 'Telefonens volym är nästan avstängd'}
+        {systemVolume <= 0.001 ? T.volym.avstängt : T.volym.nästanAvstängt}
       </Text>
-      <Text style={styles.text}>
-        Höj med knapparna på telefonens sida. Appens egen volym i
-        inställningarna ligger ovanpå den här nivån.
-      </Text>
+      <Text style={styles.text}>{T.volym.höjMedKnapparna}</Text>
     </View>
   );
 }

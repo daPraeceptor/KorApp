@@ -37,6 +37,7 @@ import { Keyboard } from '../components/Keyboard';
 import { MetronomeVisual } from '../components/MetronomeVisual';
 import { VolumeNotice } from '../components/VolumeNotice';
 import { haptik } from '../haptics';
+import { T } from '../i18n';
 import { klaviaturSpann } from './klaviaturSpann';
 import { useAppState, usePulse } from '../state/AppState';
 import { Folder, Song, searchSongs } from '../store/songs';
@@ -95,7 +96,7 @@ function Sökruta({
     <TextInput
       value={text}
       onChangeText={setText}
-      placeholder="Sök bland låtarna"
+      placeholder={T.lista.sök}
       placeholderTextColor={placeholderColor}
       style={style}
       returnKeyType="search"
@@ -513,7 +514,7 @@ export function SongsScreen({
    * Zonernas lägen mäts när greppet tas, och fingrets läge jämförs mot dem
    * under dragningen. Släpper man över en annan mapp flyttas låten dit.
    */
-  const LÖST = '__utanför__';
+  const LÖST = '__loose__';
   const zoneRefs = useRef(new Map<string, View | null>());
   const zoneBounds = useRef(new Map<string, { top: number; bottom: number }>());
   /** Mappen fingret svävar över, för att kunna lysa upp den. */
@@ -912,12 +913,12 @@ export function SongsScreen({
   const bekräftaRadering = (song: Song) => {
     if (Platform.OS === 'web') {
       setDialog({
-        titel: `Ta bort «${song.title}»?`,
-        text: 'Låten försvinner ur biblioteket.',
+        titel: T.lista.taBortLåt(song.title),
+        text: T.lista.låtenFörsvinner,
         knappar: [
-          { label: 'Avbryt', variant: 'ghost' },
+          { label: T.lista.avbryt, variant: 'ghost' },
           {
-            label: 'Ta bort',
+            label: T.lista.taBort,
             variant: 'danger',
             onPress: () => deleteSong(song.id),
           },
@@ -925,10 +926,10 @@ export function SongsScreen({
       });
       return;
     }
-    Alert.alert(`Ta bort «${song.title}»?`, 'Låten försvinner ur biblioteket.', [
-      { text: 'Avbryt', style: 'cancel' },
+    Alert.alert(T.lista.taBortLåt(song.title), T.lista.låtenFörsvinner, [
+      { text: T.lista.avbryt, style: 'cancel' },
       {
-        text: 'Ta bort',
+        text: T.lista.taBort,
         style: 'destructive',
         onPress: () => deleteSong(song.id),
       },
@@ -941,23 +942,20 @@ export function SongsScreen({
    * en körledare som trodde sig tömma en mapp och raderade repertoaren.
    */
   const bekräftaMappRadering = (mapp: Folder, antal: number) => {
-    const titel = `Ta bort mappen «${mapp.name}»?`;
-    const text =
-      antal === 1
-        ? 'Mappen innehåller en låt.'
-        : `Mappen innehåller ${antal} låtar.`;
+    const titel = T.lista.taBortMapp(mapp.name);
+    const text = T.lista.mappenInnehåller(antal);
     if (Platform.OS === 'web') {
       setDialog({
         titel,
         text,
         knappar: [
-          { label: 'Avbryt', variant: 'ghost' },
+          { label: T.lista.avbryt, variant: 'ghost' },
           {
-            label: 'Lägg låtarna utanför mappen',
+            label: T.lista.läggUtanför,
             onPress: () => deleteFolder(mapp.id),
           },
           {
-            label: 'Ta bort alla låtar i mappen',
+            label: T.lista.taBortAlla,
             variant: 'danger',
             onPress: () => deleteFolderAndSongs(mapp.id),
           },
@@ -966,13 +964,13 @@ export function SongsScreen({
       return;
     }
     Alert.alert(titel, text, [
-      { text: 'Avbryt', style: 'cancel' },
+      { text: T.lista.avbryt, style: 'cancel' },
       {
-        text: 'Lägg låtarna utanför mappen',
+        text: T.lista.läggUtanför,
         onPress: () => deleteFolder(mapp.id),
       },
       {
-        text: 'Ta bort alla låtar i mappen',
+        text: T.lista.taBortAlla,
         style: 'destructive',
         onPress: () => deleteFolderAndSongs(mapp.id),
       },
@@ -1096,7 +1094,7 @@ export function SongsScreen({
         />
       ) : (
         <Text style={styles.help}>
-          Inga sparade toner att spela. Lägg till toner via «Ändra».
+          {T.lista.ingaTonerAttSpela}
         </Text>
       );
 
@@ -1113,20 +1111,20 @@ export function SongsScreen({
     const underrubriker = (
       <>
         <Text style={styles.meta}>
-          {song.bpm} slag/min · {song.beatsPerBar}/4 ·{' '}
+          {song.bpm} {T.lista.slagPerMinut} · {song.beatsPerBar}/4 ·{' '}
           {song.tuningSystem === 'just'
-            ? `ren, grundton ${noteName(song.tonicPitchClass, settings.naming)}`
-            : 'tempererad'}
+            ? T.lista.renGrundton(noteName(song.tonicPitchClass, settings.naming))
+            : T.lista.tempererad}
         </Text>
         {song.tones.length > 0 ? (
           <Text style={styles.tones}>
-            Toner:{' '}
+            {T.lista.toner}{' '}
             {song.tones
               .map((midi) => noteNameWithOctave(midi, settings.naming))
               .join('  ')}
           </Text>
         ) : (
-          <Text style={styles.tonesEmpty}>Inga sparade toner</Text>
+          <Text style={styles.tonesEmpty}>{T.lista.ingaSparadeToner}</Text>
         )}
       </>
     );
@@ -1265,7 +1263,7 @@ export function SongsScreen({
           {song.tones.length > 1 ? (
             <>
               <Button
-                label="♪ Ackord"
+                label={'♪ ' + T.spel.ackord}
                 variant="pure"
                 onPress={() => {
                   loadSong(song.id);
@@ -1287,7 +1285,7 @@ export function SongsScreen({
               label={
                 song.tones.length === 1
                   ? `♪ ${noteNameWithOctave(song.tones[0], settings.naming)}`
-                  : '♪ Inga toner'
+                  : T.lista.ingaToner
               }
               variant="pure"
               disabled={song.tones.length === 0}
@@ -1356,8 +1354,7 @@ export function SongsScreen({
       {locked ? (
         <Card>
           <Text style={styles.help}>
-            Appen är låst i konsertläge: bara uppspelning är möjlig. Lås upp
-            genom att dra låset längst ner åt höger.
+            {T.lista.låstText}
           </Text>
         </Card>
       ) : null}
@@ -1383,16 +1380,15 @@ export function SongsScreen({
       {searching ? (
         <Text style={styles.searchInfo}>
           {matches.length === 0
-            ? `Ingen låt matchar «${filter.trim()}».`
-            : `${matches.length} ${matches.length === 1 ? 'träff' : 'träffar'} på «${filter.trim()}».`}
+            ? T.lista.ingenTräff(filter.trim())
+            : T.lista.träffar(matches.length, filter.trim())}
         </Text>
       ) : null}
 
       {songs.length === 0 ? (
         <Card>
           <Text style={styles.help}>
-            Inga låtar sparade än. Ställ in tempo och toner i spelvyn och lägg
-            till låten här.
+            {T.lista.ingaLåtarÄn}
           </Text>
         </Card>
       ) : null}
@@ -1496,7 +1492,7 @@ export function SongsScreen({
                       }}
                     />
                     <Button
-                      label="Klart"
+                      label={T.lista.klart}
                       variant="primary"
                       onPress={() => {
                         renameFolder(folder.id, draftFolderName);
@@ -1519,7 +1515,7 @@ export function SongsScreen({
                       {open ? '▾' : '▸'}  {folder.name}
                     </Text>
                     <Text style={styles.folderCount}>
-                      {inFolder.length} {inFolder.length === 1 ? 'låt' : 'låtar'}
+                      {T.lista.antalLåtar(inFolder.length)}
                     </Text>
                     {/* Pennan byter namn — samma symbol som på låtkorten. */}
                     {locked ? null : (
@@ -1543,7 +1539,7 @@ export function SongsScreen({
               <View style={styles.folderBody}>
                 {inFolder.length === 0 ? (
                   <Text style={styles.help}>
-                    Mappen är tom. Dra hit en låt i dess grepp.
+                    {T.lista.tomMapp}
                   </Text>
                 ) : (
                   inFolder.map((song) => renderSong(song, inFolder))
@@ -1556,7 +1552,7 @@ export function SongsScreen({
 
       {loose.length > 0 || (!searching && folders.length > 0) ? (
         <SectionTitle>
-          {folders.length > 0 ? `Utanför mappar (${loose.length})` : `Sparade låtar (${loose.length})`}
+          {folders.length > 0 ? T.lista.utanförMappar(loose.length) : T.lista.sparadeLåtar(loose.length)}
         </SectionTitle>
       ) : null}
 
@@ -1575,7 +1571,7 @@ export function SongsScreen({
         {/* I låst läge går det inte att dra något — då är tipset bara brus. */}
         {loose.length === 0 && folders.length > 0 && !locked ? (
           <Text style={styles.help}>
-            Alla låtar ligger i mappar. Dra en hit för att ta ut den.
+            {T.lista.allaLåtarIMappar}
           </Text>
         ) : null}
       </View>
@@ -1584,19 +1580,19 @@ export function SongsScreen({
           stå i vägen för listan man faktiskt kom för. Göms i låst läge. */}
       {locked ? null : (
         <Card>
-          <SectionTitle>Ny mapp</SectionTitle>
+          <SectionTitle>{T.lista.nyMapp}</SectionTitle>
           <View style={styles.editRow}>
             <TextInput
               value={newFolderName}
               onChangeText={setNewFolderName}
-              placeholder="Namn på mappen"
+              placeholder={T.lista.namnPåMappen}
               placeholderTextColor={t.textMuted}
               style={[styles.input, styles.editInput]}
               returnKeyType="done"
               onSubmitEditing={skapaMapp}
             />
             <Button
-              label="Skapa"
+              label={T.lista.skapa}
               disabled={!newFolderName.trim()}
               onPress={skapaMapp}
             />
@@ -1639,15 +1635,11 @@ export function SongsScreen({
       {/* Samma draggest åt båda hållen: in i konsertläget och ut ur det. */}
       {!locked && songs.length > 0 ? (
         <Card>
-          <SectionTitle>Konsertläge</SectionTitle>
-          <Text style={styles.help}>
-            Låser appen till uppspelning: inga låtar eller inställningar går
-            att ändra, och bara listan visas. Bra när telefonen ligger framme
-            på notstället.
-          </Text>
+          <SectionTitle>{T.lista.konsertläge}</SectionTitle>
+          <Text style={styles.help}>{T.lista.konsertlägeText}</Text>
           <View style={styles.lockRow}>
             <SlideToConfirm
-              hint="Dra låset åt höger för att låsa"
+              hint={T.lista.draFörAttLåsa}
               onConfirm={onLock ?? (() => {})}
             />
           </View>

@@ -18,6 +18,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 
+import { T } from '../i18n';
 import { Keyboard } from '../components/Keyboard';
 import { MetronomeVisual } from '../components/MetronomeVisual';
 import { NoteValueIcon } from '../components/NoteValueIcon';
@@ -232,7 +233,7 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
       value: id,
       // Med alla åtta framme finns ingen plats för text. Notbilderna
       // säger ändå vad varje figur är, och namnen står i inställningarna.
-      label: settings.showAdvancedSubdivisions ? '' : SUBDIVISIONS[id].label,
+      label: settings.showAdvancedSubdivisions ? '' : T.underdelning[id].namn,
       renderIcon: (color: string) => <NoteValueIcon value={id} color={color} />,
     }));
 
@@ -296,7 +297,7 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
             style={styles.nudge}
           />
           <Button
-            label={metronomeRunning ? 'Stoppa' : 'Starta'}
+            label={metronomeRunning ? T.spel.stoppa : T.spel.starta}
             variant={metronomeRunning ? 'default' : 'primary'}
             onPress={() => void toggleMetronome()}
             style={styles.transportMain}
@@ -307,7 +308,7 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
             style={styles.nudge}
           />
           <Button
-            label="Knacka"
+            label={T.spel.knacka}
             onPress={tapTempo}
             variant="ghost"
             style={styles.tapButton}
@@ -318,7 +319,7 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
             framme — utan rubrik finns inget att fälla ihop heller. */}
         <Card>
           <View style={styles.row}>
-            <Text style={styles.rowLabel}>Slag per takt</Text>
+            <Text style={styles.rowLabel}>{T.spel.slagPerTakt}</Text>
             <Stepper
               value={live.beatsPerBar}
               min={1}
@@ -326,7 +327,7 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
               onChange={(beatsPerBar) => updateLive({ beatsPerBar })}
             />
           </View>
-          <Text style={styles.rowLabel}>Underdelning</Text>
+          <Text style={styles.rowLabel}>{T.spel.underdelning}</Text>
           {/* Fler än fyra underdelningar delas på två rader — åtta knappar på
               en rad blir frimärken på en telefonskärm. */}
           {synligaUnderdelningar.length > 4 ? (
@@ -372,7 +373,7 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
         {toneCount > 0 || selectMode ? (
           <Card onLayout={onTonesLayout}>
             <View style={styles.cardHeader}>
-              <SectionTitle>Tongivning</SectionTitle>
+              <SectionTitle>{T.spel.tongivning}</SectionTitle>
               <Text style={styles.cardHeaderNote}>
                 {toneCount}/{MAX_TONES}
               </Text>
@@ -381,9 +382,7 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
             {/* Utan toner finns inget att spela. Då visas instruktionen i stället
                 för knappar som ändå inte gör något. */}
             {toneCount === 0 ? (
-              <Text style={styles.helpText}>
-                Tryck på en tangent på klaviaturen för att lägga till en ton.
-              </Text>
+              <Text style={styles.helpText}>{T.spel.tryckFörTon}</Text>
             ) : (
             <>
             <View style={styles.chips}>
@@ -404,7 +403,7 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
             {toneCount === 1 ? (
               // En ensam ton har varken ackord eller ordning — bara sig själv.
               <Button
-                label={`Spela ${noteNameWithOctave(live.tones[0], settings.naming)}`}
+                label={T.spel.spelaTon(noteNameWithOctave(live.tones[0], settings.naming))}
                 variant="pure"
                 onPress={() => playTones('chord')}
               />
@@ -412,13 +411,13 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
               // De två sätten att ge tonerna, sida vid sida på en rad.
               <View style={styles.toneButtons}>
                 <Button
-                  label="⇢ I vald ordning"
+                  label={T.spel.iValdOrdning}
                   variant="pure"
                   onPress={() => playTones('chosen')}
                   style={styles.toneButton}
                 />
                 <Button
-                  label="Ackord"
+                  label={T.spel.ackord}
                   onPress={() => playTones('chord')}
                   style={styles.toneButton}
                 />
@@ -433,7 +432,7 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
             ändras och håller sig annars undan, så att vyn ryms på en skärm. */}
         <Card style={styles.keyboardCard}>
           <Pressable onPress={toggleKeyboardOpen} style={styles.cardHeader}>
-            <SectionTitle>Klaviatur</SectionTitle>
+            <SectionTitle>{T.spel.klaviatur}</SectionTitle>
             <Text style={styles.cardHeaderNote}>{keyboardOpen ? '▾' : '▸'}</Text>
           </Pressable>
           {keyboardOpen ? (
@@ -444,7 +443,7 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
               style={[styles.toggle, selectMode && styles.toggleOn]}
             >
               <Text style={[styles.toggleText, selectMode && styles.toggleTextOn]}>
-                Välj toner för tongivning
+                {T.spel.väljToner}
               </Text>
             </Pressable>
             {/* Stämningen är i grunden av eller på: tempererad är normalläget
@@ -464,7 +463,7 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
                   live.tuningSystem === 'just' && styles.tuningLabelOn,
                 ]}
               >
-                Ren stämning
+                {T.spel.renStämning}
               </Text>
               <Switch
                 value={live.tuningSystem === 'just'}
@@ -479,7 +478,7 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
 
           <View style={styles.octaveRow}>
             <Button
-              label="◀ Oktav"
+              label={T.spel.oktavNed}
               variant="ghost"
               disabled={keyboardStart <= LOWEST_MIDI}
               onPress={() => setKeyboardStart((start) => Math.max(LOWEST_MIDI, start - 12))}
@@ -489,7 +488,7 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
               {noteNameWithOctave(keyboardStart + KEYBOARD_SPAN, settings.naming)}
             </Text>
             <Button
-              label="Oktav ▶"
+              label={T.spel.oktavUpp}
               variant="ghost"
               disabled={keyboardStart >= HIGHEST_START}
               onPress={() => setKeyboardStart((start) => Math.min(HIGHEST_START, start + 12))}
@@ -586,15 +585,12 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
       {/* Sparandet bor längst ner: här skapas en ny låt av det som är inställt
           ovan, eller uppdateras den laddade. */}
       <Card>
-        <SectionTitle>{currentSong ? 'Spara' : 'Ny låt'}</SectionTitle>
-        <Text style={styles.helpText}>
-          Låten sparas med tempot, taktarten, stämningen och tonerna som är
-          inställda ovan.
-        </Text>
+        <SectionTitle>{currentSong ? T.spel.spara : T.spel.nyLåt}</SectionTitle>
+        <Text style={styles.helpText}>{T.spel.sparasMed}</Text>
         <TextInput
           value={titleDraft}
           onChangeText={setTitleDraft}
-          placeholder="Namn på låten"
+          placeholder={T.spel.namnPåLåten}
           placeholderTextColor={t.textMuted}
           style={styles.titleInput}
           returnKeyType="done"
@@ -608,7 +604,7 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
         {currentSong ? (
           <View style={styles.saveRow}>
             <Button
-              label="Uppdatera"
+              label={T.spel.uppdatera}
               variant="primary"
               // Ett ändrat namn är också en ändring värd att spara, även om
               // tempot och tonerna står orörda.
@@ -622,12 +618,12 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
               style={styles.saveRowButton}
             />
             <Button
-              label="Spara som ny"
+              label={T.spel.sparaSomNy}
               onPress={() => {
                 // Med orört namn får kopian ett eget, annars krockar två
                 // likadana titlar i listan.
                 addSong(
-                  titleChanged ? titleDraft : `${currentSong.title} (kopia)`,
+                  titleChanged ? titleDraft : T.spel.kopiaAv(currentSong.title),
                 );
                 onOpenSongs();
               }}
@@ -636,7 +632,7 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
           </View>
         ) : (
           <Button
-            label="Skapa ny låt"
+            label={T.spel.skapaNyLåt}
             variant="primary"
             onPress={() => {
               addSong(titleDraft);

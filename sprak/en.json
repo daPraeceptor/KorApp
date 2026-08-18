@@ -1,0 +1,3 @@
+{
+  "NSMicrophoneUsageDescription": "Choir Metronome never records audio and never requests microphone access. Apple still requires this text, because the app's audio library contains recording features."
+}

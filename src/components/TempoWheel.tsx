@@ -18,6 +18,7 @@ import Svg, { Circle, G, Line, Path } from 'react-native-svg';
 import { haptik } from '../haptics';
 
 import { MAX_BPM, MIN_BPM, clampBpm } from '../audio/tempo';
+import { T } from '../i18n';
 import { usePulse } from '../state/pulse';
 import { Palette, radius } from '../theme';
 import { useTheme, useThemedStyles } from '../ThemeContext';
@@ -276,7 +277,7 @@ export function TempoWheel({
 
       <View style={styles.readout}>
         <Text style={styles.bpm}>{bpm}</Text>
-        <Text style={styles.unit}>slag/min</Text>
+        <Text style={styles.unit}>{T.lista.slagPerMinut}</Text>
         <View style={styles.beats}>
           {beatDots.map((index) => (
             <View

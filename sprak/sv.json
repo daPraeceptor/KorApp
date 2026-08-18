@@ -1,0 +1,3 @@
+{
+  "NSMicrophoneUsageDescription": "Körmetronom spelar inte in något ljud och begär aldrig tillgång till mikrofonen. Texten krävs ändå av Apple, eftersom appens ljudbibliotek innehåller funktioner för ljudinspelning."
+}

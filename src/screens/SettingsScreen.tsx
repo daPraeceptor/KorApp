@@ -19,6 +19,7 @@ import {
   Stepper,
 } from '../components/ui';
 import { audioEngine } from '../audio/engine';
+import { T } from '../i18n';
 import {
   MAX_AUTO_STOP_BEATS,
   MIN_AUTO_STOP_BEATS,
@@ -26,7 +27,6 @@ import {
 } from '../state/AppState';
 import {
   DEFAULT_A4,
-  INTERVAL_NAMES,
   JUST_RATIOS,
   centsBetween,
 } from '../theory/tuning';
@@ -35,7 +35,6 @@ import { TIMBRES, TIMBRE_ORDER, timbreOr } from '../audio/timbres';
 import { SUBDIVISIONS, SUBDIVISION_ORDER } from '../audio/subdivisions';
 import {
   Palette,
-  THEME_META,
   THEME_ORDER,
   buildPalette,
   radius,
@@ -74,9 +73,9 @@ export function SettingsScreen() {
       {/* Volymen överst: det är den inställning som ändras oftast, mitt i
           repetitionen, och skall inte behöva letas fram. */}
       <Card>
-        <SectionTitle>Volym</SectionTitle>
+        <SectionTitle>{T.inst.volym}</SectionTitle>
         <View style={styles.row}>
-          <Text style={styles.rowLabel}>Ljudstyrka</Text>
+          <Text style={styles.rowLabel}>{T.inst.ljudstyrka}</Text>
           <Stepper
             value={Math.round(settings.volume * 100)}
             min={10}
@@ -87,7 +86,7 @@ export function SettingsScreen() {
           />
         </View>
         <Button
-          label="Testa ljudet"
+          label={T.inst.testaLjudet}
           onPress={() =>
             void audioEngine.playTones([261.63, 329.63, 392], {
               mode: 'together',
@@ -98,7 +97,7 @@ export function SettingsScreen() {
       </Card>
 
       <Card>
-        <SectionTitle>Kammarton</SectionTitle>
+        <SectionTitle>{T.inst.kammarton}</SectionTitle>
         <View style={styles.row}>
           <Text style={styles.rowLabel}>A =</Text>
           <Stepper
@@ -109,13 +108,10 @@ export function SettingsScreen() {
             format={(value) => `${value} Hz`}
           />
         </View>
-        <Text style={styles.help}>
-          Standard är 440 Hz. Många orglar och blåsorkestrar ligger på 442 Hz,
-          och barockensembler ofta på 415 Hz.
-        </Text>
+        <Text style={styles.help}>{T.inst.kammartonText}</Text>
         {settings.a4 !== DEFAULT_A4 ? (
           <Button
-            label="Återställ till 440 Hz"
+            label={T.inst.återställ440}
             variant="ghost"
             onPress={() => updateSettings({ a4: DEFAULT_A4 })}
           />
@@ -123,10 +119,9 @@ export function SettingsScreen() {
       </Card>
 
       <Card>
-        <SectionTitle>Färgtema</SectionTitle>
+        <SectionTitle>{T.inst.färgtema}</SectionTitle>
         <View style={styles.themeGrid}>
           {THEME_ORDER.map((id) => {
-            const meta = THEME_META[id];
             const vald = settings.themeId === id;
             // Färgprovet byggs ur temats egen palett, så knappen visar vad man får.
             const p = buildPalette(id);
@@ -142,23 +137,21 @@ export function SettingsScreen() {
                   <View style={[styles.themeDot, { backgroundColor: p.tone }]} />
                 </View>
                 <Text style={[styles.themeName, vald && styles.themeNameOn]}>
-                  {meta.label}
+                  {T.tema[id].namn}
                 </Text>
               </Pressable>
             );
           })}
         </View>
-        <Text style={styles.help}>
-          {THEME_META[settings.themeId].description}
-        </Text>
+        <Text style={styles.help}>{T.tema[settings.themeId].text}</Text>
       </Card>
 
       {/* Metronomens eget uppförande, samlat: hur den låter och vad den gör
           med telefonen medan den går. */}
       <Card>
-        <SectionTitle>Metronom</SectionTitle>
+        <SectionTitle>{T.inst.metronom}</SectionTitle>
         <View style={styles.row}>
-          <Text style={styles.rowLabel}>Betona ettan</Text>
+          <Text style={styles.rowLabel}>{T.inst.betonaEttan}</Text>
           <Switch
             value={settings.accentFirstBeat}
             onValueChange={(accentFirstBeat) =>
@@ -168,12 +161,9 @@ export function SettingsScreen() {
             thumbColor={t.text}
           />
         </View>
-        <Text style={styles.help}>
-          Taktens första slag klingar ljusare än de andra. Avstängt låter alla
-          slag lika — bra när takten inte ska höras, bara pulsen.
-        </Text>
+        <Text style={styles.help}>{T.inst.betonaEttanText}</Text>
         <View style={styles.row}>
-          <Text style={styles.rowLabel}>Håll skärmen tänd</Text>
+          <Text style={styles.rowLabel}>{T.inst.hållSkärmenTänd}</Text>
           <Switch
             value={settings.keepAwake}
             onValueChange={(keepAwake) => updateSettings({ keepAwake })}
@@ -181,17 +171,14 @@ export function SettingsScreen() {
             thumbColor={t.text}
           />
         </View>
-        <Text style={styles.help}>
-          Skärmen slocknar inte medan metronomen går. Telefonen ligger framme
-          på notstället och ska inte somna mitt i en sats.
-        </Text>
+        <Text style={styles.help}>{T.inst.hållSkärmenTändText}</Text>
       </Card>
 
 
       <Card>
-        <SectionTitle>Känsel</SectionTitle>
+        <SectionTitle>{T.inst.känsel}</SectionTitle>
         <View style={styles.row}>
-          <Text style={styles.rowLabel}>Vibration</Text>
+          <Text style={styles.rowLabel}>{T.inst.vibration}</Text>
           <Switch
             value={settings.haptics}
             onValueChange={(haptics) => updateSettings({ haptics })}
@@ -199,16 +186,13 @@ export function SettingsScreen() {
             thumbColor={t.text}
           />
         </View>
-        <Text style={styles.help}>
-          Telefonen svarar med en liten stöt när tempohjulet vrids, ett kort
-          lyfts eller låset slår till. Gäller inte i webbläsaren.
-        </Text>
+        <Text style={styles.help}>{T.inst.vibrationText}</Text>
       </Card>
 
       <Card>
-        <SectionTitle>Redigeringsvyn</SectionTitle>
+        <SectionTitle>{T.inst.redigeringsvyn}</SectionTitle>
         <View style={styles.row}>
-          <Text style={styles.rowLabel}>Tongivning först</Text>
+          <Text style={styles.rowLabel}>{T.inst.tongivningFörst}</Text>
           <Switch
             value={settings.tonesFirst}
             onValueChange={(tonesFirst) => updateSettings({ tonesFirst })}
@@ -216,33 +200,26 @@ export function SettingsScreen() {
             thumbColor={t.text}
           />
         </View>
-        <Text style={styles.help}>
-          Lägger klaviaturen och tongivningens knappar överst, med metronomen
-          under. Avstängt börjar vyn med metronomen, som förut.
-        </Text>
+        <Text style={styles.help}>{T.inst.tongivningFörstText}</Text>
       </Card>
 
       <Card>
-        <SectionTitle>Startvy</SectionTitle>
+        <SectionTitle>{T.inst.startvy}</SectionTitle>
         <SegmentedControl
           value={settings.startTab}
           onChange={(startTab) => updateSettings({ startTab })}
-          options={[
-            { value: 'auto' as const, label: 'Automatisk' },
-            { value: 'play' as const, label: '+' },
-            { value: 'songs' as const, label: 'Låtlistan' },
-          ]}
+          options={(['auto', 'play', 'songs'] as const).map((value) => ({
+            value,
+            label: T.inst.startvyVal[value],
+          }))}
         />
-        <Text style={styles.help}>
-          Automatisk öppnar låtlistan när det finns sparade låtar, annars
-          skapandet.
-        </Text>
+        <Text style={styles.help}>{T.inst.startvyText}</Text>
       </Card>
 
       <Card>
-        <SectionTitle>Tempo från låtlistan</SectionTitle>
+        <SectionTitle>{T.inst.tempoFrånListan}</SectionTitle>
         <View style={styles.row}>
-          <Text style={styles.rowLabel}>Stoppa av sig själv</Text>
+          <Text style={styles.rowLabel}>{T.inst.stoppaSjälv}</Text>
           <Switch
             value={settings.autoStopFromList}
             onValueChange={(autoStopFromList) =>
@@ -254,28 +231,27 @@ export function SettingsScreen() {
         </View>
         {settings.autoStopFromList ? (
           <View style={styles.row}>
-            <Text style={styles.rowLabel}>Efter</Text>
+            <Text style={styles.rowLabel}>{T.inst.efter}</Text>
             <Stepper
               value={settings.autoStopBeats}
               min={MIN_AUTO_STOP_BEATS}
               max={MAX_AUTO_STOP_BEATS}
               step={2}
               onChange={(autoStopBeats) => updateSettings({ autoStopBeats })}
-              format={(value) => `${value} slag`}
+              format={(value) => T.inst.antalSlag(value)}
             />
           </View>
         ) : null}
         <Text style={styles.help}>
-          Tempoknappen i låtlistan stoppar metronomen av sig själv efter
-          {settings.autoStopFromList ? ` ${settings.autoStopBeats}` : ' ett antal'}{' '}
-          slag — varje hörbart klick räknas, underdelningar med. Gäller bara
-          starter från listan — i spelvyn går metronomen tills du stoppar den.
+          {T.inst.autoStopText(
+            settings.autoStopFromList ? String(settings.autoStopBeats) : T.inst.ettAntal,
+          )}
         </Text>
       </Card>
 
       <Card>
         <View style={styles.row}>
-          <SectionTitle>Tonnamn på tangenterna</SectionTitle>
+          <SectionTitle>{T.inst.tonnamn}</SectionTitle>
           <Pressable
             onPress={() => updateSettings({ showNoteNames: !settings.showNoteNames })}
             style={[styles.toggle, settings.showNoteNames && styles.toggleOn]}
@@ -286,7 +262,7 @@ export function SettingsScreen() {
                 settings.showNoteNames && styles.toggleTextOn,
               ]}
             >
-              {settings.showNoteNames ? 'Visas' : 'Dolda'}
+              {settings.showNoteNames ? T.inst.visas : T.inst.dolda}
             </Text>
           </Pressable>
         </View>
@@ -295,15 +271,15 @@ export function SettingsScreen() {
           value={settings.labelSystem}
           onChange={(labelSystem) => updateSettings({ labelSystem })}
           options={[
-            { value: 'letters' as const, label: 'Bokstäver' },
-            { value: 'solfege' as const, label: 'Do re mi' },
-            { value: 'degrees' as const, label: 'Tonplatser' },
+            { value: 'letters' as const, label: T.inst.bokstäver },
+            { value: 'solfege' as const, label: T.inst.doReMi },
+            { value: 'degrees' as const, label: T.inst.tonplatser },
           ]}
         />
 
         {settings.labelSystem === 'letters' ? (
           <>
-            <Text style={styles.rowLabel}>Bokstavssystem</Text>
+            <Text style={styles.rowLabel}>{T.inst.bokstavssystem}</Text>
             <SegmentedControl
               value={settings.naming}
               onChange={(naming) => updateSettings({ naming })}
@@ -314,61 +290,53 @@ export function SettingsScreen() {
             />
             <Text style={styles.help}>
               {settings.naming === 'international'
-                ? 'Internationell notation: tonen över A heter B, och tonen ett halvt steg under heter B♭.'
-                : 'Svensk notation: tonen över A heter H, och tonen ett halvt steg under heter B.'}
+                ? T.inst.internationellText
+                : T.inst.svenskText}
             </Text>
           </>
         ) : (
           <>
-            <Text style={styles.rowLabel}>Räknas från</Text>
+            <Text style={styles.rowLabel}>{T.inst.räknasFrån}</Text>
             <SegmentedControl
               value={settings.labelReference}
               tint={t.pure}
               onChange={(labelReference) => updateSettings({ labelReference })}
               options={[
-                { value: 'tonic' as const, label: 'Grundtonen' },
+                { value: 'tonic' as const, label: T.inst.grundtonen },
                 { value: 'c' as const, label: 'C' },
               ]}
             />
             <Text style={styles.help}>
               {settings.labelReference === 'tonic'
-                ? `Flyttbart: grundtonen blir alltid ${
-                    settings.labelSystem === 'solfege' ? 'do' : 'I'
-                  }, så samma benämning betyder samma funktion oavsett tonart. Grundtonen väljs med dubbeltryck på klaviaturen.`
-                : `Fast: C är alltid ${
-                    settings.labelSystem === 'solfege' ? 'do' : 'I'
-                  }, oavsett vilken tonart stycket går i.`}
+                ? T.inst.flyttbartText(settings.labelSystem === 'solfege' ? 'do' : 'I')
+                : T.inst.fastText(settings.labelSystem === 'solfege' ? 'do' : 'I')}
             </Text>
             {settings.labelSystem === 'solfege' ? (
-              <Text style={styles.footnote}>
-                Halvtonerna stavas sänkta — ra, me, le, te — utom den höjda
-                kvarten fi. En kör möter till exempel F i G-dur som sänkt septim,
-                inte som höjd sext.
-              </Text>
+              <Text style={styles.footnote}>{T.inst.solfegeFotnot}</Text>
             ) : null}
           </>
         )}
 
-        <Text style={styles.rowLabel}>Markera grundtonstangenten</Text>
+        <Text style={styles.rowLabel}>{T.inst.markeraGrundton}</Text>
         <SegmentedControl
           value={settings.markTonicInTempered ? 'always' : 'just'}
           tint={t.pure}
           onChange={(val) => updateSettings({ markTonicInTempered: val === 'always' })}
           options={[
-            { value: 'just' as const, label: 'Bara i ren stämning' },
-            { value: 'always' as const, label: 'Alltid' },
+            { value: 'just' as const, label: T.inst.baraIRen },
+            { value: 'always' as const, label: T.inst.alltid },
           ]}
         />
         <Text style={styles.help}>
           {settings.markTonicInTempered
-            ? 'Grundtonen märks ut med etikett och färg i båda stämningarna.'
-            : 'Grundtonen märks bara ut i ren stämning, där allt annat stäms mot den. I tempererad stämning har den ingen hörbar följd.'}
+            ? T.inst.grundtonAlltidText
+            : T.inst.grundtonRenText}
         </Text>
       </Card>
 
       <Card>
         <View style={styles.row}>
-          <SectionTitle>Avancerade underdelningar</SectionTitle>
+          <SectionTitle>{T.inst.avanceradeUnderdelningar}</SectionTitle>
           <Pressable
             onPress={() =>
               updateSettings({
@@ -383,51 +351,39 @@ export function SettingsScreen() {
                 settings.showAdvancedSubdivisions && styles.toggleTextOn,
               ]}
             >
-              {settings.showAdvancedSubdivisions ? 'Visas' : 'Dolda'}
+              {settings.showAdvancedSubdivisions ? T.inst.visas : T.inst.dolda}
             </Text>
           </Pressable>
         </View>
-        <Text style={styles.help}>
-          Lägger till swing, punkterat och kvintol bland underdelningarna i
-          spelvyn. Till skillnad från de vanliga är de ojämnt fördelade över
-          taktslaget.
-        </Text>
+        <Text style={styles.help}>{T.inst.avanceradeText}</Text>
         {SUBDIVISION_ORDER.filter((id) => SUBDIVISIONS[id].advanced).map((id) => (
           <Text key={id} style={styles.footnote}>
-            <Text style={styles.rowLabel}>{SUBDIVISIONS[id].label}</Text>
+            <Text style={styles.rowLabel}>{T.underdelning[id].namn}</Text>
             {'  '}
-            {SUBDIVISIONS[id].description}
+            {T.underdelning[id].text}
           </Text>
         ))}
       </Card>
 
       <Card>
-        <SectionTitle>Taktvisare</SectionTitle>
+        <SectionTitle>{T.inst.taktvisare}</SectionTitle>
         <SegmentedControl
           value={settings.metronomeVisual}
           onChange={(metronomeVisual) => updateSettings({ metronomeVisual })}
-          options={[
-            { value: 'pendulum' as const, label: 'Pendel' },
-            { value: 'bar' as const, label: 'Streck' },
-            { value: 'ball' as const, label: 'Boll' },
-            { value: 'none' as const, label: 'Ingen' },
-          ]}
+          options={(['pendulum', 'bar', 'ball', 'none'] as const).map((value) => ({
+            value,
+            label: T.inst.taktvisareVal[value],
+          }))}
         />
         <Text style={styles.help}>
-          {settings.metronomeVisual === 'pendulum'
-            ? 'En klassisk pendel som vänder på varje taktslag.'
-            : settings.metronomeVisual === 'bar'
-              ? 'Ett streck som går fram och tillbaka och vänder på varje taktslag.'
-              : settings.metronomeVisual === 'ball'
-                ? 'En boll som studsar mot marken på varje taktslag. Studsen blir högre vid långsamma tempon och lägre vid snabba.'
-                : 'Ingen grafisk taktvisare. Taktdelarna syns ändå som prickar i tempohjulet.'}
+          {T.inst.taktvisareText[settings.metronomeVisual]}
         </Text>
       </Card>
 
       <Card>
-        <SectionTitle>Tongivning</SectionTitle>
+        <SectionTitle>{T.spel.tongivning}</SectionTitle>
 
-        <Text style={styles.rowLabel}>Klangfärg</Text>
+        <Text style={styles.rowLabel}>{T.inst.klangfärg}</Text>
         <View style={styles.timbreGrid}>
           {TIMBRE_ORDER.map((id) => {
             const vald = settings.toneTimbre === id;
@@ -448,23 +404,22 @@ export function SettingsScreen() {
                 <Text
                   style={[styles.timbreChipText, vald && styles.timbreChipTextOn]}
                 >
-                  {TIMBRES[id].label}
+                  {T.klang[id].namn}
                 </Text>
               </Pressable>
             );
           })}
         </View>
         <Text style={styles.help}>
-          {timbreOr(settings.toneTimbre).description} Tryck på en klang för att
-          höra den.
+          {T.klang[timbreOr(settings.toneTimbre).id].text} {T.inst.tryckFörAttHöra}
         </Text>
 
-        <Button label="Tongivning" variant="pure" onPress={testToneGap} />
+        <Button label={T.spel.tongivning} variant="pure" onPress={testToneGap} />
 
         <View style={styles.row}>
-          <Text style={styles.rowLabel}>Tempo på tongivning</Text>
+          <Text style={styles.rowLabel}>{T.inst.tempoPåTongivning}</Text>
           <Text style={styles.rowValue}>
-            {settings.defaultToneGapBpm} slag/min
+            {T.inst.slagPerMin(settings.defaultToneGapBpm)}
           </Text>
         </View>
         <Slider
@@ -474,25 +429,13 @@ export function SettingsScreen() {
           step={1}
           onChange={(defaultToneGapBpm) => updateSettings({ defaultToneGapBpm })}
         />
-        <Text style={styles.help}>
-          Tempot mellan tonerna när de ges en i taget. Gäller alla låtar.
-          Knappen ovanför spelar spelvyns toner, eller ett C-durackord uppifrån
-          och ner om inga är valda.
-        </Text>
-        <Text style={styles.footnote}>
-          Tonerna sparas alltid i den ordning du väljer dem. Knapparna i spelvyn
-          avgör om de ges nedifrån och upp, uppifrån och ner, eller i den valda
-          ordningen.
-        </Text>
+        <Text style={styles.help}>{T.inst.tongivningText}</Text>
+        <Text style={styles.footnote}>{T.inst.tonordningFotnot}</Text>
       </Card>
 
       <Card>
-        <SectionTitle>Rena intervall</SectionTitle>
-        <Text style={styles.help}>
-          I ren stämning byggs varje intervall av en enkel frekvenskvot, vilket
-          gör att övertonerna sammanfaller och svävningarna försvinner. Så här
-          mycket skiljer sig tonerna från ett piano:
-        </Text>
+        <SectionTitle>{T.inst.renaIntervall}</SectionTitle>
+        <Text style={styles.help}>{T.inst.renaIntervallText}</Text>
         <View style={styles.table}>
           {JUST_RATIOS.map(([numerator, denominator], step) => {
             const cents = centsBetween(
@@ -501,7 +444,7 @@ export function SettingsScreen() {
             );
             return (
               <View key={step} style={styles.tableRow}>
-                <Text style={styles.tableInterval}>{INTERVAL_NAMES[step]}</Text>
+                <Text style={styles.tableInterval}>{T.intervall[step]}</Text>
                 <Text style={styles.tableRatio}>
                   {numerator}/{denominator}
                 </Text>
@@ -518,9 +461,7 @@ export function SettingsScreen() {
             );
           })}
         </View>
-        <Text style={styles.footnote}>
-          Avvikelse i cent, där 100 cent är en halvton på pianot.
-        </Text>
+        <Text style={styles.footnote}>{T.inst.centFotnot}</Text>
       </Card>
 
       {/*
@@ -530,15 +471,9 @@ export function SettingsScreen() {
         * står här. Tas det bort får appen inte längre använda ljudet.
         */}
       <Card>
-        <SectionTitle>Tack</SectionTitle>
-        <Text style={styles.help}>
-          Flygeln är Salamander Grand Piano V3 — en Yamaha C5 inspelad av
-          Alexander Holm, använd under licensen CC BY 3.0.
-        </Text>
-        <Text style={styles.footnote}>
-          Proven är bearbetade: ett urval av tonerna, transponerade till
-          tonhöjderna däremellan, med kortad utklingning och justerad nivå.
-        </Text>
+        <SectionTitle>{T.inst.tack}</SectionTitle>
+        <Text style={styles.help}>{T.inst.tackText}</Text>
+        <Text style={styles.footnote}>{T.inst.tackFotnot}</Text>
         <Pressable
           onPress={() => {
             // Öppnar i webbläsaren. Misslyckas det är det inget att göra åt,
