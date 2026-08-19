@@ -182,6 +182,19 @@ export const sv = {
     renaIntervallText:
       'I ren stämning byggs varje intervall av en enkel frekvenskvot, vilket gör att övertonerna sammanfaller och svävningarna försvinner. Så här mycket skiljer sig tonerna från ett piano:',
     centFotnot: 'Avvikelse i cent, där 100 cent är en halvton på pianot.',
+    säkerhetskopia: 'Säkerhetskopia',
+    säkerhetskopiaText:
+      'Sparar hela biblioteket — låtar, mappar, tempon och toner — som en fil du kan lägga i iCloud Drive, mejla eller flytta till en annan telefon.',
+    sparaKopia: 'Spara en kopia',
+    läsInKopia: 'Läs in en kopia',
+    inläst: (tillagda: number, uppdaterade: number) =>
+      tillagda === 0 && uppdaterade === 0
+        ? 'Kopian är inläst. Biblioteket hade redan allt den innehöll.'
+        : `Kopian är inläst: ${tillagda} ${tillagda === 1 ? 'låt' : 'låtar'} lades till och ${uppdaterade} ${uppdaterade === 1 ? 'byttes' : 'byttes'} mot en nyare version.`,
+    inteEnKopia:
+      'Filen gick inte att läsa som en bibliotekskopia. Ingenting har ändrats.',
+    inläsningAldrigRaderar:
+      'Inläsning lägger till och uppdaterar, men tar aldrig bort något.',
     tack: 'Tack',
     tackText:
       'Flygeln är Salamander Grand Piano V3 — en Yamaha C5 inspelad av Alexander Holm, använd under licensen CC BY 3.0.',

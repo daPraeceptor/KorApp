@@ -172,6 +172,17 @@ export const en: Texter = {
     renaIntervallText:
       'In just intonation every interval is built from a simple frequency ratio, which makes the overtones coincide and the beating disappear. This is how much the notes differ from a piano:',
     centFotnot: 'Deviation in cents, where 100 cents is one semitone on the piano.',
+    säkerhetskopia: 'Backup',
+    säkerhetskopiaText:
+      'Saves the whole library — songs, folders, tempos and notes — as a file you can put in iCloud Drive, email or move to another phone.',
+    sparaKopia: 'Save a copy',
+    läsInKopia: 'Load a copy',
+    inläst: (tillagda, uppdaterade) =>
+      tillagda === 0 && uppdaterade === 0
+        ? 'The copy is loaded. The library already had everything in it.'
+        : `The copy is loaded: ${tillagda} ${tillagda === 1 ? 'song' : 'songs'} added and ${uppdaterade} replaced by a newer version.`,
+    inteEnKopia: 'The file could not be read as a library copy. Nothing has changed.',
+    inläsningAldrigRaderar: 'Loading adds and updates, but never removes anything.',
     tack: 'Thanks',
     tackText:
       'The grand piano is Salamander Grand Piano V3 — a Yamaha C5 recorded by Alexander Holm, used under the CC BY 3.0 licence.',

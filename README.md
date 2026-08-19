@@ -53,6 +53,12 @@ under utvecklingen.
   telefonens eget rotationslås — appen har med flit inget eget. Liggande ger
   bredare tempohjul och en klaviatur som syns på längre håll, och tangenterna
   behåller sin form i båda riktningarna.
+- **Säkerhetskopiering i två lager.** Telefonens egen iCloud-kopia bär appens
+  data när en ny telefon återställs från den gamla — det sköter iOS självt.
+  Därutöver kan hela biblioteket sparas som en fil från inställningarna,
+  genom systemets delningsark: till iCloud Drive, mejl eller AirDrop.
+  Inläsning av en kopia lägger till och uppdaterar men raderar aldrig, så en
+  gammal fil kan inte skada ett nyare bibliotek.
 - **Svenska eller internationella tonnamn.** Internationellt (B) är standard;
   svenskt (H) går att välja i inställningarna.
 

@@ -42,7 +42,8 @@
     },
     "plugins": [
       "react-native-audio-api",
-      "expo-localization"
+      "expo-localization",
+      "expo-sharing"
     ],
     "extra": {
       "eas": {

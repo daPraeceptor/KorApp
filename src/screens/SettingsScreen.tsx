@@ -19,6 +19,8 @@ import {
   Stepper,
 } from '../components/ui';
 import { audioEngine } from '../audio/engine';
+import { delaKopia, väljKopia } from '../backup/delakopia';
+import { kopieNamn, skapaKopia } from '../backup/bibliotekskopia';
 import { T } from '../i18n';
 import {
   MAX_AUTO_STOP_BEATS,
@@ -48,7 +50,30 @@ const TEST_CHORD = [60, 64, 67, 72];
 export function SettingsScreen() {
   const t = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const { settings, updateSettings, live, playTones } = useAppState();
+  const { settings, updateSettings, live, playTones, songs, folders, importeraKopia } =
+    useAppState();
+  /** Beskedet efter en inläsning, kvar tills nästa försök. */
+  const [kopiebesked, setKopiebesked] = useState<string | null>(null);
+
+  const sparaKopia = () => {
+    const nu = new Date();
+    void delaKopia(kopieNamn(nu), skapaKopia(songs, folders, nu)).catch(() => {
+      // Ett stängt delningsark är inget fel.
+    });
+  };
+
+  const läsKopia = async () => {
+    const innehåll = await väljKopia();
+    if (innehåll === null) {
+      return; // Avbrutet val ska inte ge något besked alls.
+    }
+    const resultat = importeraKopia(innehåll);
+    setKopiebesked(
+      resultat === null
+        ? T.inst.inteEnKopia
+        : T.inst.inläst(resultat.tillagda, resultat.uppdaterade),
+    );
+  };
   // Diagnostikloggen bor utanför React; räknaren tvingar fram omritningen.
 
   /**
@@ -433,6 +458,32 @@ export function SettingsScreen() {
         <Text style={styles.footnote}>{T.inst.tonordningFotnot}</Text>
       </Card>
 
+      {/*
+        * Kopian är repertoarens livlina: telefonens egen iCloud-kopia täcker
+        * bara byte av telefon, inte en raderad app eller flytten till en
+        * kollega. Filen delas genom systemets ark — därifrån når man iCloud
+        * Drive, mejl och AirDrop utan att appen känner till någon molntjänst.
+        */}
+      <Card>
+        <SectionTitle>{T.inst.säkerhetskopia}</SectionTitle>
+        <Text style={styles.help}>{T.inst.säkerhetskopiaText}</Text>
+        <View style={styles.saveRow}>
+          <Button
+            label={T.inst.sparaKopia}
+            variant="primary"
+            onPress={sparaKopia}
+            style={styles.saveRowButton}
+          />
+          <Button
+            label={T.inst.läsInKopia}
+            onPress={() => void läsKopia()}
+            style={styles.saveRowButton}
+          />
+        </View>
+        {kopiebesked ? <Text style={styles.help}>{kopiebesked}</Text> : null}
+        <Text style={styles.footnote}>{T.inst.inläsningAldrigRaderar}</Text>
+      </Card>
+
       <Card>
         <SectionTitle>{T.inst.renaIntervall}</SectionTitle>
         <Text style={styles.help}>{T.inst.renaIntervallText}</Text>
@@ -563,6 +614,13 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     color: t.textMuted,
     fontSize: 11,
     lineHeight: 16,
+  },
+  saveRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  saveRowButton: {
+    flex: 1,
   },
   link: {
     color: t.tone,

@@ -68,6 +68,7 @@ import {
 } from './settings';
 import { setPulse } from './pulse';
 import { T } from '../i18n';
+import { läsInKopia } from '../backup/bibliotekskopia';
 
 export type { PlayDirection } from '../store/songs';
 export type { MetronomeVisualStyle, Settings, StartTab } from './settings';
@@ -262,6 +263,11 @@ interface AppStateValue {
   moveSongInFolder: (songId: string, direction: -1 | 1) => void;
 
   addSong: (title: string) => Song;
+  /**
+   * Väver in en säkerhetskopia i biblioteket. Lägger till och uppdaterar,
+   * raderar aldrig. Null när filen inte är en bibliotekskopia.
+   */
+  importeraKopia: (json: string) => { tillagda: number; uppdaterade: number } | null;
   updateSong: (id: string, patch: Partial<Song>) => void;
   deleteSong: (id: string) => void;
   clearCurrentSong: () => void;
@@ -551,6 +557,19 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     [live],
   );
 
+  const importeraKopia = useCallback(
+    (json: string): { tillagda: number; uppdaterade: number } | null => {
+      const resultat = läsInKopia(json, songs, folders);
+      if (!resultat) {
+        return null;
+      }
+      setSongs(resultat.songs);
+      setFolders(resultat.folders);
+      return { tillagda: resultat.tillagda, uppdaterade: resultat.uppdaterade };
+    },
+    [songs, folders],
+  );
+
   const addFolder = useCallback((name: string) => {
     const folder = createFolder(name);
     setFolders((current) => sortFolders([...current, folder]));
@@ -691,6 +710,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       moveSongToFolder,
       moveSongInFolder,
       addSong,
+      importeraKopia,
       updateSong,
       deleteSong,
       clearCurrentSong,
@@ -724,6 +744,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       moveSongToFolder,
       moveSongInFolder,
       addSong,
+      importeraKopia,
       updateSong,
       deleteSong,
       clearCurrentSong,
