@@ -190,6 +190,20 @@ export const en: Texter = {
       'The samples are adapted: a selection of the notes, transposed to the pitches in between, with shortened decay and adjusted level.',
   },
 
+  uppläst: {
+    minska: 'Decrease',
+    öka: 'Increase',
+    tempohjul: 'Tempo',
+    slagPerMinutVärde: (bpm) => `${bpm} beats per minute`,
+    justerbarLedtråd: 'Swipe up or down to adjust',
+    flikSkapa: 'New song',
+    flikRedigera: 'Edit the song',
+    flikLåtar: 'Song list',
+    flikInställningar: 'Settings',
+    tangent: (ton) => `Key ${ton}`,
+    draKnappLedtråd: 'Double tap to activate',
+  },
+
   volym: {
     avstängt: 'The phone is muted',
     nästanAvstängt: 'The phone volume is nearly off',

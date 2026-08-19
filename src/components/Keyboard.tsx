@@ -20,6 +20,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { haptik } from '../haptics';
+import { T } from '../i18n';
 import {
   BLACK_KEY_HEIGHT,
   BLACK_KEY_WIDTH,
@@ -36,6 +37,7 @@ import {
   isBlackKey,
   isLabelRoot,
   noteLabel,
+  noteNameWithOctave,
   octaveOf,
   pitchClass,
 } from '../theory/tuning';
@@ -255,6 +257,9 @@ export function Keyboard({
               key={midi}
               onPressIn={() => void press(midi)}
               onPressOut={() => release(midi)}
+              accessibilityRole="button"
+              accessibilityLabel={T.uppläst.tangent(noteNameWithOctave(midi, labels.naming))}
+              accessibilityState={{ selected: saved, disabled: playableTones ? !playableTones.includes(midi) : false }}
               style={[
                 styles.whiteKey,
                 { width: keyWidth, height: keyHeight },
@@ -286,6 +291,9 @@ export function Keyboard({
               key={midi}
               onPressIn={() => void press(midi)}
               onPressOut={() => release(midi)}
+              accessibilityRole="button"
+              accessibilityLabel={T.uppläst.tangent(noteNameWithOctave(midi, labels.naming))}
+              accessibilityState={{ selected: saved, disabled: playableTones ? !playableTones.includes(midi) : false }}
               style={[
                 styles.blackKey,
                 {

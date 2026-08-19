@@ -223,6 +223,19 @@ export function TempoWheel({
     <View
       ref={wheelRef}
       onLayout={measure}
+      // Vridgesten finns inte för en skärmläsare. Justerbar-rollen ger
+      // svep-upp/ner i stället: ett slag i minuten per svep, med värdet
+      // uppläst efter varje ändring.
+      accessible
+      accessibilityRole="adjustable"
+      accessibilityLabel={T.uppläst.tempohjul}
+      accessibilityHint={T.uppläst.justerbarLedtråd}
+      accessibilityValue={{ min: MIN_BPM, max: MAX_BPM, now: bpm, text: T.uppläst.slagPerMinutVärde(bpm) }}
+      accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+      onAccessibilityAction={(event) => {
+        const delta = event.nativeEvent.actionName === 'increment' ? 1 : -1;
+        onChange(clampBpm(bpm + delta));
+      }}
       style={[styles.container, { width: size, height: size }, WEB_GESTURE_STYLE]}
       {...panResponder.panHandlers}
     >

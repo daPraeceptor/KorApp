@@ -109,7 +109,11 @@ export function MetronomeVisual({
     // Parabel: bollen är nere vid taktslaget och högst mitt emellan.
     const lift = running ? height * 4 * phase * (1 - phase) : 0;
     return (
-      <View style={styles.container}>
+      <View
+        style={styles.container}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+      >
         <View style={styles.ballArea}>
           <View style={[styles.ball, onBeat && styles.ballAccent, { bottom: lift }]} />
         </View>
@@ -129,7 +133,11 @@ export function MetronomeVisual({
     // blickstilla mitt på banan oavsett takt.
     const andel = running ? direction * (2 * phase - 1) : 0;
     return (
-      <View style={styles.container}>
+      <View
+        style={styles.container}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+      >
         <View style={styles.track} />
         <View
           style={[
@@ -152,7 +160,11 @@ export function MetronomeVisual({
   const weightAt = 58;
 
   return (
-    <View style={styles.container}>
+    <View
+      style={styles.container}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    >
       <Svg width="100%" height={HEIGHT} viewBox="0 0 200 150">
         <Path
           d="M74 140 L96 30 L104 30 L126 140 Z"

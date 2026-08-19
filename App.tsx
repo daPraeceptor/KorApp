@@ -202,6 +202,17 @@ function Shell() {
               <Pressable
                 key={id}
                 onPress={() => openTab(id)}
+                accessibilityRole="tab"
+                accessibilityLabel={
+                  id === 'play'
+                    ? currentSong
+                      ? T.uppläst.flikRedigera
+                      : T.uppläst.flikSkapa
+                    : id === 'songs'
+                      ? T.uppläst.flikLåtar
+                      : T.uppläst.flikInställningar
+                }
+                accessibilityState={{ selected: active }}
                 style={[
                   styles.tab,
                   compact && styles.tabCompact,

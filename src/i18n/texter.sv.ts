@@ -202,6 +202,24 @@ export const sv = {
       'Proven är bearbetade: ett urval av tonerna, transponerade till tonhöjderna däremellan, med kortad utklingning och justerad nivå.',
   },
 
+  /**
+   * Det skärmläsaren säger. Etiketter för det som annars bara är en bild
+   * eller en gest: flikarna, hjulet, stegknapparna, tangenterna.
+   */
+  uppläst: {
+    minska: 'Minska',
+    öka: 'Öka',
+    tempohjul: 'Tempo',
+    slagPerMinutVärde: (bpm: number) => `${bpm} slag per minut`,
+    justerbarLedtråd: 'Svep upp eller ner för att ändra',
+    flikSkapa: 'Ny låt',
+    flikRedigera: 'Redigera låten',
+    flikLåtar: 'Låtlistan',
+    flikInställningar: 'Inställningar',
+    tangent: (ton: string) => `Tangent ${ton}`,
+    draKnappLedtråd: 'Dubbeltryck för att utföra',
+  },
+
   volym: {
     avstängt: 'Telefonens ljud är avstängt',
     nästanAvstängt: 'Telefonens volym är nästan avstängd',

@@ -178,6 +178,7 @@ export function SettingsScreen() {
         <View style={styles.row}>
           <Text style={styles.rowLabel}>{T.inst.betonaEttan}</Text>
           <Switch
+            accessibilityLabel={T.inst.betonaEttan}
             value={settings.accentFirstBeat}
             onValueChange={(accentFirstBeat) =>
               updateSettings({ accentFirstBeat })
@@ -190,6 +191,7 @@ export function SettingsScreen() {
         <View style={styles.row}>
           <Text style={styles.rowLabel}>{T.inst.hållSkärmenTänd}</Text>
           <Switch
+            accessibilityLabel={T.inst.hållSkärmenTänd}
             value={settings.keepAwake}
             onValueChange={(keepAwake) => updateSettings({ keepAwake })}
             trackColor={{ false: t.border, true: t.accent }}
@@ -205,6 +207,7 @@ export function SettingsScreen() {
         <View style={styles.row}>
           <Text style={styles.rowLabel}>{T.inst.vibration}</Text>
           <Switch
+            accessibilityLabel={T.inst.vibration}
             value={settings.haptics}
             onValueChange={(haptics) => updateSettings({ haptics })}
             trackColor={{ false: t.border, true: t.accent }}
@@ -219,6 +222,7 @@ export function SettingsScreen() {
         <View style={styles.row}>
           <Text style={styles.rowLabel}>{T.inst.tongivningFörst}</Text>
           <Switch
+            accessibilityLabel={T.inst.tongivningFörst}
             value={settings.tonesFirst}
             onValueChange={(tonesFirst) => updateSettings({ tonesFirst })}
             trackColor={{ false: t.border, true: t.accent }}
@@ -246,6 +250,7 @@ export function SettingsScreen() {
         <View style={styles.row}>
           <Text style={styles.rowLabel}>{T.inst.stoppaSjälv}</Text>
           <Switch
+            accessibilityLabel={T.inst.stoppaSjälv}
             value={settings.autoStopFromList}
             onValueChange={(autoStopFromList) =>
               updateSettings({ autoStopFromList })

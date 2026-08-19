@@ -466,6 +466,7 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
                 {T.spel.renStämning}
               </Text>
               <Switch
+                accessibilityLabel={T.spel.renStämning}
                 value={live.tuningSystem === 'just'}
                 onValueChange={(pa) =>
                   updateLive({ tuningSystem: pa ? 'just' : 'tempered' })

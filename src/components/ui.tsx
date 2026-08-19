@@ -13,6 +13,7 @@ import {
 import Svg, { Path, Rect } from 'react-native-svg';
 
 import { haptik } from '../haptics';
+import { T } from '../i18n';
 import { useTheme } from '../ThemeContext';
 import { Palette, ThemeId, radius, spacing } from '../theme';
 
@@ -100,6 +101,9 @@ export function Button({
     <Pressable
       onPress={onPress}
       disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled }}
       style={({ pressed }) => [
         styles.button,
         variants[variant],
@@ -151,6 +155,9 @@ export function SegmentedControl<T extends string | number>({
         return (
           <Pressable
             key={String(option.value)}
+            accessibilityRole="button"
+            accessibilityLabel={option.label || String(option.value)}
+            accessibilityState={{ selected }}
             onPress={() => onChange(option.value)}
             style={[
               styles.segment,
@@ -205,6 +212,9 @@ export function Stepper({
       <Pressable
         onPress={() => change(-step)}
         disabled={value <= min}
+        accessibilityRole="button"
+        accessibilityLabel={T.uppläst.minska}
+        accessibilityState={{ disabled: value <= min }}
         style={({ pressed }) => [
           styles.stepperButton,
           pressed && styles.buttonPressed,
@@ -217,6 +227,9 @@ export function Stepper({
       <Pressable
         onPress={() => change(step)}
         disabled={value >= max}
+        accessibilityRole="button"
+        accessibilityLabel={T.uppläst.öka}
+        accessibilityState={{ disabled: value >= max }}
         style={({ pressed }) => [
           styles.stepperButton,
           pressed && styles.buttonPressed,
@@ -316,6 +329,15 @@ export function Slider({
     <View
       ref={trackRef}
       onLayout={() => measure()}
+      accessible
+      accessibilityRole="adjustable"
+      accessibilityHint={T.uppläst.justerbarLedtråd}
+      accessibilityValue={{ min, max, now: value }}
+      accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+      onAccessibilityAction={(event) => {
+        const delta = event.nativeEvent.actionName === 'increment' ? step : -step;
+        onChange(Math.min(max, Math.max(min, value + delta)));
+      }}
       style={[styles.sliderHit, WEB_GESTURE_STYLE]}
       {...panResponder.panHandlers}
     >
@@ -401,6 +423,17 @@ export function SlideToConfirm({
   return (
     <View
       style={styles.slideTrack}
+      accessible
+      accessibilityRole="button"
+      accessibilityLabel={hint}
+      accessibilityHint={T.uppläst.draKnappLedtråd}
+      accessibilityActions={[{ name: 'activate' }]}
+      onAccessibilityAction={(event) => {
+        if (event.nativeEvent.actionName === 'activate') {
+          haptik.klar();
+          onConfirm();
+        }
+      }}
       onLayout={(e) => {
         trackWidth.current = e.nativeEvent.layout.width;
       }}

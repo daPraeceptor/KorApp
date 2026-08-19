@@ -167,7 +167,11 @@ function MiniMetronomeIPuls({ bpm, color }: { bpm: number; color: string }) {
   }
 
   return (
-    <View style={styles_mini.ram}>
+    <View
+      style={styles_mini.ram}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    >
       <MiniLåda color={color} />
       <View
         style={[
@@ -233,7 +237,11 @@ function MiniMetronome({
 
   const grader = (MINI_UTSLAG * 180) / Math.PI;
   return (
-    <View style={styles_mini.ram}>
+    <View
+      style={styles_mini.ram}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    >
       <MiniLåda color={color} />
       <Animated.View
         style={[
