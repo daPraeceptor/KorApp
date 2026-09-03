@@ -101,6 +101,15 @@ interface Props {
    * sidled som vanligt.
    */
   fillWidth?: boolean;
+  /**
+   * Ytans bredd, så fort den är mätt.
+   *
+   * Anroparen behöver den för att kunna välja tonspann efter hur mycket
+   * plats som finns. Måttet tas här och inte på ett omslag hos anroparen:
+   * onLayout på en vanlig vy avfyras inte på webben, men rullningsvyns egen
+   * gör det — och det är ändå den som är ytan.
+   */
+  onAreaWidth?: (bredd: number) => void;
 }
 
 export function Keyboard({
@@ -117,6 +126,7 @@ export function Keyboard({
   onNotePlayed,
   playableTones,
   fillWidth = false,
+  onAreaWidth,
 }: Props) {
   const t = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -239,7 +249,11 @@ export function Keyboard({
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.scrollContent}
-      onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+      onLayout={(e) => {
+        const bredd = e.nativeEvent.layout.width;
+        setContainerWidth(bredd);
+        onAreaWidth?.(bredd);
+      }}
     >
       <View
         style={[

@@ -7,8 +7,8 @@
  */
 import React, {
   useEffect,
+  useImperativeHandle,
   useMemo,
-  useReducer,
   useRef,
   useState,
 } from 'react';
@@ -27,6 +27,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
   ViewStyle,
 } from 'react-native';
@@ -39,7 +40,8 @@ import { VolumeNotice } from '../components/VolumeNotice';
 import { haptik } from '../haptics';
 import { T } from '../i18n';
 import { klaviaturSpann } from './klaviaturSpann';
-import { useAppState, usePulse } from '../state/AppState';
+import { useAppState } from '../state/AppState';
+import { getPulse } from '../state/pulse';
 import { Folder, Song, searchSongs } from '../store/songs';
 import { noteName, noteNameWithOctave } from '../theory/tuning';
 import { Palette, radius, spacing } from '../theme';
@@ -51,6 +53,30 @@ import { useTheme, useThemedStyles } from '../ThemeContext';
  */
 const MINI_UTSLAG = 0.42;
 const MINI_NÅL = 13;
+
+/**
+ * Pendelns väg genom ett helt varv, som brytpunkter åt interpolate.
+ *
+ * Rörelsen är en kosinus: nålen står nästan stilla i vändlägena och far
+ * snabbast genom mitten. Animated kan inte räkna kosinus, men en rät linje
+ * mellan tillräckligt många punkter på kurvan går inte att skilja från den.
+ *
+ * Vinsten är att hela varvet blir en enda animering. En kedja av delrörelser
+ * — ett halvslag åt gången — kan aldrig drivas inbyggt: varje del måste
+ * avslutas tillbaka i JavaScript innan nästa startar, och just det uppehållet
+ * syntes som ett ryck vid varje vändläge.
+ *
+ * Första och sista punkten är samma vinkel, så att varvskarven inte syns.
+ */
+const PENDELSTEG = 24;
+const PENDELFAS = Array.from(
+  { length: PENDELSTEG + 1 },
+  (_, i) => i / PENDELSTEG,
+);
+const PENDELVINKEL = PENDELFAS.map(
+  (fas) =>
+    `${((MINI_UTSLAG * Math.cos(2 * Math.PI * fas) * 180) / Math.PI).toFixed(3)}deg`,
+);
 
 /**
  * Hur länge listan väntar efter senaste tangenttrycket innan den filtreras om.
@@ -139,32 +165,38 @@ function MiniNål({ color }: { color: string }) {
  * Bara den här varianten räknar sitt läge i JavaScript, och den finns i ett
  * enda exemplar: den ankras i de hörda klicken så att nålen vänder precis på
  * slaget. En fristående klocka glider annars ur fas med det man hör.
+ *
+ * Vinkeln skrivs direkt på den animerade noden med setValue, inte via React
+ * state. Ett useReducer-tick per bildruta tvingade annars om hela kortet
+ * sextio gånger i sekunden så länge låten spelade — under en hel repetition
+ * hinner den ihållande omräkningen både skräpa ner minnet och konkurrera med
+ * metronomens egen schemaläggare om samma tråd, och det syns till slut som
+ * hack i just den här pendeln.
  */
 function MiniMetronomeIPuls({ bpm, color }: { bpm: number; color: string }) {
-  const [, tick] = useReducer((count: number) => count + 1, 0);
-  const pulse = usePulse(true);
+  const vinkel = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    const beatMs = 60000 / bpm;
     let raf = 0;
     const loop = () => {
-      tick();
+      const puls = getPulse();
+      let grader: number;
+      if (puls) {
+        // Andel av slaget sedan klicket, med vändning i ytterläget på slaget.
+        const fas = Math.min(Math.max((Date.now() - puls.at) / beatMs, 0), 1);
+        const riktning = puls.count % 2 === 1 ? -1 : 1;
+        grader = (riktning * MINI_UTSLAG * Math.cos(Math.PI * fas) * 180) / Math.PI;
+      } else {
+        const beats = (Date.now() / 1000) * (bpm / 60);
+        grader = (Math.sin(Math.PI * beats) * MINI_UTSLAG * 180) / Math.PI;
+      }
+      vinkel.setValue(grader);
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, []);
-
-  const beatMs = 60000 / bpm;
-  let vinkel: number;
-  if (pulse) {
-    // Andel av slaget sedan klicket, med vändning i ytterläget på slaget.
-    const fas = Math.min(Math.max((Date.now() - pulse.at) / beatMs, 0), 1);
-    const riktning = pulse.count % 2 === 1 ? -1 : 1;
-    vinkel = riktning * MINI_UTSLAG * Math.cos(Math.PI * fas);
-  } else {
-    const beats = (Date.now() / 1000) * (bpm / 60);
-    vinkel = Math.sin(Math.PI * beats) * MINI_UTSLAG;
-  }
+  }, [bpm, vinkel]);
 
   return (
     <View
@@ -173,14 +205,25 @@ function MiniMetronomeIPuls({ bpm, color }: { bpm: number; color: string }) {
       importantForAccessibility="no-hide-descendants"
     >
       <MiniLåda color={color} />
-      <View
+      <Animated.View
         style={[
           styles_mini.nål,
-          { transform: [{ rotate: `${(vinkel * 180) / Math.PI}deg` }] },
+          {
+            transform: [
+              {
+                // Talvärdet är redan i grader — intervallet finns bara för att
+                // ge setValue en enhet att skriva ut, inte för att räkna om.
+                rotate: vinkel.interpolate({
+                  inputRange: [-360, 360],
+                  outputRange: ['-360deg', '360deg'],
+                }),
+              },
+            ],
+          },
         ]}
       >
         <MiniNål color={color} />
-      </View>
+      </Animated.View>
     </View>
   );
 }
@@ -212,20 +255,24 @@ function MiniMetronome({
     if (följerPulsen) {
       return;
     }
-    // Ett slag per svängning från kant till kant, som på en riktig metronom.
-    const halvslag = 60000 / bpm;
-    const åtSidan = (till: number) =>
+    // Ett slag per svängning från kant till kant, som på en riktig metronom —
+    // ett helt varv, höger till vänster och tillbaka igen, är alltså två slag.
+    const varv = (2 * 60000) / bpm;
+    const rörelse = Animated.loop(
       Animated.timing(svängning, {
-        toValue: till,
-        duration: halvslag,
-        // Nålen saktar in mot vändlägena och far snabbast genom mitten.
-        easing: Easing.inOut(Easing.sin),
+        toValue: 1,
+        duration: varv,
+        // Rakt varv: in- och utsaktningen sitter i kurvan nedan. En easing
+        // här skulle räknas ovanpå den och rycka i nålen.
+        easing: Easing.linear,
         // Webben saknar den inbyggda drivningen men skriver ändå stilen
         // direkt på noden, utan att gå via React.
         useNativeDriver: Platform.OS !== 'web',
-      });
-    const rörelse = Animated.loop(
-      Animated.sequence([åtSidan(1), åtSidan(-1)]),
+      }),
+      // En ensam animering med inbyggd drivning kan loopa på egen hand, utan
+      // att varje varv väckas av JavaScript. Varvet nollställs mellan varven,
+      // men noll och ett är samma vinkel, så det syns inte.
+      { iterations: -1 },
     );
     rörelse.start();
     return () => rörelse.stop();
@@ -235,7 +282,6 @@ function MiniMetronome({
     return <MiniMetronomeIPuls bpm={bpm} color={color} />;
   }
 
-  const grader = (MINI_UTSLAG * 180) / Math.PI;
   return (
     <View
       style={styles_mini.ram}
@@ -250,8 +296,8 @@ function MiniMetronome({
             transform: [
               {
                 rotate: svängning.interpolate({
-                  inputRange: [-1, 1],
-                  outputRange: [`-${grader}deg`, `${grader}deg`],
+                  inputRange: PENDELFAS,
+                  outputRange: PENDELVINKEL,
                 }),
               },
             ],
@@ -401,18 +447,49 @@ function MutedSpeakerIcon({ color }: { color: string }) {
   );
 }
 
+/** Det skalet kan be listan om utifrån. */
+export interface SongsScreenHandle {
+  /**
+   * Rullar fram upplåsningsrutan i listans slut om någon del av den syns.
+   * Ligger den utanför skärmen anropas återfallet i stället, och skalet får
+   * fälla fram sitt eget draglås.
+   *
+   * @param annars körs när rutan inte syns alls.
+   */
+  visaUpplåsning(annars: () => void): void;
+}
+
 export function SongsScreen({
   onOpenPlay,
   locked = false,
   onLock,
+  onUnlock,
+  onUnlockRowVisibilityChange,
+  ref,
 }: {
   onOpenPlay: () => void;
   /** I konsertläget går det bara att spela upp — inget går att ändra. */
   locked?: boolean;
   onLock?: () => void;
+  onUnlock?: () => void;
+  /**
+   * Ropas när upplåsningsrutan sist i listan rullas in eller ut ur synhåll,
+   * så att skalet kan fälla undan sitt eget flytande draglås i stället för
+   * att låta två stå framme på samma skärm.
+   */
+  onUnlockRowVisibilityChange?: (synlig: boolean) => void;
+  ref?: React.Ref<SongsScreenHandle>;
 }) {
   const t = useTheme();
   const styles = useThemedStyles(makeStyles);
+  /**
+   * Liggande skärm i konsertläget ställer taktvisaren och tempoknappen till
+   * höger om klaviaturen i stället för ovanför den. Höjden är det som tar slut
+   * när telefonen ligger ner, och staplat tog kortet hela skärmen — då syns
+   * varken nästa låt eller resten av listan.
+   */
+  const { height: fönsterhöjd, width: fönsterbredd } = useWindowDimensions();
+  const liggandeKonsert = locked && fönsterbredd > fönsterhöjd;
   const {
     songs,
     folders,
@@ -914,6 +991,123 @@ export function SongsScreen({
   }, [locked]);
 
   /**
+   * Konsertläget lägger den valda låten mitt på skärmen.
+   *
+   * Körledaren behöver se nästa låt under den som sjungs just nu. Utan
+   * rullningen kan den valda hamna var som helst — längst ner i rutan med bara
+   * tomhet under sig, eller strax ovanför kanten.
+   *
+   * Måttet tas mot rullningens innehållsvy och inte mot skärmen: då är det
+   * redan ett innehållsläge, och behöver inte räknas om med ett rullningsläge
+   * som hinner ändras medan mätningen görs.
+   */
+  const centreraValdLåt = () => {
+    const id = currentSong?.id;
+    const kort = id ? cardRefs.current.get(id) : null;
+    /** Innehållsvyn saknas i typerna men finns i både appen och webben. */
+    const innehåll = (
+      scrollRef.current as unknown as {
+        getInnerViewRef?: () => unknown;
+      } | null
+    )?.getInnerViewRef?.();
+    if (!kort || !innehåll) {
+      return;
+    }
+    kort.measureLayout(
+      innehåll as never,
+      (_x, y, _bredd, höjd) => {
+        // Ryms kortet inte i rutan går det inte att centrera. Då läggs
+        // överkanten överst i stället, så att åtminstone rubriken syns.
+        const luft = Math.max(0, (viewportH.current - höjd) / 2);
+        const botten = Math.max(0, contentH.current - viewportH.current);
+        scrollRef.current?.scrollTo({
+          y: Math.min(Math.max(0, y - luft), botten),
+          animated: true,
+        });
+      },
+      () => {},
+    );
+  };
+
+  /** Upplåsningsrutan sist i listan, att mäta och rulla fram. */
+  const upplåsningsRef = useRef<View | null>(null);
+  /** Rutans läge i innehållet, från dess eget onLayout — billigare än att mäta om vid varje rullning. */
+  const upplåsningsLayout = useRef<{ y: number; höjd: number } | null>(null);
+  /** Senast anmälda synlighet, så att skalet inte får samma besked två gånger i rad. */
+  const upplåsningSynligFöreg = useRef(false);
+
+  /**
+   * Anmäler om upplåsningsrutan syns just nu, så att skalets flytande
+   * draglås kan fällas undan när listans egen ruta redan är framme — annars
+   * kan körledaren se två likadana reglage samtidigt om det flytande redan
+   * stod framme när rutan rullades in.
+   */
+  const rapporteraUpplåsningSynlighet = () => {
+    if (!locked || !onUnlockRowVisibilityChange) {
+      return;
+    }
+    const layout = upplåsningsLayout.current;
+    if (!layout) {
+      return;
+    }
+    const topp = scrollOffset.current;
+    const botten = topp + viewportH.current;
+    const synlig = layout.y < botten && layout.y + layout.höjd > topp;
+    if (synlig !== upplåsningSynligFöreg.current) {
+      upplåsningSynligFöreg.current = synlig;
+      onUnlockRowVisibilityChange(synlig);
+    }
+  };
+
+  /**
+   * Låset uppe i hörnet ska inte trolla fram ett andra draglås när det första
+   * redan tittar fram nedanför — då står två likadana reglage på skärmen och
+   * körledaren måste välja mellan dem. Syns rutan på minsta vis rullas den
+   * i stället fram i sin helhet, och den vägen ut är den enda som behövs.
+   */
+  const visaUpplåsning = (annars: () => void) => {
+    const ruta = upplåsningsRef.current;
+    if (!ruta) {
+      annars();
+      return;
+    }
+    // Skärmläget räcker: rutan är sist i listan, så «hela rutan fram» är
+    // detsamma som listans slut. Då behövs varken innehållets höjd eller
+    // rullningsvyns egen — två mått som visat sig gå att lita på först efter
+    // att något annat råkat mäta om dem.
+    ruta.measureInWindow((_x, y, _bredd, höjd) => {
+      if (y >= fönsterhöjd || y + höjd <= 0) {
+        annars();
+        return;
+      }
+      scrollRef.current?.scrollToEnd({ animated: true });
+    });
+  };
+
+  useImperativeHandle(ref, () => ({ visaUpplåsning }));
+
+  /**
+   * Centreringen görs om vid varje låtbyte — ett tryck på ett kort utanför
+   * konsertläget också, inte bara i det, och när låset slår till med en låt
+   * redan vald. Samma rullning i båda lägena, så att det uppfällda kortet
+   * aldrig hamnar gömt bortom kanten.
+   *
+   * Väntan: samma tryck fäller också upp kortet, och på iOS växer det med en
+   * animering på 220 ms. Mäts kortet innan den är klar centreras den gamla,
+   * lägre höjden — och låten hamnar för långt ner.
+   */
+  useEffect(() => {
+    if (!currentSong) {
+      return;
+    }
+    const väntan = setTimeout(
+      centreraValdLåt,
+      Platform.OS === 'ios' ? 260 : 60,
+    );
+    return () => clearTimeout(väntan);
+  }, [locked, currentSong?.id]);
+
+  /**
    * Raderingsfrågan i Apples egen stil: en riktig varningsdialog med rött
    * borttagningsval. På telefonen är det systemets dialog; webben saknar den
    * och får en likadant formad ruta över en tonad skärm.
@@ -1026,15 +1220,20 @@ export function SongsScreen({
     /**
      * Uppfälld låt visar takten även när den är tyst: bilden går på egen
      * klocka tills ljudet slås på, och låser sig då vid de hörda klicken.
+     *
+     * @param lyft sant när visaren står i knappraden och ska sticka upp
+     *             bredvid rubriken. Bredvid klaviaturen har den egen plats
+     *             och ska ligga kvar i flödet — annars kryper den upp över
+     *             raden ovanför.
      */
-    const taktvisare = (
+    const taktvisare = (lyft: boolean) => (
       /**
        * 30 % mindre än i spelvyn, och upplyft: skalan ritar visaren i 70 %
        * storlek, omslaget krymper platsen i samma mån, och minusmarginalen
        * låter den sticka upp ovanför knappraden — i x-led står den kvar
        * över tempoknappen, i y-led hamnar den till höger om rubriken.
        */
-      <View style={styles.taktvisareLyft}>
+      <View style={lyft ? styles.taktvisareLyft : styles.taktvisareFritt}>
         <View style={styles.taktvisareSkala}>
           <MetronomeVisual
             style={settings.metronomeVisual}
@@ -1305,21 +1504,35 @@ export function SongsScreen({
             />
           )}
           {/* Tempot sist i raden: tongivningen hör ihop och ska stå samlad,
-              och metronomen är det enda som fortsätter låta efter trycket. */}
-          {isExpanded ? (
+              och metronomen är det enda som fortsätter låta efter trycket.
+              Ligger skärmen ner i konsertläget delar tempoknappen rad med de
+              andra två, precis som i det hopfällda kortet, och taktvisaren
+              flyttar ensam ner bredvid klaviaturen. */}
+          {!isExpanded || liggandeKonsert ? (
+            tempoKnapp(styles.quickButton)
+          ) : (
             <View style={styles.tempoColumn}>
-              <View style={styles.headerMetronome}>{taktvisare}</View>
+              <View style={styles.headerMetronome}>{taktvisare(true)}</View>
               {tempoKnapp(styles.tempoColumnButton)}
             </View>
-          ) : (
-            tempoKnapp(styles.quickButton)
           )}
         </View>
 
         {/* Uppfällt kort: ett piano där bara låtens toner går att spela, i
             låtens egen stämning. Ren uppspelning — inget går att ändra
             härifrån. Med plats står taktvisaren till höger om klaviaturen. */}
-        {isExpanded ? klaviatur : null}
+        {isExpanded ? (
+          liggandeKonsert ? (
+            <View style={styles.liggandeRad}>
+              <View style={styles.liggandeKlaviatur}>{klaviatur}</View>
+              {/* Taktvisaren står rakt under tempoknappen — de hör ihop:
+                  knappen sätter igång det visaren visar. */}
+              <View style={styles.liggandeTaktvisare}>{taktvisare(false)}</View>
+            </View>
+          ) : (
+            klaviatur
+          )
+        ) : null}
 
         {/* Ta bort nås med ett svep åt vänster på kortet, som i iOS egna
             listor — frågan ställs i varningsdialogen. Flytt sker genom att
@@ -1349,12 +1562,15 @@ export function SongsScreen({
       showsVerticalScrollIndicator={Platform.OS === 'web'}
       onScroll={(e) => {
         scrollOffset.current = e.nativeEvent.contentOffset.y;
+        rapporteraUpplåsningSynlighet();
       }}
       onLayout={(e) => {
         viewportH.current = e.nativeEvent.layout.height;
+        rapporteraUpplåsningSynlighet();
       }}
       onContentSizeChange={(_w, h) => {
         contentH.current = h;
+        rapporteraUpplåsningSynlighet();
       }}
     >
       <VolumeNotice />
@@ -1640,8 +1856,32 @@ export function SongsScreen({
         </Modal>
       ) : null}
 
-      {/* Samma draggest åt båda hållen: in i konsertläget och ut ur det. */}
-      {!locked && songs.length > 0 ? (
+      {/* Samma draggest åt båda hållen: in i konsertläget och ut ur det.
+          Upplåsningen står alltid kvar sist i listan, även när den flytande
+          raden längst ner är undanfälld — rullar man till slutet ska vägen ut
+          finnas där, utan att man behöver veta om låset uppe i hörnet. */}
+      {locked ? (
+        /* Omslaget bär måttet: Card skickar inte vidare någon ref, och utan
+           den vet låset i hörnet inte var rutan står. */
+        <View
+          ref={upplåsningsRef}
+          onLayout={(e) => {
+            const { y, height } = e.nativeEvent.layout;
+            upplåsningsLayout.current = { y, höjd: height };
+            rapporteraUpplåsningSynlighet();
+          }}
+        >
+          <Card>
+            <SectionTitle>{T.lista.konsertläge}</SectionTitle>
+            <View style={styles.lockRow}>
+              <SlideToConfirm
+                hint={T.skal.låsUpp}
+                onConfirm={onUnlock ?? (() => {})}
+              />
+            </View>
+          </Card>
+        </View>
+      ) : songs.length > 0 ? (
         <Card>
           <SectionTitle>{T.lista.konsertläge}</SectionTitle>
           <Text style={styles.help}>{T.lista.konsertlägeText}</Text>
@@ -1694,6 +1934,39 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     height: 105,
     marginTop: -64,
     justifyContent: 'center',
+  },
+  /**
+   * Samma höjd utan lyftet: bredvid klaviaturen har visaren egen plats och
+   * ska ligga kvar i flödet i stället för att sticka upp över raden ovanför.
+   */
+  taktvisareFritt: {
+    height: 105,
+    justifyContent: 'center',
+  },
+  /**
+   * Liggande konsertläge: klaviaturen till vänster, taktvisaren i en egen
+   * spalt till höger om den.
+   *
+   * Spalten är lika bred som en knapp i raden ovanför, så att visaren står
+   * rakt under tempoknappen. Tre lika breda knappar med två mellanrum ger
+   * varje knapp (bredden − 2 mellanrum) / 3; klaviaturen tar de två första
+   * tredjedelarna plus mellanrummet mellan dem, och det mellanrummet är just
+   * grundbredden nedan — resten fördelas två mot en.
+   */
+  liggandeRad: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  liggandeKlaviatur: {
+    flexGrow: 2,
+    flexShrink: 1,
+    flexBasis: spacing.sm,
+  },
+  liggandeTaktvisare: {
+    flexGrow: 1,
+    flexShrink: 0,
+    flexBasis: 0,
   },
   // Skalningen ritar hela visaren mindre; minusmarginalerna tar bort
   // skillnaden mellan full och skalad höjd ur flödet (150 → 105).

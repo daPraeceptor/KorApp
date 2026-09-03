@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 
@@ -8,8 +8,9 @@ import { T } from './src/i18n';
 import { LockGlyph, SlideToConfirm } from './src/components/ui';
 import { PlayScreen } from './src/screens/PlayScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
-import { SongsScreen } from './src/screens/SongsScreen';
+import { SongsScreen, type SongsScreenHandle } from './src/screens/SongsScreen';
 import { AppStateProvider, useAppState } from './src/state/AppState';
+import { stängAvTextmarkering } from './src/textmarkering';
 import { Palette, radius, spacing } from './src/theme';
 import { useTheme, useThemedStyles } from './src/ThemeContext';
 
@@ -126,6 +127,19 @@ function Shell() {
   const styles = useThemedStyles(makeStyles);
   const { currentSong, settings, songs, loaded } = useAppState();
   const [tab, setTab] = useState<Tab>('play');
+  /**
+   * På telefonen är höjden redan knapp i liggande läge — flikraden får ge
+   * vika där. Webben har alltid gott om plats och behåller den.
+   */
+  const { height: fönsterhöjd, width: fönsterbredd } = useWindowDimensions();
+  const liggande = Platform.OS !== 'web' && fönsterbredd > fönsterhöjd;
+  /**
+   * SafeAreaView räknar in insetsen i sin egen padding, men ett absolut
+   * placerat barn som hänglåset struntar i den — det mäts mot kantens
+   * yttersta läge, inte innanför den. Utan egen uträkning hamnar låset i
+   * stående läge ovanpå iOS batteriprocenten uppe i hörnet.
+   */
+  const insets = useSafeAreaInsets();
 
   /**
    * Startfliken väljs först när lagringen är inläst — innan dess vet appen
@@ -150,6 +164,18 @@ function Shell() {
    * med flit inte: en omstart låser upp, så att ingen blir kvar utestängd.
    */
   const [locked, setLocked] = useState(false);
+  /**
+   * Upplåsningen ligger gömd tills låset uppe i högra hörnet trycks. Under en
+   * konsert ska skärmen vara låtlista och inget annat, och ett draglås längst
+   * ner tog både plats och blickar. Låset i hörnet var redan upplysningen om
+   * att appen är låst — nu är det också vägen tillbaka.
+   */
+  const [unlockShown, setUnlockShown] = useState(false);
+  /**
+   * Listan har en upplåsningsruta sist. Låset i hörnet frågar den först — syns
+   * rutan redan är det den som ska rullas fram, inte ett andra draglås.
+   */
+  const listan = useRef<SongsScreenHandle | null>(null);
 
   const openTab = (id: Tab) => {
     if (!locked) {
@@ -159,7 +185,13 @@ function Shell() {
 
   const lock = () => {
     setLocked(true);
+    setUnlockShown(false);
     setTab('songs');
+  };
+
+  const unlock = () => {
+    setLocked(false);
+    setUnlockShown(false);
   };
 
   return (
@@ -171,24 +203,55 @@ function Shell() {
           {tab === 'play' ? <PlayScreen onOpenSongs={() => openTab('songs')} /> : null}
           {tab === 'songs' ? (
             <SongsScreen
+              ref={listan}
               onOpenPlay={() => openTab('play')}
               locked={locked}
               onLock={lock}
+              onUnlock={unlock}
+              // Rullar man själv fram listans egen upplåsningsruta ska det
+              // flytande draglåset ge vika, annars står två likadana reglage
+              // framme samtidigt.
+              onUnlockRowVisibilityChange={(synlig) => {
+                if (synlig) {
+                  setUnlockShown(false);
+                }
+              }}
             />
           ) : null}
           {tab === 'settings' ? <SettingsScreen /> : null}
         </View>
 
-        {/* Låset flyter över innehållet så att det syns var man än rullat. */}
+        {/* Låset flyter över innehållet så att det syns var man än rullat.
+            Ett tryck visar vägen ut: syns listans egen upplåsningsruta redan
+            rullas den fram i sin helhet, annars fälls draglåset fram längst
+            ner. Nästa tryck fäller undan det igen. */}
         {locked ? (
-          <View style={styles.lockBadge}>
+          <Pressable
+            onPress={() => {
+              if (unlockShown) {
+                setUnlockShown(false);
+                return;
+              }
+              const visa = () => setUnlockShown(true);
+              if (listan.current) {
+                listan.current.visaUpplåsning(visa);
+              } else {
+                visa();
+              }
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={T.uppläst.visaUpplåsning}
+            accessibilityState={{ expanded: unlockShown }}
+            hitSlop={10}
+            style={[styles.lockBadge, { top: insets.top + spacing.sm }]}
+          >
             <LockGlyph color={t.accent} />
-          </View>
+          </Pressable>
         ) : null}
 
         {locked ? (
-          <UnlockBar onUnlock={() => setLocked(false)} />
-        ) : (
+          unlockShown ? <UnlockBar onUnlock={unlock} /> : null
+        ) : liggande ? null : (
         <View style={styles.tabBar}>
           {TABS.map(({ id, label, symbol, icon, compact }) => {
             const active = tab === id;
@@ -243,6 +306,9 @@ function Shell() {
 }
 
 export default function App() {
+  // Webben: allt utom textrutorna görs omarkerbart. En gång, vid start.
+  useEffect(stängAvTextmarkering, []);
+
   return (
     <SafeAreaProvider>
       <AppStateProvider>
@@ -292,9 +358,6 @@ const makeStyles = (t: Palette) => StyleSheet.create({
   },
   lockBadge: {
     position: 'absolute',
-    // Märket är en upplysning, inte en knapp: tryck går igenom det.
-    pointerEvents: 'none',
-    top: spacing.sm,
     right: spacing.md,
     backgroundColor: t.surfaceRaised,
     borderWidth: 1,

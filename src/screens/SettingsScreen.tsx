@@ -397,10 +397,12 @@ export function SettingsScreen() {
 
       <Card>
         <SectionTitle>{T.inst.taktvisare}</SectionTitle>
+        {/* Bollen först: den är förvalet, och den som spelvyns tryck börjar
+            på. Det som rekommenderas ska stå där blicken landar. */}
         <SegmentedControl
           value={settings.metronomeVisual}
           onChange={(metronomeVisual) => updateSettings({ metronomeVisual })}
-          options={(['pendulum', 'bar', 'ball', 'none'] as const).map((value) => ({
+          options={(['ball', 'pendulum', 'bar', 'none'] as const).map((value) => ({
             value,
             label: T.inst.taktvisareVal[value],
           }))}

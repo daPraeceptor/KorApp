@@ -35,6 +35,22 @@ export interface Klaviaturmått {
   svarthöjd: number;
 }
 
+/** Tangenthöjden på en skärm av den här höjden. */
+function tangenthöjdFör(fönsterhöjd: number): number {
+  return Math.min(WHITE_KEY_HEIGHT, Math.max(90, fönsterhöjd * HÖJDANDEL));
+}
+
+/**
+ * Tangentbredden i klaviaturens egen proportion, utan breddning mot kanterna.
+ *
+ * Bruten ut ur måtten nedan, eftersom spannet behöver bredden innan det finns
+ * några tangenter att räkna: för att veta hur många som får plats på ytan
+ * måste man först veta hur bred en är.
+ */
+export function proportionellTangentbredd(fönsterhöjd: number): number {
+  return WHITE_KEY_WIDTH * (tangenthöjdFör(fönsterhöjd) / WHITE_KEY_HEIGHT);
+}
+
 /**
  * Tangenternas mått, givet ytan de ska ligga på och skärmens höjd.
  *
@@ -49,9 +65,9 @@ export function klaviaturmått(
   fönsterhöjd: number,
   fyllBredd: boolean,
 ): Klaviaturmått {
-  const tangenthöjd = Math.min(WHITE_KEY_HEIGHT, Math.max(90, fönsterhöjd * HÖJDANDEL));
+  const tangenthöjd = tangenthöjdFör(fönsterhöjd);
   // Bredden som hör ihop med den höjden, och det bredaste formen bär.
-  const proportionell = WHITE_KEY_WIDTH * (tangenthöjd / WHITE_KEY_HEIGHT);
+  const proportionell = proportionellTangentbredd(fönsterhöjd);
   const bredast = proportionell * MAX_STRÄCKNING;
 
   const önskad =

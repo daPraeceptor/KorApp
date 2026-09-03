@@ -79,7 +79,7 @@ export const en: Texter = {
       'Locks the app to playback: no songs or settings can be changed, and only the list is shown. Useful when the phone sits out on the music stand.',
     draFörAttLåsa: 'Slide the lock to the right to lock',
     låstText:
-      'The app is locked in concert mode: only playback is possible. Unlock by sliding the lock at the bottom right.',
+      'The app is locked in concert mode: only playback is possible. Unlock with the padlock at the top right, or with the slider at the end of the list.',
   },
 
   inst: {
@@ -202,6 +202,7 @@ export const en: Texter = {
     flikInställningar: 'Settings',
     tangent: (ton) => `Key ${ton}`,
     draKnappLedtråd: 'Double tap to activate',
+    visaUpplåsning: 'Show the unlock slider',
   },
 
   volym: {

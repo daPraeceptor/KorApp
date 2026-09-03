@@ -40,6 +40,7 @@ import {
   noteNameWithOctave,
   ratioLabel,
 } from '../theory/tuning';
+import { fyllUtSpann } from './klaviaturSpann';
 import { MAX_TONES } from '../store/songs';
 import { Palette, radius, spacing } from '../theme';
 import { useTheme, useThemedStyles } from '../ThemeContext';
@@ -61,8 +62,21 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
    */
   const { height: fönsterhöjd, width: fönsterbredd } = useWindowDimensions();
   const trångtPåHöjden = fönsterhöjd < 620;
+  /**
+   * På telefonen i liggande läge ryms bredden på att stå staplade — då står
+   * taktvisaren och hjulet i stället sida vid sida, ett grepp webben aldrig
+   * behöver eftersom den redan har bredden att ta av.
+   */
+  const liggande = Platform.OS !== 'web' && fönsterbredd > fönsterhöjd;
   const hjulstorlek = Math.round(
-    Math.max(170, Math.min(260, fönsterhöjd * 0.34, fönsterbredd - 96)),
+    Math.max(
+      170,
+      Math.min(
+        260,
+        fönsterhöjd * 0.34,
+        liggande ? fönsterbredd / 2 - 64 : fönsterbredd - 96,
+      ),
+    ),
   );
   const visarskala = trångtPåHöjden ? 0.62 : 1;
   const {
@@ -119,6 +133,23 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
   }, [currentSong, titleDraft, updateSong, saveToCurrentSong]);
   const [playedNote, setPlayedNote] = useState<number | null>(null);
   const [keyboardStart, setKeyboardStart] = useState(48);
+  /**
+   * Ytan klaviaturen har att breda ut sig på, mätt av klaviaturen själv.
+   * Behövs för att veta hur många tangenter som får plats — i liggande läge
+   * räcker inte de två oktaverna fram till kanten, och då fylls resten på.
+   */
+  const [klaviaturbredd, setKlaviaturbredd] = useState(0);
+  /**
+   * Klaviaturens övre ände: de två oktaverna, plus de tangenter som får plats
+   * på ytan som blir över. Oktavknapparna flyttar fortfarande nedre änden
+   * tolv steg i taget — det är bara bilden som blir bredare.
+   */
+  const klaviaturTill = fyllUtSpann(
+    keyboardStart,
+    keyboardStart + KEYBOARD_SPAN,
+    klaviaturbredd,
+    fönsterhöjd,
+  );
   const [wheelDragging, setWheelDragging] = useState(false);
   /**
    * Klaviaturen börjar utfälld: en ny redigering handlar oftast om tonerna,
@@ -246,48 +277,51 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
   /** Takten: visaren, hjulet, transportknapparna och taktarten. */
   const metronomdelen = (
     <>
-        {/* Ett tryck på taktvisaren bläddrar till nästa stil. "Ingen" ingår
-            inte i bläddringen — en osynlig visare går inte att trycka på.
-            Visaren skjuts en aning nedåt, mot hjulet, så att luften ovanför
-            den inte gapar mellan skärmkanten och animationen. */}
-        <Pressable
-          onPress={cycleVisual}
-          style={[
-            styles.visualShift,
-            // Skalning i stället för egna mått: geometrin inuti visaren är
-            // uppbyggd kring en fast höjd, och den ska inte behöva veta om
-            // att skärmen ligger ner. Marginalerna tar bort luften skalningen
-            // annars lämnar efter sig.
-            trångtPåHöjden
-              ? {
-                  transform: [{ scale: visarskala }],
-                  marginVertical: (-150 * (1 - visarskala)) / 2,
-                }
-              : null,
-          ]}
-        >
-          <MetronomeVisual
-            style={settings.metronomeVisual}
-            running={metronomeRunning}
-            bpm={live.bpm}
-            följerPulsen={metronomeRunning}
-          />
-        </Pressable>
+        <View style={liggande ? styles.metroRow : null}>
+          {/* Ett tryck på taktvisaren bläddrar till nästa stil. "Ingen" ingår
+              inte i bläddringen — en osynlig visare går inte att trycka på.
+              Visaren skjuts en aning nedåt, mot hjulet, så att luften ovanför
+              den inte gapar mellan skärmkanten och animationen. Sida vid sida
+              behövs den skjutsen inte — då styr radens centrering i stället. */}
+          <Pressable
+            onPress={cycleVisual}
+            style={[
+              liggande ? styles.visualRow : styles.visualShift,
+              // Skalning i stället för egna mått: geometrin inuti visaren är
+              // uppbyggd kring en fast höjd, och den ska inte behöva veta om
+              // att skärmen ligger ner. Marginalerna tar bort luften skalningen
+              // annars lämnar efter sig.
+              trångtPåHöjden
+                ? {
+                    transform: [{ scale: visarskala }],
+                    marginVertical: (-150 * (1 - visarskala)) / 2,
+                  }
+                : null,
+            ]}
+          >
+            <MetronomeVisual
+              style={settings.metronomeVisual}
+              running={metronomeRunning}
+              bpm={live.bpm}
+              följerPulsen={metronomeRunning}
+            />
+          </Pressable>
 
-        <View style={styles.wheelArea}>
-          <TempoWheel
-            bpm={live.bpm}
-            size={hjulstorlek}
-            onChange={(bpm) => updateLive({ bpm })}
-            // Hjulet hämtar själv vilken taktdel som hörs, så att spelvyn
-            // inte behöver ritas om vid varje slag.
-            running={metronomeRunning}
-            beatsPerBar={live.beatsPerBar}
-            onDraggingChange={setWheelDragging}
-            // Ett tryck mitt på siffrorna startar och stoppar metronomen —
-            // samma gest som på en fysisk metronom man knäpper till.
-            onCenterTap={() => void toggleMetronome()}
-          />
+          <View style={[styles.wheelArea, liggande && styles.wheelAreaRow]}>
+            <TempoWheel
+              bpm={live.bpm}
+              size={hjulstorlek}
+              onChange={(bpm) => updateLive({ bpm })}
+              // Hjulet hämtar själv vilken taktdel som hörs, så att spelvyn
+              // inte behöver ritas om vid varje slag.
+              running={metronomeRunning}
+              beatsPerBar={live.beatsPerBar}
+              onDraggingChange={setWheelDragging}
+              // Ett tryck mitt på siffrorna startar och stoppar metronomen —
+              // samma gest som på en fysisk metronom man knäpper till.
+              onCenterTap={() => void toggleMetronome()}
+            />
+          </View>
         </View>
 
         <View style={styles.transport}>
@@ -484,9 +518,11 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
               disabled={keyboardStart <= LOWEST_MIDI}
               onPress={() => setKeyboardStart((start) => Math.max(LOWEST_MIDI, start - 12))}
             />
+            {/* Etiketten säger vad som faktiskt syns, påfyllningen inräknad —
+                inte vad de två oktaverna hade räckt till. */}
             <Text style={styles.octaveLabel}>
               {noteNameWithOctave(keyboardStart, settings.naming)} –{' '}
-              {noteNameWithOctave(keyboardStart + KEYBOARD_SPAN, settings.naming)}
+              {noteNameWithOctave(klaviaturTill, settings.naming)}
             </Text>
             <Button
               label={T.spel.oktavUpp}
@@ -498,7 +534,7 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
 
           <Keyboard
             fromMidi={keyboardStart}
-            toMidi={keyboardStart + KEYBOARD_SPAN}
+            toMidi={klaviaturTill}
             tuning={tuning}
             labels={labels}
             showLabels={settings.showNoteNames}
@@ -512,6 +548,11 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
             onSetTonic={(pitchClass) => updateLive({ tonicPitchClass: pitchClass })}
             onToggleTone={toggleTone}
             onNotePlayed={setPlayedNote}
+            // Påfyllningen lägger bara till hela tangenter; sista biten fram
+            // till kanten tar breddningen. Ryms inga fler tangenter gör den
+            // ingenting — då är spannet redan bredare än ytan.
+            fillWidth
+            onAreaWidth={setKlaviaturbredd}
           />
 
           <View style={styles.readout}>
@@ -664,12 +705,29 @@ const makeStyles = (t: Palette) => StyleSheet.create({
   visualShift: {
     transform: [{ translateY: 12 }],
   },
+  // Taktvisaren och hjulet sida vid sida i liggande läge, med luft dem emellan.
+  metroRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.md,
+  },
+  // Taktvisaren tar sin halva av raden i stället för att ligga stapling.
+  visualRow: {
+    flex: 1,
+  },
   wheelArea: {
     alignItems: 'center',
     paddingTop: spacing.sm,
     // Ingen luft under hjulet: knappraden hör ihop med det och ska ligga
     // nära. Tillsammans med marginalen nedan halveras mellanrummet.
     paddingBottom: 0,
+  },
+  // Sida vid sida med taktvisaren delar hjulet raden i stället för att
+  // trycka den nedåt — ingen övre luft behövs då.
+  wheelAreaRow: {
+    flex: 1,
+    paddingTop: 0,
   },
   transport: {
     flexDirection: 'row',

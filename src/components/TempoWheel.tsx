@@ -219,6 +219,20 @@ export function TempoWheel({
     [beatsPerBar],
   );
 
+  /**
+   * Punkterna får bara det utrymme knoppen faktiskt har. Vid fyra slag ryms
+   * standardstorleken (8/6) gott och väl, så formeln landar exakt där — men
+   * vid tolv, eller på ett hjul som krympts för liggande läge, är det för
+   * trångt, och då krymper både prickar och mellanrum tillsammans i stället
+   * för att rada ut sig utanför ringen.
+   */
+  const beatBudget = knobRadius * 1.5;
+  const beatDotSize = Math.max(
+    3,
+    Math.min(8, beatBudget / (1.75 * beatDots.length - 0.75)),
+  );
+  const beatGap = Math.max(2, Math.min(6, beatDotSize * 0.75));
+
   return (
     <View
       ref={wheelRef}
@@ -291,12 +305,13 @@ export function TempoWheel({
       <View style={styles.readout}>
         <Text style={styles.bpm}>{bpm}</Text>
         <Text style={styles.unit}>{T.lista.slagPerMinut}</Text>
-        <View style={styles.beats}>
+        <View style={[styles.beats, { gap: beatGap }]}>
           {beatDots.map((index) => (
             <View
               key={index}
               style={[
                 styles.beatDot,
+                { width: beatDotSize, height: beatDotSize, borderRadius: radius.pill },
                 index === 0 && styles.beatDotFirst,
                 aktivTaktdel === index && styles.beatDotActive,
               ]}

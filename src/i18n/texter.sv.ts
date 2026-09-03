@@ -89,7 +89,7 @@ export const sv = {
       'Låser appen till uppspelning: inga låtar eller inställningar går att ändra, och bara listan visas. Bra när telefonen ligger framme på notstället.',
     draFörAttLåsa: 'Dra låset åt höger för att låsa',
     låstText:
-      'Appen är låst i konsertläge: bara uppspelning är möjlig. Lås upp genom att dra låset längst ner åt höger.',
+      'Appen är låst i konsertläge: bara uppspelning är möjlig. Lås upp med hänglåset uppe till höger, eller med draglåset sist i listan.',
   },
 
   inst: {
@@ -218,6 +218,7 @@ export const sv = {
     flikInställningar: 'Inställningar',
     tangent: (ton: string) => `Tangent ${ton}`,
     draKnappLedtråd: 'Dubbeltryck för att utföra',
+    visaUpplåsning: 'Visa upplåsningen',
   },
 
   volym: {
