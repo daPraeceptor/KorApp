@@ -131,8 +131,6 @@ export const sv = {
       `Tempoknappen i låtlistan stoppar metronomen av sig själv efter ${slag} slag — varje hörbart klick räknas, underdelningar med. Gäller bara starter från listan — i spelvyn går metronomen tills du stoppar den.`,
     ettAntal: 'ett antal',
     tonnamn: 'Tonnamn på tangenterna',
-    visas: 'Visas',
-    dolda: 'Dolda',
     bokstäver: 'Bokstäver',
     doReMi: 'Do re mi',
     tonplatser: 'Tonplatser',

@@ -213,6 +213,13 @@ export interface Palette extends ThemeCore {
   onPure: string;
   onTone: string;
 
+  /**
+   * Reglagets knopp. Alltid temats ljusa ände, aldrig textfärgen: en iOS-
+   * omkopplare har vit knopp, och i de ljusa temana är texten nästan svart —
+   * en svart knopp läser sig som ett fel, inte som ett reglage.
+   */
+  switchThumb: string;
+
   /** Kortbotten för det som just nu spelas: ytan med en skvätt accent i. */
   accentSurface: string;
 
@@ -228,6 +235,15 @@ export interface Palette extends ThemeCore {
   tonicBorder: string;
   tonicBlackBg: string;
   tonicBadgeBg: string;
+  /**
+   * Text ovanpå grundtonens fyllda plattor. De är inte tangentfärgade, så
+   * tangentens egen textfärg gäller inte där: på den vita grundtonstangenten
+   * ligger texten på `pure` (och får `onPure`), på den svarta på `tonicBlackBg`
+   * och i etiketten på `tonicBadgeBg` — båda för ljusa för `onPure` i de ljusa
+   * temana, och därför härledda var för sig.
+   */
+  onTonicBlack: string;
+  onTonicBadge: string;
 }
 
 export function buildPalette(id: ThemeId): Palette {
@@ -245,6 +261,11 @@ export function buildPalette(id: ThemeId): Palette {
   const ovanpa = (färg: string) =>
     ljushet(färg) > 0.5 ? blanda(bläck, färg, 0.12) : blanda(papper, färg, 0.12);
 
+  // Plattorna räknas fram före returen, så att texten ovanpå dem kan härledas
+  // ur just den platta den faktiskt hamnar på.
+  const tonicBlackBg = blanda(c.pure, c.background, 0.55);
+  const tonicBadgeBg = blanda(c.pure, '#ffffff', 0.5);
+
   return {
     ...c,
     id,
@@ -252,6 +273,8 @@ export function buildPalette(id: ThemeId): Palette {
     onAccent: ovanpa(c.accent),
     onPure: ovanpa(c.pure),
     onTone: ovanpa(c.tone),
+
+    switchThumb: papper,
 
     accentSurface: blanda(c.surface, c.accent, 0.18),
 
@@ -262,12 +285,19 @@ export function buildPalette(id: ThemeId): Palette {
     keyWhiteBorder: blanda(c.keyWhite, bläck, 0.34),
     keyBlackPressed: blanda(c.keyBlack, c.text, 0.25),
     keyBlackBorder: blanda(c.keyBlack, '#000000', 0.35),
-    keyLabel: blanda(c.keyWhite, c.text, 0.55),
-    keyLabelBlack: blanda(c.keyBlack, c.text, 0.72),
+    // Samma fälla som kanten ovan, och den bet hårdare här: texten har samma
+    // värde som tangenten den ligger på — i de mörka temana är både texten och
+    // den vita tangenten nästan vita, i de ljusa är både texten och den svarta
+    // tangenten nästan svarta. Blandningen gav då tillbaka tangentens egen färg
+    // och tonnamnen försvann helt. Dras mot temats motsatta ände i stället.
+    keyLabel: blanda(c.keyWhite, bläck, 0.55),
+    keyLabelBlack: blanda(c.keyBlack, papper, 0.72),
 
     tonicBorder: blanda(c.pure, c.background, 0.4),
-    tonicBlackBg: blanda(c.pure, c.background, 0.55),
-    tonicBadgeBg: blanda(c.pure, '#ffffff', 0.5),
+    tonicBlackBg: tonicBlackBg,
+    tonicBadgeBg: tonicBadgeBg,
+    onTonicBlack: ovanpa(tonicBlackBg),
+    onTonicBadge: ovanpa(tonicBadgeBg),
   };
 }
 

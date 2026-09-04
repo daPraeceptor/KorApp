@@ -121,8 +121,6 @@ export const en: Texter = {
       `The tempo button in the song list stops the metronome by itself after ${slag} beats — every audible click counts, subdivisions included. Only applies to starts from the list — in the play view the metronome runs until you stop it.`,
     ettAntal: 'a number of',
     tonnamn: 'Note names on the keys',
-    visas: 'Shown',
-    dolda: 'Hidden',
     bokstäver: 'Letters',
     doReMi: 'Do re mi',
     tonplatser: 'Degrees',

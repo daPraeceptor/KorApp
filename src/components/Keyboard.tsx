@@ -216,7 +216,7 @@ export function Keyboard({
   const isTonic = (midi: number) =>
     !playableTones && markTonic && pitchClass(midi) === tuning.tonicPitchClass;
 
-  const renderLabel = (midi: number, black: boolean) => {
+  const renderLabel = (midi: number, black: boolean, tonic = false) => {
     if (!showLabels) {
       return null;
     }
@@ -228,7 +228,14 @@ export function Keyboard({
     return (
       <Text
         numberOfLines={1}
-        style={[styles.label, black ? styles.labelBlack : styles.labelWhite]}
+        style={[
+          styles.label,
+          black ? styles.labelBlack : styles.labelWhite,
+          // Grundtonstangenten är fylld med den rena färgen, inte med
+          // tangentens egen — då gäller inte heller tangentens textfärg. De
+          // två plattorna är olika ljusa och har därför var sin textfärg.
+          tonic && (black ? styles.labelTonicBlack : styles.labelTonic),
+        ]}
       >
         {showOctave ? `${name}${octaveOf(midi)}` : name}
       </Text>
@@ -290,7 +297,7 @@ export function Keyboard({
                     GRUNDTON
                   </Text>
                 ) : null}
-                {renderLabel(midi, false)}
+                {renderLabel(midi, false, tonic)}
               </View>
             </Pressable>
           );
@@ -329,7 +336,7 @@ export function Keyboard({
                     GRUND
                   </Text>
                 ) : null}
-                {renderLabel(midi, true)}
+                {renderLabel(midi, true, tonic)}
               </View>
             </Pressable>
           );
@@ -419,7 +426,9 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     fontSize: 8,
     fontWeight: '800',
     letterSpacing: 0.2,
-    color: t.onPure,
+    // Etikettplattan är en urvattnad `pure`, ljusare än `pure` själv — texten
+    // härleds ur den och inte ur färgen den blandats fram ur.
+    color: t.onTonicBadge,
     backgroundColor: t.tonicBadgeBg,
     paddingVertical: 1,
   },
@@ -441,5 +450,13 @@ const makeStyles = (t: Palette) => StyleSheet.create({
   },
   labelBlack: {
     color: t.keyLabelBlack,
+  },
+  // Den vita grundtonstangenten är fylld med `pure`, den svarta med den
+  // mörkare `tonicBlackBg` — var platta med sin egen lästa textfärg.
+  labelTonic: {
+    color: t.onPure,
+  },
+  labelTonicBlack: {
+    color: t.onTonicBlack,
   },
 });

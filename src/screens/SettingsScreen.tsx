@@ -184,7 +184,7 @@ export function SettingsScreen() {
               updateSettings({ accentFirstBeat })
             }
             trackColor={{ false: t.border, true: t.accent }}
-            thumbColor={t.text}
+            thumbColor={t.switchThumb}
           />
         </View>
         <Text style={styles.help}>{T.inst.betonaEttanText}</Text>
@@ -195,7 +195,7 @@ export function SettingsScreen() {
             value={settings.keepAwake}
             onValueChange={(keepAwake) => updateSettings({ keepAwake })}
             trackColor={{ false: t.border, true: t.accent }}
-            thumbColor={t.text}
+            thumbColor={t.switchThumb}
           />
         </View>
         <Text style={styles.help}>{T.inst.hållSkärmenTändText}</Text>
@@ -211,7 +211,7 @@ export function SettingsScreen() {
             value={settings.haptics}
             onValueChange={(haptics) => updateSettings({ haptics })}
             trackColor={{ false: t.border, true: t.accent }}
-            thumbColor={t.text}
+            thumbColor={t.switchThumb}
           />
         </View>
         <Text style={styles.help}>{T.inst.vibrationText}</Text>
@@ -226,7 +226,7 @@ export function SettingsScreen() {
             value={settings.tonesFirst}
             onValueChange={(tonesFirst) => updateSettings({ tonesFirst })}
             trackColor={{ false: t.border, true: t.accent }}
-            thumbColor={t.text}
+            thumbColor={t.switchThumb}
           />
         </View>
         <Text style={styles.help}>{T.inst.tongivningFörstText}</Text>
@@ -256,7 +256,7 @@ export function SettingsScreen() {
               updateSettings({ autoStopFromList })
             }
             trackColor={{ false: t.border, true: t.accent }}
-            thumbColor={t.text}
+            thumbColor={t.switchThumb}
           />
         </View>
         {settings.autoStopFromList ? (
@@ -282,19 +282,13 @@ export function SettingsScreen() {
       <Card>
         <View style={styles.row}>
           <SectionTitle>{T.inst.tonnamn}</SectionTitle>
-          <Pressable
-            onPress={() => updateSettings({ showNoteNames: !settings.showNoteNames })}
-            style={[styles.toggle, settings.showNoteNames && styles.toggleOn]}
-          >
-            <Text
-              style={[
-                styles.toggleText,
-                settings.showNoteNames && styles.toggleTextOn,
-              ]}
-            >
-              {settings.showNoteNames ? T.inst.visas : T.inst.dolda}
-            </Text>
-          </Pressable>
+          <Switch
+            accessibilityLabel={T.inst.tonnamn}
+            value={settings.showNoteNames}
+            onValueChange={(showNoteNames) => updateSettings({ showNoteNames })}
+            trackColor={{ false: t.border, true: t.accent }}
+            thumbColor={t.switchThumb}
+          />
         </View>
 
         <SegmentedControl
@@ -367,23 +361,15 @@ export function SettingsScreen() {
       <Card>
         <View style={styles.row}>
           <SectionTitle>{T.inst.avanceradeUnderdelningar}</SectionTitle>
-          <Pressable
-            onPress={() =>
-              updateSettings({
-                showAdvancedSubdivisions: !settings.showAdvancedSubdivisions,
-              })
+          <Switch
+            accessibilityLabel={T.inst.avanceradeUnderdelningar}
+            value={settings.showAdvancedSubdivisions}
+            onValueChange={(showAdvancedSubdivisions) =>
+              updateSettings({ showAdvancedSubdivisions })
             }
-            style={[styles.toggle, settings.showAdvancedSubdivisions && styles.toggleOn]}
-          >
-            <Text
-              style={[
-                styles.toggleText,
-                settings.showAdvancedSubdivisions && styles.toggleTextOn,
-              ]}
-            >
-              {settings.showAdvancedSubdivisions ? T.inst.visas : T.inst.dolda}
-            </Text>
-          </Pressable>
+            trackColor={{ false: t.border, true: t.accent }}
+            thumbColor={t.switchThumb}
+          />
         </View>
         <Text style={styles.help}>{T.inst.avanceradeText}</Text>
         {SUBDIVISION_ORDER.filter((id) => SUBDIVISIONS[id].advanced).map((id) => (
@@ -699,25 +685,6 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     fontWeight: '600',
   },
   timbreChipTextOn: {
-    color: t.onTone,
-  },
-  toggle: {
-    paddingVertical: 7,
-    paddingHorizontal: 14,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: t.border,
-  },
-  toggleOn: {
-    backgroundColor: t.tone,
-    borderColor: t.tone,
-  },
-  toggleText: {
-    color: t.textMuted,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  toggleTextOn: {
     color: t.onTone,
   },
 });

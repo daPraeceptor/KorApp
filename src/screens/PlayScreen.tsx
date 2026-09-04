@@ -52,6 +52,11 @@ const LOWEST_MIDI = 24;
 const HIGHEST_START = 84;
 const KEYBOARD_SPAN = 24;
 
+/** Bredden den smala knappspalten får i liggande läge, transportraden inräknad. */
+const TRANSPORT_COLUMN_WIDTH = 100;
+/** Bredden slag-per-takt-spalten får i liggande läge — hjulet med sitt eget mått. */
+const BEATS_COLUMN_WIDTH = 190;
+
 export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
   const t = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -68,17 +73,28 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
    * behöver eftersom den redan har bredden att ta av.
    */
   const liggande = Platform.OS !== 'web' && fönsterbredd > fönsterhöjd;
+  /**
+   * I liggande läge styr höjden inte längre storleken — taktvisaren och
+   * hjulet ska vara lika stora som i stående läge, inte krympa bara för att
+   * telefonen ligger ner. I stället är det bredden, delad mellan visaren,
+   * hjulet och den smala knappspalten till höger, som sätter taket.
+   */
   const hjulstorlek = Math.round(
     Math.max(
       170,
       Math.min(
         260,
-        fönsterhöjd * 0.34,
-        liggande ? fönsterbredd / 2 - 64 : fönsterbredd - 96,
+        liggande
+          ? (fönsterbredd -
+              spacing.md * 5 -
+              TRANSPORT_COLUMN_WIDTH -
+              BEATS_COLUMN_WIDTH) /
+              2
+          : Math.min(fönsterhöjd * 0.34, fönsterbredd - 96),
       ),
     ),
   );
-  const visarskala = trångtPåHöjden ? 0.62 : 1;
+  const visarskala = trångtPåHöjden && !liggande ? 0.62 : 1;
   const {
     live,
     settings,
@@ -322,49 +338,103 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
               onCenterTap={() => void toggleMetronome()}
             />
           </View>
+
+          {/* I liggande läge står transportknapparna i en smal spalt till
+              höger om visaren och hjulet i stället för i en egen rad under
+              dem — hjulet har redan bredden, det är höjden som saknas där. */}
+          {liggande ? (
+            <View style={styles.transportColumn}>
+              <Button
+                label={metronomeRunning ? T.spel.stoppa : T.spel.starta}
+                variant={metronomeRunning ? 'default' : 'primary'}
+                onPress={() => void toggleMetronome()}
+                compact
+              />
+              <View style={styles.transportColumnRow}>
+                <Button
+                  label="−1"
+                  onPress={() => updateLive({ bpm: clampBpm(live.bpm - 1) })}
+                  style={styles.transportColumnHalf}
+                  compact
+                />
+                <Button
+                  label="+1"
+                  onPress={() => updateLive({ bpm: clampBpm(live.bpm + 1) })}
+                  style={styles.transportColumnHalf}
+                  compact
+                />
+              </View>
+              <Button
+                label={T.spel.knacka}
+                onPress={tapTempo}
+                variant="ghost"
+                compact
+              />
+            </View>
+          ) : null}
+
+          {/* Slag per takt hör ihop med transportknapparna, så den får stå
+              bredvid dem i stället för att kastas ner i kortet under. */}
+          {liggande ? (
+            <View style={styles.beatsColumn}>
+              <Text style={styles.rowLabel}>{T.spel.slagPerTakt}</Text>
+              <Stepper
+                value={live.beatsPerBar}
+                min={1}
+                max={12}
+                onChange={(beatsPerBar) => updateLive({ beatsPerBar })}
+              />
+            </View>
+          ) : null}
         </View>
 
-        <View style={styles.transport}>
-          <Button
-            label="−1"
-            onPress={() => updateLive({ bpm: clampBpm(live.bpm - 1) })}
-            style={styles.nudge}
-          />
-          <Button
-            label={metronomeRunning ? T.spel.stoppa : T.spel.starta}
-            variant={metronomeRunning ? 'default' : 'primary'}
-            onPress={() => void toggleMetronome()}
-            style={styles.transportMain}
-          />
-          <Button
-            label="+1"
-            onPress={() => updateLive({ bpm: clampBpm(live.bpm + 1) })}
-            style={styles.nudge}
-          />
-          <Button
-            label={T.spel.knacka}
-            onPress={tapTempo}
-            variant="ghost"
-            style={styles.tapButton}
-          />
-        </View>
-
-        {/* Ingen rubrik: raderna säger själva vad de gör, och kortet är alltid
-            framme — utan rubrik finns inget att fälla ihop heller. */}
-        <Card>
-          <View style={styles.row}>
-            <Text style={styles.rowLabel}>{T.spel.slagPerTakt}</Text>
-            <Stepper
-              value={live.beatsPerBar}
-              min={1}
-              max={12}
-              onChange={(beatsPerBar) => updateLive({ beatsPerBar })}
+        {liggande ? null : (
+          <View style={styles.transport}>
+            <Button
+              label="−1"
+              onPress={() => updateLive({ bpm: clampBpm(live.bpm - 1) })}
+              style={styles.nudge}
+            />
+            <Button
+              label={metronomeRunning ? T.spel.stoppa : T.spel.starta}
+              variant={metronomeRunning ? 'default' : 'primary'}
+              onPress={() => void toggleMetronome()}
+              style={styles.transportMain}
+            />
+            <Button
+              label="+1"
+              onPress={() => updateLive({ bpm: clampBpm(live.bpm + 1) })}
+              style={styles.nudge}
+            />
+            <Button
+              label={T.spel.knacka}
+              onPress={tapTempo}
+              variant="ghost"
+              style={styles.tapButton}
             />
           </View>
+        )}
+
+        {/* Ingen rubrik: raderna säger själva vad de gör, och kortet är alltid
+            framme — utan rubrik finns inget att fälla ihop heller. Slag per
+            takt står redan i knappraden ovanför i liggande läge. */}
+        <Card>
+          {liggande ? null : (
+            <View style={styles.row}>
+              <Text style={styles.rowLabel}>{T.spel.slagPerTakt}</Text>
+              <Stepper
+                value={live.beatsPerBar}
+                min={1}
+                max={12}
+                onChange={(beatsPerBar) => updateLive({ beatsPerBar })}
+              />
+            </View>
+          )}
           <Text style={styles.rowLabel}>{T.spel.underdelning}</Text>
           {/* Fler än fyra underdelningar delas på två rader — åtta knappar på
-              en rad blir frimärken på en telefonskärm. */}
-          {synligaUnderdelningar.length > 4 ? (
+              en rad blir frimärken på en telefonskärm. Liggande har bredden
+              för alla på en enda rad, staplade eller ej. */}
+          {synligaUnderdelningar.length > 4 && !liggande ? (
             <>
               <SegmentedControl
                 value={live.subdivision}
@@ -506,7 +576,7 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
                   updateLive({ tuningSystem: pa ? 'just' : 'tempered' })
                 }
                 trackColor={{ false: t.border, true: t.pure }}
-                thumbColor={t.text}
+                thumbColor={t.switchThumb}
               />
             </Pressable>
           </View>
@@ -555,9 +625,12 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
             onAreaWidth={setKlaviaturbredd}
           />
 
-          <View style={styles.readout}>
+          <View style={[styles.readout, liggande && styles.readoutLiggande]}>
             {/* Tom i vila — ytan behåller sin höjd så att inget hoppar när en
-                ton spelas och avläsningen dyker upp. */}
+                ton spelas och avläsningen dyker upp. I liggande läge väger
+                den ledigheten mindre än höjden den kostar, så där får rutan
+                krympa till noll i vila i stället — pianot ska inte lämna
+                tomrum efter sig. */}
             {displayedNote === null ? null : (
               <>
                 <Text style={styles.readoutNote}>
@@ -729,6 +802,26 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     flex: 1,
     paddingTop: 0,
   },
+  // Transportknapparna i liggande läge: en smal, stillastående spalt i
+  // stället för en rad — bredden är redan uppäten av visaren och hjulet.
+  transportColumn: {
+    width: TRANSPORT_COLUMN_WIDTH,
+    gap: spacing.xs,
+  },
+  transportColumnRow: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  transportColumnHalf: {
+    flex: 1,
+  },
+  // Slag-per-takt-spalten längst till höger i liggande läge, bredvid
+  // transportknapparna i stället för nere i kortet.
+  beatsColumn: {
+    width: BEATS_COLUMN_WIDTH,
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
   transport: {
     flexDirection: 'row',
     gap: spacing.sm,
@@ -895,6 +988,12 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingTop: spacing.sm,
+  },
+  // Ingen reserverad höjd i liggande läge — rutan följer innehållet i
+  // stället för att lämna tomrum under pianot när ingen ton hörs.
+  readoutLiggande: {
+    minHeight: 0,
+    paddingTop: 0,
   },
   readoutIdle: {
     color: t.textMuted,

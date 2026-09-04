@@ -489,7 +489,8 @@ export function SongsScreen({
    * varken nästa låt eller resten av listan.
    */
   const { height: fönsterhöjd, width: fönsterbredd } = useWindowDimensions();
-  const liggandeKonsert = locked && fönsterbredd > fönsterhöjd;
+  const liggande = fönsterbredd > fönsterhöjd;
+  const liggandeKonsert = locked && liggande;
   const {
     songs,
     folders,
@@ -1336,7 +1337,10 @@ export function SongsScreen({
       </>
     );
 
-    const kanSvepas = !locked;
+    // Uppfälld i liggande läge tar klaviaturen över precis den vågräta
+    // rörelsen svepet lyssnar på — utan spärren drog en rullning genom
+    // tonerna fram raderingsknappen på köpet.
+    const kanSvepas = !locked && !(liggande && isExpanded);
     const svepX =
       sveparId === song.id ? svepDx : swipedId === song.id ? -SVEPBREDD : 0;
 
@@ -1523,7 +1527,7 @@ export function SongsScreen({
             härifrån. Med plats står taktvisaren till höger om klaviaturen. */}
         {isExpanded ? (
           liggandeKonsert ? (
-            <View style={styles.liggandeRad}>
+            <View style={[styles.liggandeRad, styles.liggandeRadCompact]}>
               <View style={styles.liggandeKlaviatur}>{klaviatur}</View>
               {/* Taktvisaren står rakt under tempoknappen — de hör ihop:
                   knappen sätter igång det visaren visar. */}
@@ -1957,6 +1961,12 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  // Drar klaviaturraden en bit närmare knapparna ovanför — kortets egna
+  // mellanrum (Card-gap) räcker, men i liggande läge i konsertläget är varje
+  // sparad höjdpunkt värd att ta med.
+  liggandeRadCompact: {
+    marginTop: -spacing.xs,
   },
   liggandeKlaviatur: {
     flexGrow: 2,

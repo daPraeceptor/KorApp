@@ -87,6 +87,7 @@ export function Button({
   disabled = false,
   style,
   renderIcon,
+  compact = false,
 }: {
   label: string;
   onPress: () => void;
@@ -95,6 +96,8 @@ export function Button({
   style?: ViewStyle;
   /** Ritas i stället för etiketten, i dess färg. Etiketten blir då bara namn. */
   renderIcon?: (color: string) => React.ReactNode;
+  /** Mindre stoppning och text — för rader där flera knappar ska trängas ihop. */
+  compact?: boolean;
 }) {
   const { styles, variants, variantLabels } = useStyles();
   return (
@@ -107,6 +110,7 @@ export function Button({
       style={({ pressed }) => [
         styles.button,
         variants[variant],
+        compact && styles.buttonCompact,
         pressed && styles.buttonPressed,
         disabled && styles.buttonDisabled,
         style,
@@ -115,7 +119,12 @@ export function Button({
       {renderIcon ? (
         renderIcon(variantLabels[variant].color)
       ) : (
-        <Text style={[styles.buttonLabel, variantLabels[variant]]}>{label}</Text>
+        <Text
+          numberOfLines={1}
+          style={[styles.buttonLabel, variantLabels[variant], compact && styles.buttonLabelCompact]}
+        >
+          {label}
+        </Text>
       )}
     </Pressable>
   );
@@ -489,6 +498,13 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     color: t.text,
     fontSize: 15,
     fontWeight: '600',
+  },
+  buttonCompact: {
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+  },
+  buttonLabelCompact: {
+    fontSize: 12,
   },
   segmented: {
     flexDirection: 'row',
