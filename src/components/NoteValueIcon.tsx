@@ -135,6 +135,19 @@ const SHAPES: Record<NoteValue, Shape> = {
     numerals: [{ text: '5', notes: [0, 1, 2, 3, 4] }],
     spanUnits: 3.6,
   },
+  /**
+   * Kvintolswing: samma ritsätt som swing8, fast andra klicket sitter på
+   * kvintolrutnätets tredje femtedel i stället för trioldelningens sista
+   * tredjedel — en lösare gungning.
+   */
+  swing5: {
+    count: 2,
+    beams: 0,
+    numerals: [{ text: '5', notes: [0, 1] }],
+    positions: [0, 3 / 5],
+    spanUnits: 2.2,
+    flagOn: [1],
+  },
 };
 
 export function NoteValueIcon({
@@ -171,6 +184,15 @@ export function NoteValueIcon({
   const vänster = stemX(heads[0]) - 0.7;
   const höger = stemX(heads[heads.length - 1]) + 0.7;
 
+  /**
+   * Balken närmast notheadet ligger alltid på samma höjd, oavsett hur många
+   * balkar figuren har — annars ser sextondelens och kvintolens stjälkar
+   * kortare ut än åttondelens, eftersom den andra balken annars kilas in
+   * mellan huvudet och den första. I stället växer stjälken uppåt, en balk-
+   * mellanrum per extra balk, precis som i handskriven notskrift.
+   */
+  const stemTop = beams > 0 ? BEAM_Y - (beams - 1) * BEAM_GAP : BEAM_Y;
+
   // Siffrorna centreras över sina egna stjälkar, inte över ikonen. Två siffror
   // ritas mindre så att de får plats var för sig.
   const numeralSize = (numerals?.length ?? 0) > 1 ? 8 : 9;
@@ -184,7 +206,7 @@ export function NoteValueIcon({
           <SvgText
             key={i}
             x={mitt}
-            y={BEAM_Y - 2.8}
+            y={stemTop - 2.8}
             fontSize={numeralSize}
             fontWeight="700"
             fill={color}
@@ -205,7 +227,7 @@ export function NoteValueIcon({
             x1={stemX(cx)}
             y1={HEAD_Y}
             x2={stemX(cx)}
-            y2={BEAM_Y}
+            y2={stemTop}
             stroke={color}
             strokeWidth={1.4}
           />
@@ -228,7 +250,7 @@ export function NoteValueIcon({
         <Rect
           key={i}
           x={vänster}
-          y={BEAM_Y + i * BEAM_GAP}
+          y={BEAM_Y - i * BEAM_GAP}
           width={höger - vänster}
           height={BEAM_THICKNESS}
           fill={color}

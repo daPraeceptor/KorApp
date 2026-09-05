@@ -348,28 +348,30 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
                 label={metronomeRunning ? T.spel.stoppa : T.spel.starta}
                 variant={metronomeRunning ? 'default' : 'primary'}
                 onPress={() => void toggleMetronome()}
-                compact
+                style={styles.transportColumnButton}
               />
               <View style={styles.transportColumnRow}>
                 <Button
                   label="−1"
                   onPress={() => updateLive({ bpm: clampBpm(live.bpm - 1) })}
                   style={styles.transportColumnHalf}
-                  compact
                 />
                 <Button
                   label="+1"
                   onPress={() => updateLive({ bpm: clampBpm(live.bpm + 1) })}
                   style={styles.transportColumnHalf}
-                  compact
                 />
               </View>
               <Button
                 label={T.spel.knacka}
                 onPress={tapTempo}
                 variant="ghost"
-                compact
+                style={styles.transportColumnButton}
               />
+              {/* Hör ihop med Knacka: BPM-enheten hjulet redan visar, men
+                  upprepad här eftersom knappspalten är blicken när man knackar
+                  in ett tempo och hjulet ligger utom synhåll då. */}
+              <Text style={styles.transportColumnUnit}>{T.lista.slagPerMinut}</Text>
             </View>
           ) : null}
 
@@ -812,8 +814,23 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.xs,
   },
+  // Fullbredda knappar i spalten (Start/Stoppa, Knacka) — smalare sidstoppning
+  // än standardknappen så att texten får plats i de 100 punkterna, men i
+  // övrigt appens vanliga, fullstora knapp.
+  transportColumnButton: {
+    paddingHorizontal: spacing.xs,
+  },
   transportColumnHalf: {
     flex: 1,
+    paddingHorizontal: 4,
+  },
+  // Enheten hör till Knacka-knappen ovanför, inte till hjulet — därför
+  // samma vänsterkant och en liten lucka i stället för radens vanliga luft.
+  transportColumnUnit: {
+    color: t.textMuted,
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: -spacing.xs / 2,
   },
   // Slag-per-takt-spalten längst till höger i liggande läge, bredvid
   // transportknapparna i stället för nere i kortet.

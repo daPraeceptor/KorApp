@@ -266,6 +266,10 @@ export const en: Texter = {
       text: 'Sixteenth-note swing. Each pair of eighths swings on its own — four clicks with the second and fourth late.',
     },
     quintuplet: { namn: 'Quintuplet', text: 'Five even clicks per beat.' },
+    swing5: {
+      namn: 'Swing 5',
+      text: 'Quintuplet swing. The second click sits on the third fifth of the quintuplet division — long, short, but softer than Swing 8.',
+    },
   },
 
   tema: {

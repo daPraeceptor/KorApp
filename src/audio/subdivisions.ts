@@ -15,7 +15,8 @@ export type SubdivisionId =
   | 'swing8'
   | 'dotted8'
   | 'swing16'
-  | 'quintuplet';
+  | 'quintuplet'
+  | 'swing5';
 
 export interface Subdivision {
   id: SubdivisionId;
@@ -96,6 +97,16 @@ export const SUBDIVISIONS: Record<SubdivisionId, Subdivision> = {
     advanced: true,
     offsets: [0, 1 / 5, 2 / 5, 3 / 5, 4 / 5],
   },
+  swing5: {
+    id: 'swing5',
+    label: 'Swing 5',
+    description:
+      'Kvintolswing. Andra klicket ligger på kvintoldelningens tredje femtedel — lång, kort, men mjukare än swing 8.',
+    advanced: true,
+    // Tre femtedelar in: en lösare gungning än triolgrundade swing 8, eftersom
+    // femtedelsrutnätet delar upp slaget jämnare.
+    offsets: [0, 3 / 5],
+  },
 };
 
 export const SUBDIVISION_ORDER: SubdivisionId[] = [
@@ -107,6 +118,7 @@ export const SUBDIVISION_ORDER: SubdivisionId[] = [
   'dotted8',
   'swing16',
   'quintuplet',
+  'swing5',
 ];
 
 export const DEFAULT_SUBDIVISION: SubdivisionId = 'quarter';

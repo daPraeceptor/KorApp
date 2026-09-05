@@ -283,6 +283,10 @@ export const sv = {
       text: 'Sextondelsswing. Varje åttondelspar gungar för sig, alltså fyra klick där andra och fjärde ligger sent.',
     },
     quintuplet: { namn: 'Kvintol', text: 'Fem jämna klick per taktslag.' },
+    swing5: {
+      namn: 'Swing 5',
+      text: 'Kvintolswing. Andra klicket ligger på kvintoldelningens tredje femtedel — lång, kort, men mjukare än Swing 8.',
+    },
   } satisfies Record<SubdivisionId, { namn: string; text: string }>,
 
   tema: {
