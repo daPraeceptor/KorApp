@@ -59,6 +59,18 @@ const KEYBOARD_SPAN = 24;
  */
 const TRANSPORT_COLUMN_WIDTH = 190;
 
+/**
+ * Standardknappens höjd: stoppningen över och under, textens rad och ramen.
+ * Utgångspunkt för de lägre knapparna i den liggande spalten.
+ */
+const KNAPPHÖJD = 46;
+
+/** Spaltens knappar (Starta/Stoppa, Knacka) — en åttondel lägre. */
+const TRANSPORT_KNAPPHÖJD = Math.round(KNAPPHÖJD * 0.88);
+
+/** Tempoknuffarna −1 och +1 — en tredjedel lägre än en vanlig knapp. */
+const TEMPO_KNAPPHÖJD = Math.round(KNAPPHÖJD * 0.67);
+
 export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
   const t = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -813,11 +825,21 @@ const makeStyles = (t: Palette) => StyleSheet.create({
   // Fullbredda knappar i spalten (Start/Stoppa, Knacka) — smalare sidstoppning
   // än standardknappen, så att spalten håller ihop kring stegarens mått i
   // stället för att bli bredare än den behöver.
+  //
+  // Höjden är satt, inte stoppad fram: liggande är höjden det som tar slut,
+  // och spalten ska inte äta mer av den än den behöver för att gå att träffa
+  // med tummen.
   transportColumnButton: {
+    height: TRANSPORT_KNAPPHÖJD,
+    paddingVertical: 0,
     paddingHorizontal: spacing.xs,
   },
+  // Tempoknuffarna är den minsta gesten i spalten och får den lägsta raden —
+  // en tredjedel lägre än en vanlig knapp. De läses ändå på sina två tecken.
   transportColumnHalf: {
     flex: 1,
+    height: TEMPO_KNAPPHÖJD,
+    paddingVertical: 0,
     paddingHorizontal: 4,
   },
   // Stegaren har sin egen bredd och ska inte sträckas ut som knapparna
