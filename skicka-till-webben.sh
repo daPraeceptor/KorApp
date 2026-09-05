@@ -93,3 +93,13 @@ case "$typ" in
   *javascript*) echo "  bundlen: serveras som JavaScript ($typ)" ;;
   *)            echo "  bundlen: fel innehållstyp ($typ) — appen startar inte" ;;
 esac
+
+# 4. Sopa efter uppladdningen.
+#
+# Varje bygge får ett nytt filnamn med innehållets summa i sig, och steg 2
+# lägger bara till. Utan det här steget blev det ett åttiotal bundlar och ett
+# fyrtiotal megabyte på servern, av vilka en användes. Städningen kör sist,
+# efter kontrollen ovan: går uppladdningen i stäv ska den gamla bundlen ligga
+# kvar att falla tillbaka på.
+echo
+bash "$(cd "$(dirname "$0")" && pwd)/stada-webben.sh"
