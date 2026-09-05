@@ -10,7 +10,6 @@ import React from 'react';
 import { SubdivisionId } from '../audio/subdivisions';
 import Svg, {
   Circle,
-  Ellipse,
   Line,
   Path,
   Rect,
@@ -20,10 +19,52 @@ import Svg, {
 const WIDTH = 48;
 const HEIGHT = 34;
 
-const HEAD_RX = 3.6;
-const HEAD_RY = 2.7;
+const HEAD_RX = 3.8;
+const HEAD_RY = 2.6;
 const HEAD_Y = 26;
 const SPACING = 9;
+
+/**
+ * Notheadets lutning i grader. Ett graverat nothuvud står inte rakt utan
+ * lutar uppåt höger — vänstra sidan av ellipsen ner, högra upp. Negativ
+ * vinkel vrider moturs i SVG, eftersom y-axeln pekar nedåt.
+ */
+const HEAD_TILT = -20;
+
+const TILT_RAD = (HEAD_TILT * Math.PI) / 180;
+
+/**
+ * Hur långt ut åt höger det lutande huvudet når. Ett vridet nothuvud är
+ * bredare än sin egen rx, och skaftet ska sitta i ytterkanten. Räknas fram
+ * här så att en ändrad lutning eller storlek flyttar skaftet med sig.
+ */
+const HEAD_REACH = Math.hypot(
+  HEAD_RX * Math.cos(TILT_RAD),
+  HEAD_RY * Math.sin(TILT_RAD),
+);
+
+/** Långaxelns ändpunkt räknat från huvudets mitt, efter lutningen. */
+const HEAD_DX = HEAD_RX * Math.cos(TILT_RAD);
+const HEAD_DY = HEAD_RX * Math.sin(TILT_RAD);
+
+/**
+ * Det lutande nothuvudet som två halva bågar mellan långaxelns ändpunkter.
+ *
+ * Ritas som båge i stället för vriden ellips därför att bågkommandot bär
+ * lutningen själv, medan `rotation`-propet är utfasat och den vridning man
+ * skriver in i `transform`-strängen tappar sitt vridningscentrum på vägen.
+ */
+const headPath = (cx: number, cy: number) => {
+  const x1 = cx - HEAD_DX;
+  const y1 = cy - HEAD_DY;
+  const x2 = cx + HEAD_DX;
+  const y2 = cy + HEAD_DY;
+  return (
+    `M ${x1} ${y1}` +
+    ` A ${HEAD_RX} ${HEAD_RY} ${HEAD_TILT} 0 1 ${x2} ${y2}` +
+    ` A ${HEAD_RX} ${HEAD_RY} ${HEAD_TILT} 0 1 ${x1} ${y1} Z`
+  );
+};
 
 /** Balkarnas höjd. Stjälkarna går upp hit från notheadet. */
 const BEAM_Y = 10.3;
@@ -32,6 +73,16 @@ const BEAM_GAP = 5;
 
 /** Fanans bredd åt höger. Behövs för att kunna centrera bilden. */
 const FLAG_WIDTH = 6;
+
+/**
+ * Kortare skaft för sextondelen och kvintolen. Den dubbla balken gör annars
+ * de två figurerna märkbart högre än resten av raden. Balken hamnar här på
+ * exakt samma höjd som encelliga figurers enda balk (BEAM_Y) — en åtta
+ * procents förkortning räckte inte för kvintolen, vars femma annars fortsatt
+ * trängdes mot bildens överkant; med balken indragen till samma höjd som hos
+ * till exempel triolen får siffran samma luft som där.
+ */
+const SHORT_STEM_Y = BEAM_Y + BEAM_GAP;
 
 export type NoteValue = SubdivisionId;
 
@@ -72,13 +123,18 @@ interface Shape {
   flagOn?: number[];
   /** Punkt efter noten, som i punkterad åttondel. */
   dotOn?: number[];
+  /**
+   * Ersätter BEAM_Y som skaftets och balkens ankarhöjd för den här figuren.
+   * Används för att göra enstaka figurer kortskaftade utan att rubba resten.
+   */
+  stemBaseY?: number;
 }
 
 const SHAPES: Record<NoteValue, Shape> = {
   quarter: { count: 1, beams: 0 },
   eighth: { count: 2, beams: 1 },
   triplet: { count: 3, beams: 1, numerals: [{ text: '3', notes: [0, 1, 2] }] },
-  sixteenth: { count: 4, beams: 2 },
+  sixteenth: { count: 4, beams: 2, stemBaseY: SHORT_STEM_Y },
 
   /**
    * Fjärdedel plus åttondel under en trea — så skrivs gungande åttondelar.
@@ -134,19 +190,22 @@ const SHAPES: Record<NoteValue, Shape> = {
     beams: 2,
     numerals: [{ text: '5', notes: [0, 1, 2, 3, 4] }],
     spanUnits: 3.6,
+    stemBaseY: SHORT_STEM_Y,
   },
   /**
-   * Kvintolswing: samma ritsätt som swing8, fast andra klicket sitter på
-   * kvintolrutnätets tredje femtedel i stället för trioldelningens sista
-   * tredjedel — en lösare gungning.
+   * Kvintolswing: punkterad åttondel plus åttondel i stället för fjärdedel
+   * plus åttondel, eftersom 3:2-förhållandet (tredje femtedelen) är för
+   * jämnt för att en oflaggad "fjärdedel" ska se ut som den långa noten.
+   * Båda noterna bär därför egen fana, med punkten på den första.
    */
   swing5: {
     count: 2,
     beams: 0,
     numerals: [{ text: '5', notes: [0, 1] }],
     positions: [0, 3 / 5],
-    spanUnits: 2.2,
-    flagOn: [1],
+    spanUnits: 2.6,
+    flagOn: [0, 1],
+    dotOn: [0],
   },
 };
 
@@ -166,7 +225,9 @@ export function NoteValueIcon({
     extraBeamOn,
     dotOn,
     flagOn,
+    stemBaseY,
   } = SHAPES[value];
+  const basY = stemBaseY ?? BEAM_Y;
 
   // Jämna figurer fördelas jämnt över gruppen, ojämna följer sina egna lägen
   // så att bilden speglar när klicken faktiskt hörs.
@@ -174,24 +235,27 @@ export function NoteValueIcon({
   // Fanan sticker ut åt höger och räknas med, annars hamnar figuren för långt
   // åt det hållet i rutan.
   const fanBredd = flagOn?.includes(count - 1) ? FLAG_WIDTH : 0;
-  const startCx = (WIDTH - span - HEAD_RX * 2 - fanBredd) / 2 + HEAD_RX;
+  const startCx = (WIDTH - span - HEAD_REACH * 2 - fanBredd) / 2 + HEAD_REACH;
   const andelar =
     positions ?? Array.from({ length: count }, (_, i) => (count > 1 ? i / (count - 1) : 0));
   const heads = andelar.map((andel) => startCx + andel * span);
 
-  // Stjälken sitter i notheadets högra kant när den pekar uppåt.
-  const stemX = (cx: number) => cx + HEAD_RX - 0.4;
+  // Stjälken sitter i notheadets högra kant när den pekar uppåt — alltså i
+  // det lutande huvudets ytterkant, inte i en orörd ellips.
+  const stemX = (cx: number) => cx + HEAD_REACH - 0.5;
   const vänster = stemX(heads[0]) - 0.7;
   const höger = stemX(heads[heads.length - 1]) + 0.7;
 
   /**
-   * Balken närmast notheadet ligger alltid på samma höjd, oavsett hur många
-   * balkar figuren har — annars ser sextondelens och kvintolens stjälkar
-   * kortare ut än åttondelens, eftersom den andra balken annars kilas in
-   * mellan huvudet och den första. I stället växer stjälken uppåt, en balk-
-   * mellanrum per extra balk, precis som i handskriven notskrift.
+   * Balken närmast notheadet ligger på samma höjd för alla figurer med lika
+   * många balkar, oavsett hur många balkar figuren har — annars ser
+   * sextondelens och kvintolens stjälkar kortare ut än åttondelens, eftersom
+   * den andra balken annars kilas in mellan huvudet och den första. I stället
+   * växer stjälken uppåt, ett balkmellanrum per extra balk, precis som i
+   * handskriven notskrift. `stemBaseY` flyttar den här ankarhöjden för
+   * enstaka figurer, som sextondelens och kvintolens kortare skaft.
    */
-  const stemTop = beams > 0 ? BEAM_Y - (beams - 1) * BEAM_GAP : BEAM_Y;
+  const stemTop = beams > 0 ? basY - (beams - 1) * BEAM_GAP : basY;
 
   // Siffrorna centreras över sina egna stjälkar, inte över ikonen. Två siffror
   // ritas mindre så att de får plats var för sig.
@@ -219,9 +283,9 @@ export function NoteValueIcon({
 
       {heads.map((cx, i) => (
         <React.Fragment key={i}>
-          <Ellipse cx={cx} cy={HEAD_Y} rx={HEAD_RX} ry={HEAD_RY} fill={color} />
+          <Path d={headPath(cx, HEAD_Y)} fill={color} />
           {dotOn?.includes(i) ? (
-            <Circle cx={cx + HEAD_RX + 3} cy={HEAD_Y} r={1.6} fill={color} />
+            <Circle cx={cx + HEAD_REACH + 3} cy={HEAD_Y} r={1.6} fill={color} />
           ) : null}
           <Line
             x1={stemX(cx)}
@@ -236,7 +300,7 @@ export function NoteValueIcon({
           {flagOn?.includes(i) ? (
             <Path
               d={
-                `M ${stemX(cx)} ${BEAM_Y}` +
+                `M ${stemX(cx)} ${basY}` +
                 ' c 4.6 1.4, 6 3.6, 4.6 7.4' +
                 ' c 0.4 -3.4, -1.6 -4.8, -4.6 -5.6 z'
               }
@@ -250,7 +314,7 @@ export function NoteValueIcon({
         <Rect
           key={i}
           x={vänster}
-          y={BEAM_Y - i * BEAM_GAP}
+          y={basY - i * BEAM_GAP}
           width={höger - vänster}
           height={BEAM_THICKNESS}
           fill={color}
@@ -262,7 +326,7 @@ export function NoteValueIcon({
         <Rect
           key={`extra-${i}`}
           x={stemX(heads[i]) - 4.5}
-          y={BEAM_Y + beams * BEAM_GAP}
+          y={basY + beams * BEAM_GAP}
           width={5.2}
           height={BEAM_THICKNESS}
           fill={color}
