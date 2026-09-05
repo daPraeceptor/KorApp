@@ -19,6 +19,7 @@ import {
 } from 'react-native';
 
 import { T } from '../i18n';
+import { innehållsbredd, ärLiggande } from '../orientering';
 import { Keyboard } from '../components/Keyboard';
 import { MetronomeVisual } from '../components/MetronomeVisual';
 import { NoteValueIcon } from '../components/NoteValueIcon';
@@ -61,37 +62,6 @@ const TRANSPORT_COLUMN_WIDTH = 190;
 export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
   const t = useTheme();
   const styles = useThemedStyles(makeStyles);
-  /**
-   * I liggande läge är höjden det som tar slut. Hjulet och taktvisaren
-   * krymper då i stället för att trycka ner allt annat under skärmkanten;
-   * i stående läge ändras ingenting, eftersom taken ligger på dagens mått.
-   */
-  const { height: fönsterhöjd, width: fönsterbredd } = useWindowDimensions();
-  const trångtPåHöjden = fönsterhöjd < 620;
-  /**
-   * På telefonen i liggande läge ryms bredden på att stå staplade — då står
-   * taktvisaren och hjulet i stället sida vid sida, ett grepp webben aldrig
-   * behöver eftersom den redan har bredden att ta av.
-   */
-  const liggande = Platform.OS !== 'web' && fönsterbredd > fönsterhöjd;
-  /**
-   * I liggande läge styr höjden inte längre storleken — taktvisaren och
-   * hjulet ska vara lika stora som i stående läge, inte krympa bara för att
-   * telefonen ligger ner. I stället är det bredden, delad mellan visaren,
-   * hjulet och den smala knappspalten till höger, som sätter taket.
-   */
-  const hjulstorlek = Math.round(
-    Math.max(
-      170,
-      Math.min(
-        260,
-        liggande
-          ? (fönsterbredd - spacing.md * 4 - TRANSPORT_COLUMN_WIDTH) / 2
-          : Math.min(fönsterhöjd * 0.34, fönsterbredd - 96),
-      ),
-    ),
-  );
-  const visarskala = trångtPåHöjden && !liggande ? 0.62 : 1;
   const {
     live,
     settings,
@@ -110,6 +80,39 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
     updateSettings,
   } = useAppState();
 
+  /**
+   * I liggande läge är höjden det som tar slut. Hjulet och taktvisaren
+   * krymper då i stället för att trycka ner allt annat under skärmkanten;
+   * i stående läge ändras ingenting, eftersom taken ligger på dagens mått.
+   */
+  const { height: fönsterhöjd, width: fönsterbredd } = useWindowDimensions();
+  const trångtPåHöjden = fönsterhöjd < 620;
+  /**
+   * Ligger skärmen ner ryms bredden på att stå staplade — då står taktvisaren
+   * och hjulet sida vid sida i stället. I webbläsaren avgör fönsterläget i
+   * inställningarna, se orientering.ts.
+   */
+  const liggande = ärLiggande(fönsterbredd, fönsterhöjd, settings.webLayout);
+  /** Bredden att dela på. I webbläsaren spalten, inte fönstret runt den. */
+  const appbredd = innehållsbredd(fönsterbredd);
+  /**
+   * I liggande läge styr höjden inte längre storleken — taktvisaren och
+   * hjulet ska vara lika stora som i stående läge, inte krympa bara för att
+   * telefonen ligger ner. I stället är det bredden, delad mellan visaren,
+   * hjulet och den smala knappspalten till höger, som sätter taket.
+   */
+  const hjulstorlek = Math.round(
+    Math.max(
+      170,
+      Math.min(
+        260,
+        liggande
+          ? (appbredd - spacing.md * 4 - TRANSPORT_COLUMN_WIDTH) / 2
+          : Math.min(fönsterhöjd * 0.34, appbredd - 96),
+      ),
+    ),
+  );
+  const visarskala = trångtPåHöjden && !liggande ? 0.62 : 1;
   const [selectMode, setSelectMode] = useState(false);
   const [titleDraft, setTitleDraft] = useState('');
 

@@ -67,7 +67,7 @@ import {
   parseSettings,
 } from './settings';
 import { setPulse } from './pulse';
-import { T } from '../i18n';
+import { T, sättSpråk, systemspråk } from '../i18n';
 import { läsInKopia } from '../backup/bibliotekskopia';
 
 export type { PlayDirection } from '../store/songs';
@@ -144,6 +144,9 @@ const DEFAULT_SETTINGS: Settings = {
   haptics: true,
   keepAwake: true,
   tonesFirst: false,
+  // Utan eget val gäller det språk systemet redan valt åt appen.
+  language: systemspråk,
+  webLayout: 'auto',
   // En ny installation har inget gammalt val att skriva om.
   migrationer: SENASTE_MIGRATION,
 };
@@ -325,7 +328,14 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         // Varje fält prövas för sig: ett värde som inte går att känna igen
         // faller tillbaka på standardvärdet i stället för att följa med in i
         // appen. Ett tokigt värde ska inte kunna tysta ljudet.
-        setSettings((current) => parseSettings(settingsJson, current));
+        const laddadeInställningar = parseSettings(settingsJson, DEFAULT_SETTINGS);
+        // Språket sätts före omritningen, inte i en effekt efteråt: texterna
+        // läses under renderingen, och en effekt skulle lämna gränssnittet
+        // på gårdagens språk tills något annat råkade rita om det.
+        if (Platform.OS === 'web') {
+          sättSpråk(laddadeInställningar.language);
+        }
+        setSettings(laddadeInställningar);
       } finally {
         // Först här börjar skrivningarna gälla, så att inläsningen inte
         // skriver tillbaka standardvärdena ovanpå det som redan står sparat.

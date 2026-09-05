@@ -14,7 +14,8 @@
  * musikaliska inställningar med egna val i appen — en svensk körledare kan
  * mycket väl vilja ha internationella tonnamn, och tvärtom.
  */
-import type { MetronomeVisualStyle, StartTab } from '../state/settings.ts';
+import type { MetronomeVisualStyle, StartTab, WebLayout } from '../state/settings.ts';
+import type { Språk } from './index.ts';
 import type { SubdivisionId } from '../audio/subdivisions.ts';
 import type { TimbreId } from '../audio/timbres.ts';
 import type { ThemeId } from '../theme.ts';
@@ -123,6 +124,21 @@ export const sv = {
       songs: 'Låtlistan',
     } satisfies Record<StartTab, string>,
     startvyText: 'Automatisk öppnar låtlistan när det finns sparade låtar, annars skapandet.',
+    språk: 'Språk',
+    språkVal: {
+      sv: 'Svenska',
+      en: 'English',
+    } satisfies Record<Språk, string>,
+    språkText:
+      'Gäller webbläsaren. I telefonen följer appen systemets språk, som ställs i telefonens egna inställningar — ett val till här skulle bara kunna säga emot det.',
+    fönsterläge: 'Fönsterläge',
+    fönsterlägeVal: {
+      auto: 'Automatiskt',
+      portrait: 'Stående',
+      landscape: 'Liggande',
+    } satisfies Record<WebLayout, string>,
+    fönsterlägeText:
+      'Automatiskt följer formen på appens egen spalt: blir den bredare än hög ritas den liggande vyn. Stående och liggande låser vyn i stället, för att se hur appen ter sig i telefonens båda lägen. Flikraden står kvar hur du än väljer — i webbläsaren finns ingen telefon att vända tillbaka.',
     tempoFrånListan: 'Tempo från låtlistan',
     stoppaSjälv: 'Stoppa av sig själv',
     efter: 'Efter',

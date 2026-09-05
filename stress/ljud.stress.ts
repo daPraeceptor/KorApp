@@ -44,6 +44,8 @@ const FÖRVAL_A4: Settings = {
   haptics: true,
   keepAwake: true,
   tonesFirst: false,
+  language: 'en',
+  webLayout: 'auto',
   migrationer: 1,
 };
 

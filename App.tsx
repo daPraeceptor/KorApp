@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 
 import { T } from './src/i18n';
+import { WEBB_MAXBREDD } from './src/orientering';
 import { LockGlyph, SlideToConfirm } from './src/components/ui';
 import { PlayScreen } from './src/screens/PlayScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
@@ -129,7 +130,9 @@ function Shell() {
   const [tab, setTab] = useState<Tab>('play');
   /**
    * På telefonen är höjden redan knapp i liggande läge — flikraden får ge
-   * vika där. Webben har alltid gott om plats och behåller den.
+   * vika där. Webben behåller den även när fönsterläget i inställningarna
+   * ställts om till liggande: där finns ingen telefon att vända tillbaka,
+   * och utan flikrad skulle inställningen inte gå att ändra igen.
    */
   const { height: fönsterhöjd, width: fönsterbredd } = useWindowDimensions();
   const liggande = Platform.OS !== 'web' && fönsterbredd > fönsterhöjd;
@@ -327,7 +330,7 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     flex: 1,
     // Håller innehållet läsbart på breda skärmar när appen körs i webbläsaren.
     width: '100%',
-    maxWidth: Platform.OS === 'web' ? 620 : undefined,
+    maxWidth: Platform.OS === 'web' ? WEBB_MAXBREDD : undefined,
     alignSelf: 'center',
   },
   tabBar: {

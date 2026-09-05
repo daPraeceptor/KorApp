@@ -39,6 +39,7 @@ import { MetronomeVisual } from '../components/MetronomeVisual';
 import { VolumeNotice } from '../components/VolumeNotice';
 import { haptik } from '../haptics';
 import { T } from '../i18n';
+import { ärLiggande } from '../orientering';
 import { klaviaturSpann } from './klaviaturSpann';
 import { useAppState } from '../state/AppState';
 import { getPulse } from '../state/pulse';
@@ -489,8 +490,6 @@ export function SongsScreen({
    * varken nästa låt eller resten av listan.
    */
   const { height: fönsterhöjd, width: fönsterbredd } = useWindowDimensions();
-  const liggande = fönsterbredd > fönsterhöjd;
-  const liggandeKonsert = locked && liggande;
   const {
     songs,
     folders,
@@ -510,6 +509,9 @@ export function SongsScreen({
     playSongTempo,
     stopMetronome,
   } = useAppState();
+  // I webbläsaren avgör fönsterläget i inställningarna, se orientering.ts.
+  const liggande = ärLiggande(fönsterbredd, fönsterhöjd, settings.webLayout);
+  const liggandeKonsert = locked && liggande;
 
   const [newFolderName, setNewFolderName] = useState('');
   const scrollRef = useRef<ScrollView>(null);

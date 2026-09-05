@@ -1,14 +1,15 @@
 /**
  * Appens språk.
  *
- * Språket väljs inte i appen utan av systemet, som i alla andra appar: iOS
- * och Android har användarens språklista, och sedan iOS 13 dessutom ett val
- * per app i systeminställningarna. Appen läser listan vid start och tar
- * svenska om det står före engelska, annars engelska.
+ * På telefonen väljs språket inte i appen utan av systemet, som i alla andra
+ * appar: iOS och Android har användarens språklista, och sedan iOS 13
+ * dessutom ett val per app i systeminställningarna. Appen läser listan vid
+ * start och tar svenska om det står före engelska, annars engelska. Byter
+ * användaren språk för appen startar systemet om den.
  *
- * Valet görs en gång, när modulen laddas. Byter användaren språk för appen
- * startar systemet om den, så ingen omritning behövs — och texterna kan
- * därför läsas som vanliga konstanter utan prenumerationer.
+ * Webbläsaren har ingen sådan inställning per sida — där bär den bara sin
+ * egen språklista, som gäller allt man besöker. Därför får webbversionen ett
+ * eget val i inställningarna, och sättSpråk byter texterna under gång.
  *
  * Var språklistan kommer ifrån skiljer sig mellan plattformarna, se
  * spraklista.ts och spraklista.native.ts.
@@ -33,9 +34,32 @@ export function väljSpråk(lista: readonly string[]): Språk {
   return 'en';
 }
 
-export const språk: Språk = väljSpråk(språklista());
+/** Språket systemet ger. På telefonen hela sanningen, på webben utgångsläget. */
+export const systemspråk: Språk = väljSpråk(språklista());
 
-/** Appens alla texter, på det valda språket. */
-export const T: Texter = språk === 'sv' ? sv : en;
+/** Språket som gäller just nu. */
+export let språk: Språk = systemspråk;
+
+/**
+ * Appens alla texter, på det språk som gäller just nu.
+ *
+ * Läses som en vanlig konstant i vyerna. Byts språket pekar bindningen om
+ * till den andra ordlistan, och nästa omritning skriver hela gränssnittet på
+ * det nya språket — därav sättSpråk nedan, som byter och låter den som
+ * kallade den rita om.
+ */
+export let T: Texter = språk === 'sv' ? sv : en;
+
+/**
+ * Byter språk under gång. Bara webben behöver det; telefonen startas om av
+ * systemet när språkvalet ändras där.
+ *
+ * Anropas inifrån den händelse som också ändrar inställningen, så att
+ * omritningen den ger går på de nya texterna.
+ */
+export function sättSpråk(nytt: Språk): void {
+  språk = nytt;
+  T = nytt === 'sv' ? sv : en;
+}
 
 export type { Texter } from './texter.sv.ts';

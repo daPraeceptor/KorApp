@@ -113,6 +113,21 @@ export const en: Texter = {
       songs: 'Song list',
     },
     startvyText: 'Automatic opens the song list when there are saved songs, otherwise the editor.',
+    språk: 'Language',
+    språkVal: {
+      sv: 'Svenska',
+      en: 'English',
+    },
+    språkText:
+      'Applies to the browser. On a phone the app follows the system language, set in the phone’s own settings — another choice here could only contradict it.',
+    fönsterläge: 'Window layout',
+    fönsterlägeVal: {
+      auto: 'Automatic',
+      portrait: 'Portrait',
+      landscape: 'Landscape',
+    },
+    fönsterlägeText:
+      'Automatic follows the shape of the app’s own column: wider than tall gives the landscape view. Portrait and landscape lock the view instead, to see how the app looks in both phone positions. The tab row stays whichever you pick — in a browser there is no phone to turn back.',
     tempoFrånListan: 'Tempo from the song list',
     stoppaSjälv: 'Stop by itself',
     efter: 'After',

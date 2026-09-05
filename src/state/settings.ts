@@ -19,8 +19,15 @@ import type {
   LabelSystem,
   NoteNaming,
 } from '../theory/tuning.ts';
+import type { Språk } from '../i18n/index.ts';
 
 export type StartTab = 'auto' | 'play' | 'songs';
+
+/**
+ * Vilken form webbversionen ritas i. "auto" läser fönstret, som telefonen
+ * läser sin skärm; de andra två låser vyn oavsett fönstrets mått.
+ */
+export type WebLayout = 'auto' | 'portrait' | 'landscape';
 
 /** Klassisk pendel, streck fram och tillbaka, studsande boll, eller ingen alls. */
 export type MetronomeVisualStyle = 'pendulum' | 'bar' | 'ball' | 'none';
@@ -110,6 +117,16 @@ export interface Settings {
    * till att ge kören tonen.
    */
   tonesFirst: boolean;
+  /**
+   * Gränssnittets språk. Gäller bara webbversionen: telefonen följer
+   * systemets språklista, och den ska inte kunna köras över härifrån.
+   */
+  language: Språk;
+  /**
+   * Stående eller liggande vy i webbversionen, eller efter fönstrets form.
+   * Telefonen vet själv hur den hålls och bryr sig inte om värdet.
+   */
+  webLayout: WebLayout;
 }
 
 /** Värdet om det är ett av de tillåtna, annars det man hade. */
@@ -210,6 +227,12 @@ export function normalizeSettings(raw: unknown, fallback: Settings): Settings {
     haptics: flagga(v.haptics, fallback.haptics),
     keepAwake: flagga(v.keepAwake, fallback.keepAwake),
     tonesFirst: flagga(v.tonesFirst, fallback.tonesFirst),
+    language: ettAv<Språk>(v.language, ['sv', 'en'], fallback.language),
+    webLayout: ettAv<WebLayout>(
+      v.webLayout,
+      ['auto', 'portrait', 'landscape'],
+      fallback.webLayout,
+    ),
   };
 }
 

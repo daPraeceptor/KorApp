@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import {
   Linking,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -21,7 +22,7 @@ import {
 import { audioEngine } from '../audio/engine';
 import { delaKopia, väljKopia } from '../backup/delakopia';
 import { kopieNamn, skapaKopia } from '../backup/bibliotekskopia';
-import { T } from '../i18n';
+import { T, sättSpråk } from '../i18n';
 import {
   MAX_AUTO_STOP_BEATS,
   MIN_AUTO_STOP_BEATS,
@@ -170,6 +171,44 @@ export function SettingsScreen() {
         </View>
         <Text style={styles.help}>{T.tema[settings.themeId].text}</Text>
       </Card>
+
+      {/* Bara i webbläsaren. Telefonen har sitt språkval i systemet och vet
+          själv hur den hålls — där vore båda korten ett andra reglage för
+          något plattformen redan sköter. */}
+      {Platform.OS === 'web' ? (
+        <>
+          <Card>
+            <SectionTitle>{T.inst.språk}</SectionTitle>
+            <SegmentedControl
+              value={settings.language}
+              onChange={(language) => {
+                // Texterna byts före omritningen inställningen ger, annars
+                // står gränssnittet kvar på det gamla språket.
+                sättSpråk(language);
+                updateSettings({ language });
+              }}
+              options={(['sv', 'en'] as const).map((value) => ({
+                value,
+                label: T.inst.språkVal[value],
+              }))}
+            />
+            <Text style={styles.help}>{T.inst.språkText}</Text>
+          </Card>
+
+          <Card>
+            <SectionTitle>{T.inst.fönsterläge}</SectionTitle>
+            <SegmentedControl
+              value={settings.webLayout}
+              onChange={(webLayout) => updateSettings({ webLayout })}
+              options={(['auto', 'portrait', 'landscape'] as const).map((value) => ({
+                value,
+                label: T.inst.fönsterlägeVal[value],
+              }))}
+            />
+            <Text style={styles.help}>{T.inst.fönsterlägeText}</Text>
+          </Card>
+        </>
+      ) : null}
 
       {/* Metronomens eget uppförande, samlat: hur den låter och vad den gör
           med telefonen medan den går. */}
