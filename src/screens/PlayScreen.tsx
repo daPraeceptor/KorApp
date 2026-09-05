@@ -52,10 +52,11 @@ const LOWEST_MIDI = 24;
 const HIGHEST_START = 84;
 const KEYBOARD_SPAN = 24;
 
-/** Bredden den smala knappspalten får i liggande läge, transportraden inräknad. */
-const TRANSPORT_COLUMN_WIDTH = 100;
-/** Bredden slag-per-takt-spalten får i liggande läge — hjulet med sitt eget mått. */
-const BEATS_COLUMN_WIDTH = 190;
+/**
+ * Bredden knappspalten får i liggande läge, transportraden inräknad. Måttet
+ * kommer från stegaren för slag per takt, den bredaste av spaltens rader.
+ */
+const TRANSPORT_COLUMN_WIDTH = 190;
 
 export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
   const t = useTheme();
@@ -85,11 +86,7 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
       Math.min(
         260,
         liggande
-          ? (fönsterbredd -
-              spacing.md * 5 -
-              TRANSPORT_COLUMN_WIDTH -
-              BEATS_COLUMN_WIDTH) /
-              2
+          ? (fönsterbredd - spacing.md * 4 - TRANSPORT_COLUMN_WIDTH) / 2
           : Math.min(fönsterhöjd * 0.34, fönsterbredd - 96),
       ),
     ),
@@ -368,24 +365,20 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
                 variant="ghost"
                 style={styles.transportColumnButton}
               />
-              {/* Hör ihop med Knacka: BPM-enheten hjulet redan visar, men
-                  upprepad här eftersom knappspalten är blicken när man knackar
-                  in ett tempo och hjulet ligger utom synhåll då. */}
-              <Text style={styles.transportColumnUnit}>{T.lista.slagPerMinut}</Text>
-            </View>
-          ) : null}
-
-          {/* Slag per takt hör ihop med transportknapparna, så den får stå
-              bredvid dem i stället för att kastas ner i kortet under. */}
-          {liggande ? (
-            <View style={styles.beatsColumn}>
-              <Text style={styles.rowLabel}>{T.spel.slagPerTakt}</Text>
-              <Stepper
-                value={live.beatsPerBar}
-                min={1}
-                max={12}
-                onChange={(beatsPerBar) => updateLive({ beatsPerBar })}
-              />
+              {/* Slag per takt hör ihop med tempot och får sista raden i
+                  spalten i stället för att kastas ner i kortet under. Namnet
+                  står under siffran i stället för över stegaren: så läser man
+                  «4 slag per takt» i ett svep, och raden blir inte högre än
+                  knapparna ovanför. */}
+              <View style={styles.transportColumnStepper}>
+                <Stepper
+                  value={live.beatsPerBar}
+                  min={1}
+                  max={12}
+                  onChange={(beatsPerBar) => updateLive({ beatsPerBar })}
+                />
+                <Text style={styles.transportColumnUnit}>{T.spel.slagPerTakt}</Text>
+              </View>
             </View>
           ) : null}
         </View>
@@ -815,8 +808,8 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     gap: spacing.xs,
   },
   // Fullbredda knappar i spalten (Start/Stoppa, Knacka) — smalare sidstoppning
-  // än standardknappen så att texten får plats i de 100 punkterna, men i
-  // övrigt appens vanliga, fullstora knapp.
+  // än standardknappen, så att spalten håller ihop kring stegarens mått i
+  // stället för att bli bredare än den behöver.
   transportColumnButton: {
     paddingHorizontal: spacing.xs,
   },
@@ -824,20 +817,18 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     flex: 1,
     paddingHorizontal: 4,
   },
-  // Enheten hör till Knacka-knappen ovanför, inte till hjulet — därför
-  // samma vänsterkant och en liten lucka i stället för radens vanliga luft.
+  // Stegaren har sin egen bredd och ska inte sträckas ut som knapparna
+  // ovanför — omslaget centrerar den i spalten i stället.
+  transportColumnStepper: {
+    alignItems: 'center',
+  },
+  // Namnet hör till siffran rakt ovanför, inte till spalten i stort — därför
+  // en liten lucka i stället för radernas vanliga luft.
   transportColumnUnit: {
     color: t.textMuted,
     fontSize: 12,
     textAlign: 'center',
     marginTop: -spacing.xs / 2,
-  },
-  // Slag-per-takt-spalten längst till höger i liggande läge, bredvid
-  // transportknapparna i stället för nere i kortet.
-  beatsColumn: {
-    width: BEATS_COLUMN_WIDTH,
-    alignItems: 'center',
-    gap: spacing.xs,
   },
   transport: {
     flexDirection: 'row',
