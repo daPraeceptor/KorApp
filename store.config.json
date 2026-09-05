@@ -1,0 +1,75 @@
+{
+  "configVersion": 0,
+  "apple": {
+    "version": "1.0.0",
+    "copyright": "2026 Peter Holmstrand",
+    "categories": ["MUSIC", "EDUCATION"],
+    "release": {
+      "automaticRelease": false,
+      "phasedRelease": false
+    },
+    "advisory": {
+      "alcoholTobaccoOrDrugUseOrReferences": "NONE",
+      "contests": "NONE",
+      "gambling": false,
+      "gamblingSimulated": "NONE",
+      "horrorOrFearThemes": "NONE",
+      "matureOrSuggestiveThemes": "NONE",
+      "medicalOrTreatmentInformation": "NONE",
+      "profanityOrCrudeHumor": "NONE",
+      "sexualContentGraphicAndNudity": "NONE",
+      "sexualContentOrNudity": "NONE",
+      "unrestrictedWebAccess": false,
+      "violenceCartoonOrFantasy": "NONE",
+      "violenceRealistic": "NONE",
+      "violenceRealisticProlongedGraphicOrSadistic": "NONE",
+      "kidsAgeBand": null,
+      "ageRatingOverride": "NONE",
+      "koreaAgeRatingOverride": "NONE"
+    },
+    "info": {
+      "sv": {
+        "title": "Körmetronom",
+        "subtitle": "Metronom och tongivare för kör",
+        "promoText": "Ge kören tonen och håll takten. Ren eller tempererad stämning, inspelad flygel, och ett låtbibliotek som minns tempo och starttoner för varje låt.",
+        "description": "Körmetronom är en metronom och tongivare byggd för den som leder en kör.\n\nAllt du behöver framför kören ligger på en skärm: tempot, taktarten, tonikan och de toner stämmorna ska börja på. Appen fungerar helt utan uppkoppling och samlar inte in något om dig.\n\nTONGIVNING SOM EN KÖR VILL HA DEN\n\nTryck på klaviaturen för att ge en ton. Håll kvar tangenten så klingar tonen längre, så att alla hinner höra den. Dubbeltryck gör tangenten till tonika, och då räknas den rena stämningen från den.\n\nTonerna sparas i den ordning du valde dem, till exempel stämmornas insatsordning, och sorteras aldrig om. Du bestämmer sedan hur de ges: hela ackordet på en gång, nedifrån och upp, uppifrån och ner, eller i vald ordning. Hastigheten sparas per låt.\n\nREN OCH TEMPERERAD STÄMNING\n\nTempererad stämning är stämd som ett piano. Ren stämning bygger varje intervall på en heltalskvot räknad från tonikan, så att övertonerna sammanfaller och svävningarna försvinner. Skillnaden hörs tydligast i en treklang, och det är just den skillnaden en kör ska lära sig höra.\n\nFEM KLANGFÄRGER\n\nInspelad flygel, körton, stämgaffel, flöjt och ren sinus. Flygeln är Salamander Grand Piano, en Yamaha C5 inspelad av Alexander Holm. Alla klanger utom sinustonen bär femte och sjätte deltonen, så att skillnaden mellan stämningarna hörs oavsett vilken du valt, och alla ligger på samma uppmätta styrka så att ett klangbyte inte ändrar ljudnivån.\n\nMETRONOM\n\nVrid snurrhjulet med fingret, knacka tempot, eller finjustera med ±1. Området är 30 till 300 slag per minut. Välj antal slag per takt med accent på ettan, och underdelning i åttondelar, trioler, sextondelar, kvintoler, punkterat eller swing. Taktslaget kan följas med ögat också: klassisk pendel, ett streck som går fram och tillbaka, eller en boll som studsar högre vid långsamma tempon.\n\nLÅTBIBLIOTEK\n\nVarje låt minns sitt tempo, sin taktart, sin stämning, sin tonika, sina starttoner och tongivningens hastighet. Samla låtarna i mappar, en för varje konsert eller termin, och sök fram dem på titel. Direkt i listan finns knappar för att starta tempot eller ge tonerna utan att gå via spelvyn.\n\nHela biblioteket kan sparas som en fil genom systemets delningsark, till iCloud Drive, mejl eller AirDrop. En inläsning lägger till och uppdaterar men raderar aldrig, så en gammal fil kan inte skada ett nyare bibliotek.\n\nGJORD FÖR RUMMET DU STÅR I\n\nSju färgteman, fyra mörka för dunkla kyrkor och salar och tre ljusa för repetition i dagsljus. Liggande läge ger bredare tempohjul och en klaviatur som syns på längre håll. Appen följer telefonens eget rotationslås i stället för att ha ett eget.\n\nTonnamnen väljer du själv: bokstäver, solmisation eller tonplatser som romerska siffror, fast från C eller flyttbart från tonikan. Svenskt H eller internationellt B, som du vill.\n\nINTEGRITET\n\nInga konton, ingen inloggning, ingen reklam, ingen analys och inga nätverksanrop. Allt stannar på telefonen.",
+        "keywords": [
+          "kör",
+          "körledare",
+          "dirigent",
+          "tonika",
+          "stämning",
+          "ren stämning",
+          "taktart",
+          "tempo",
+          "knacktempo",
+          "stämgaffel"
+        ],
+        "marketingUrl": "https://korapp.huleteknik.se/",
+        "supportUrl": "https://korapp.huleteknik.se/support.html",
+        "privacyPolicyUrl": "https://korapp.huleteknik.se/integritet.html"
+      },
+      "en-US": {
+        "title": "Körmetronom",
+        "subtitle": "Metronome and pitch pipe",
+        "promoText": "Give the choir its notes and keep the beat. Just or equal temperament, a recorded grand piano, and a library that remembers every song's tempo and notes.",
+        "description": "Körmetronom is a metronome and pitch pipe built for whoever stands in front of the choir.\n\nEverything you need is on one screen: the tempo, the time signature, the tonic and the notes each voice starts on. The app works entirely offline and collects nothing about you.\n\nPITCHES THE WAY A CHOIR WANTS THEM\n\nTap the keyboard to give a note. Hold the key and the note sustains, so everyone has time to hear it. Double-tap makes a key the tonic, and just intonation is then reckoned from it.\n\nNotes are kept in the order you chose them, for example the order in which the voices enter, and are never re-sorted. You decide how they sound: the whole chord at once, bottom up, top down, or in the chosen order. The speed is saved per song.\n\nJUST AND EQUAL TEMPERAMENT\n\nEqual temperament is tuned like a piano. Just intonation builds every interval on a whole-number ratio reckoned from the tonic, so the overtones coincide and the beating disappears. The difference is clearest in a triad, and that difference is exactly what a choir needs to learn to hear.\n\nFIVE TIMBRES\n\nA recorded grand piano, a choral tone, a tuning fork, a flute and a pure sine. The grand is the Salamander Grand Piano, a Yamaha C5 recorded by Alexander Holm. Every timbre but the sine carries the fifth and sixth partials, so the difference between the tunings is audible whichever you pick, and all of them sit at the same measured loudness so changing timbre does not change the level.\n\nMETRONOME\n\nTurn the wheel with your finger, tap the tempo, or nudge it by one. The range is 30 to 300 beats per minute. Choose the beats per bar with an accent on the first, and subdivide into eighths, triplets, sixteenths, quintuplets, dotted figures or swing. You can follow the beat with your eyes too: a classic pendulum, a line travelling back and forth, or a ball that bounces higher at slow tempos.\n\nSONG LIBRARY\n\nEvery song remembers its tempo, time signature, tuning, tonic, starting notes and pitch-giving speed. Collect songs in folders, one per concert or term, and search them by title. The list itself has buttons to start the tempo or give the notes without opening the play view.\n\nThe whole library can be saved as a file through the system share sheet, to iCloud Drive, mail or AirDrop. An import adds and updates but never deletes, so an old file cannot harm a newer library.\n\nMADE FOR THE ROOM YOU STAND IN\n\nSeven colour themes, four dark ones for dim churches and halls and three light ones for daylight rehearsal. Landscape gives a wider tempo wheel and a keyboard visible from further away. The app follows the phone's own rotation lock instead of having one of its own.\n\nYou choose the note names: letters, solfège, or scale degrees as Roman numerals, fixed from C or movable from the tonic.\n\nPRIVACY\n\nNo accounts, no sign-in, no advertising, no analytics and no network requests. Everything stays on the phone.",
+        "keywords": [
+          "choir",
+          "conductor",
+          "choral",
+          "tuning",
+          "just intonation",
+          "pitch",
+          "tonic",
+          "tempo",
+          "tap tempo",
+          "tuning fork"
+        ],
+        "marketingUrl": "https://korapp.huleteknik.se/",
+        "supportUrl": "https://korapp.huleteknik.se/support.html",
+        "privacyPolicyUrl": "https://korapp.huleteknik.se/integritet.html"
+      }
+    }
+  }
+}

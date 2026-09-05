@@ -100,6 +100,36 @@ npm run bygg:webb
 bash skicka-till-webben.sh
 ```
 
+Integritetspolicyn och supportsidan ligger i `public/` och följer med varje
+webbdeploy. Apple kräver båda adresserna för en App Store-inlämning:
+
+- <https://korapp.huleteknik.se/integritet.html>
+- <https://korapp.huleteknik.se/support.html>
+
+## App Store-listningen
+
+Butikstexten står i `store.config.json` — titel, undertitel, beskrivning,
+nyckelord, kategori och åldersgräns på svenska och engelska. Den läses av EAS
+Metadata, så listningen kan skickas upp från repot i stället för att skrivas in
+i webbformuläret:
+
+```bash
+npx eas metadata:lint   # kontrollerar fälten och deras längder
+npx eas metadata:push   # skickar upp texten till App Store Connect
+```
+
+Skärmbilder kan EAS Metadata inte ladda upp — de måste läggas in för hand i
+App Store Connect. De ritas fram ur webbygget i precis de två mått Apple
+begär, iPhone 6,9 tum och iPad 13 tum:
+
+```bash
+npm run bygg:webb
+npm run bilder:butik    # lägger bilderna i butiksbilder/
+```
+
+Skriptet skriver ett påhittat låtbibliotek i webbläsarens lagring under
+körningen, så att bilderna visar appen i bruk i stället för en tom lista.
+
 ## Tester
 
 Stämningsmatematiken och tempoberäkningen är enhetstestade:

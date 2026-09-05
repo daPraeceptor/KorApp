@@ -49,3 +49,6 @@ dist-ios/
 # Webbens pianoprov kopieras hit ur assets/piano av verktyg/kopiera-webbprov.mjs.
 # Härledda filer hör inte hemma i historiken.
 /public/piano/
+
+# App Store-bilderna ritas om ur bygget av verktyg/butiksbilder.mjs.
+/butiksbilder/
