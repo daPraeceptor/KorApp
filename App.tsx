@@ -5,7 +5,6 @@ import { StatusBar } from 'expo-status-bar';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 
 import { T } from './src/i18n';
-import { WEBB_MAXBREDD } from './src/orientering';
 import { LockGlyph, SlideToConfirm } from './src/components/ui';
 import { PlayScreen } from './src/screens/PlayScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
@@ -328,10 +327,6 @@ const makeStyles = (t: Palette) => StyleSheet.create({
   },
   body: {
     flex: 1,
-    // Håller innehållet läsbart på breda skärmar när appen körs i webbläsaren.
-    width: '100%',
-    maxWidth: Platform.OS === 'web' ? WEBB_MAXBREDD : undefined,
-    alignSelf: 'center',
   },
   tabBar: {
     flexDirection: 'row',

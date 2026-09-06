@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 
 import { T } from '../i18n';
-import { innehållsbredd, ärLiggande } from '../orientering';
+import { ärLiggande } from '../orientering';
 import { Keyboard } from '../components/Keyboard';
 import { MetronomeVisual } from '../components/MetronomeVisual';
 import { NoteValueIcon } from '../components/NoteValueIcon';
@@ -105,8 +105,6 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
    * inställningarna, se orientering.ts.
    */
   const liggande = ärLiggande(fönsterbredd, fönsterhöjd, settings.webLayout);
-  /** Bredden att dela på. I webbläsaren spalten, inte fönstret runt den. */
-  const appbredd = innehållsbredd(fönsterbredd);
   /**
    * I liggande läge styr höjden inte längre storleken — taktvisaren och
    * hjulet ska vara lika stora som i stående läge, inte krympa bara för att
@@ -119,8 +117,8 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
       Math.min(
         260,
         liggande
-          ? (appbredd - spacing.md * 4 - TRANSPORT_COLUMN_WIDTH) / 2
-          : Math.min(fönsterhöjd * 0.34, appbredd - 96),
+          ? (fönsterbredd - spacing.md * 4 - TRANSPORT_COLUMN_WIDTH) / 2
+          : Math.min(fönsterhöjd * 0.34, fönsterbredd - 96),
       ),
     ),
   );
@@ -301,6 +299,35 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
   // markeringen i stället för att stå kvar och lova något som inte händer.
   const markTonic = live.tuningSystem === 'just' || settings.markTonicInTempered;
   const cents = displayedNote === null ? 0 : centsFromTempered(displayedNote, tuning);
+  const centtext = `${cents >= 0 ? '+' : '−'}${Math.abs(cents).toFixed(1)}`;
+  /**
+   * Avläsningen som en enda rad, för liggande läge.
+   *
+   * Där tar den oktavradens plats ovanför pianot i stället för att stå under
+   * det. En avläsning under klaviaturen växer fram först när en ton trycks,
+   * och det den växer med knuffar undan allt annat mitt under fingret — på
+   * webben dessutom fram en rullningslist, som rycker hela sidan i sidled.
+   * Oktavraden finns redan och är lika hög med som utan avläsning.
+   */
+  const avläsningsrad =
+    displayedNote === null
+      ? null
+      : [
+          noteNameWithOctave(displayedNote, settings.naming) +
+            (settings.labelSystem !== 'letters'
+              ? `  ·  ${noteLabel(displayedNote, labels)}`
+              : ''),
+          `${frequencyOf(displayedNote, tuning).toFixed(2)} Hz`,
+          ...(tuning.system === 'just'
+            ? [
+                `${intervalName(displayedNote, tuning.tonicPitchClass)} ${ratioLabel(
+                  displayedNote,
+                  tuning.tonicPitchClass,
+                )}`,
+                T.spel.centMotTempererad(centtext),
+              ]
+            : []),
+        ].join(' · ');
 
   /** Takten: visaren, hjulet, transportknapparna och taktarten. */
   const metronomdelen = (
@@ -440,7 +467,10 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
               />
             </View>
           )}
-          <Text style={styles.rowLabel}>{T.spel.underdelning}</Text>
+          {/* Ingen rubrik över knapparna: notbilderna säger själva vilken
+              figur de är, och namnen står under dem så länge de avancerade
+              är avstängda. Raden den sparar är höjd som pianot behöver bättre
+              på en låg skärm. */}
           {/* Fler än fyra underdelningar delas på två rader — åtta knappar på
               en rad blir frimärken på en telefonskärm. Liggande har bredden
               för alla på en enda rad, staplade eller ej. */}
@@ -599,10 +629,22 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
               onPress={() => setKeyboardStart((start) => Math.max(LOWEST_MIDI, start - 12))}
             />
             {/* Etiketten säger vad som faktiskt syns, påfyllningen inräknad —
-                inte vad de två oktaverna hade räckt till. */}
-            <Text style={styles.octaveLabel}>
-              {noteNameWithOctave(keyboardStart, settings.naming)} –{' '}
-              {noteNameWithOctave(klaviaturTill, settings.naming)}
+                inte vad de två oktaverna hade räckt till. I liggande läge
+                lämnar den plats åt avläsningen så länge en ton klingar, och
+                är tillbaka så fort tangenten släpps. */}
+            <Text
+              style={[
+                styles.octaveLabel,
+                liggande && avläsningsrad !== null && styles.octaveLabelNote,
+              ]}
+              numberOfLines={1}
+            >
+              {liggande && avläsningsrad !== null
+                ? avläsningsrad
+                : `${noteNameWithOctave(keyboardStart, settings.naming)} – ${noteNameWithOctave(
+                    klaviaturTill,
+                    settings.naming,
+                  )}`}
             </Text>
             <Button
               label={T.spel.oktavUpp}
@@ -635,12 +677,12 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
             onAreaWidth={setKlaviaturbredd}
           />
 
-          <View style={[styles.readout, liggande && styles.readoutLiggande]}>
-            {/* Tom i vila — ytan behåller sin höjd så att inget hoppar när en
-                ton spelas och avläsningen dyker upp. I liggande läge väger
-                den ledigheten mindre än höjden den kostar, så där får rutan
-                krympa till noll i vila i stället — pianot ska inte lämna
-                tomrum efter sig. */}
+          {/* Tom i vila — ytan behåller sin höjd så att inget hoppar när en
+              ton spelas och avläsningen dyker upp. I liggande läge finns
+              höjden inte att avvara, och där står avläsningen på oktavraden
+              ovanför pianot i stället, se avläsningsrad. */}
+          {liggande ? null : (
+          <View style={styles.readout}>
             {displayedNote === null ? null : (
               <>
                 <Text style={styles.readoutNote}>
@@ -665,13 +707,13 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
                       Math.abs(cents) < 0.05 && styles.readoutCentsNeutral,
                     ]}
                   >
-                    {cents >= 0 ? '+' : '−'}
-                    {Math.abs(cents).toFixed(1)} cent mot tempererad
+                    {T.spel.centMotTempererad(centtext)}
                   </Text>
                 ) : null}
               </>
             )}
           </View>
+          )}
           </>
           ) : null}
         </Card>
@@ -1012,21 +1054,24 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     justifyContent: 'space-between',
   },
   octaveLabel: {
+    // Tar mellanrummet mellan oktavknapparna, så att avläsningen får hela
+    // raden att breda ut sig på utan att knuffa på knapparna.
+    flex: 1,
+    textAlign: 'center',
     color: t.textMuted,
     fontSize: 13,
     fontWeight: '600',
+  },
+  // Samma radhöjd som oktavspannet den ersätter — bara läst som en ton.
+  octaveLabelNote: {
+    color: t.text,
+    fontWeight: '700',
   },
   readout: {
     minHeight: 62,
     justifyContent: 'center',
     alignItems: 'center',
     paddingTop: spacing.sm,
-  },
-  // Ingen reserverad höjd i liggande läge — rutan följer innehållet i
-  // stället för att lämna tomrum under pianot när ingen ton hörs.
-  readoutLiggande: {
-    minHeight: 0,
-    paddingTop: 0,
   },
   readoutIdle: {
     color: t.textMuted,
