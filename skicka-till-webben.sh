@@ -26,7 +26,10 @@ ROT="/public_html"
 # Sökvägen gick tidigare till hemkatalogen, en nivå fel, och skriptet stannade
 # därför direkt med "hittar inte".
 NETRC="${NETRC:-$(cd "$(dirname "$0")/.." && pwd)/_netrc_kormetronom}"
-DIST="$(cd "$(dirname "$0")" && pwd)/dist"
+# Sökvägen till projektmappen tas ut här, innan steg 2 byter katalog till
+# dist/. Efteråt pekar $0 fel och steg 4 hittade inte städskriptet.
+HAR="$(cd "$(dirname "$0")" && pwd)"
+DIST="$HAR/dist"
 
 if [ ! -f "$NETRC" ]; then
   echo "Hittar inte $NETRC — inloggningsuppgifterna saknas." >&2
@@ -102,4 +105,4 @@ esac
 # efter kontrollen ovan: går uppladdningen i stäv ska den gamla bundlen ligga
 # kvar att falla tillbaka på.
 echo
-bash "$(cd "$(dirname "$0")" && pwd)/stada-webben.sh"
+bash "$HAR/stada-webben.sh"
