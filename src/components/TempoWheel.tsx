@@ -34,6 +34,19 @@ const START_ANGLE = -135;
  */
 const DEGREES_PER_BPM = SWEEP / (MAX_BPM - MIN_BPM);
 
+/**
+ * Hjulets fulla storlek, och texten i mitten mätt vid den.
+ *
+ * Ett hjul som krympts för liggande läge eller en låg skärm ska krympa hela
+ * vägen in: siffrorna satta i fast storlek svällde annars ut mot ringen och
+ * la sig över taktprickarna under dem.
+ */
+const FULL_STORLEK = 260;
+const BPM_TEXT = 64;
+const BPM_RADHÖJD = 68;
+const ENHET_TEXT = 13;
+const TAKTPRICKAR_AVSTÅND = 10;
+
 interface Props {
   bpm: number;
   onChange: (bpm: number) => void;
@@ -204,6 +217,16 @@ export function TempoWheel({
   const cy = size / 2;
   const trackRadius = size / 2 - 18;
   const knobRadius = size / 2 - 46;
+  /** Skalstrecken: alla börjar strax innanför bågen, de hela minuttalen når längre in. */
+  const tickOuter = trackRadius - 9;
+  const tickInnerMajor = trackRadius - 20;
+  const tickInnerMinor = trackRadius - 15;
+  /**
+   * Greppkulan ligger mitt på skalstrecken, inte inne på knoppen. Det är
+   * strecken den pekar ut, och inne på knoppen låg den för långt från både
+   * bågen och skalan för att gå att läsa av mot dem.
+   */
+  const gripRadius = (tickOuter + tickInnerMajor) / 2;
   const needleAngle = angleForBpm(bpm);
 
   const ticks = useMemo(() => {
@@ -232,6 +255,9 @@ export function TempoWheel({
     Math.min(8, beatBudget / (1.75 * beatDots.length - 0.75)),
   );
   const beatGap = Math.max(2, Math.min(6, beatDotSize * 0.75));
+
+  /** Aldrig större än de mått texten är satt i — bara mindre. */
+  const textskala = Math.min(1, size / FULL_STORLEK);
 
   return (
     <View
@@ -279,8 +305,8 @@ export function TempoWheel({
         />
 
         {ticks.map(({ angle, major }, index) => {
-          const outer = polar(cx, cy, trackRadius - 9, angle);
-          const inner = polar(cx, cy, trackRadius - (major ? 20 : 15), angle);
+          const outer = polar(cx, cy, tickOuter, angle);
+          const inner = polar(cx, cy, major ? tickInnerMajor : tickInnerMinor, angle);
           return (
             <Line
               key={index}
@@ -296,16 +322,30 @@ export function TempoWheel({
 
         <G>
           {(() => {
-            const grip = polar(cx, cy, knobRadius - 14, needleAngle);
+            const grip = polar(cx, cy, gripRadius, needleAngle);
             return <Circle cx={grip.x} cy={grip.y} r={7} fill={t.accent} />;
           })()}
         </G>
       </Svg>
 
       <View style={styles.readout}>
-        <Text style={styles.bpm}>{bpm}</Text>
-        <Text style={styles.unit}>{T.lista.slagPerMinut}</Text>
-        <View style={[styles.beats, { gap: beatGap }]}>
+        <Text
+          style={[
+            styles.bpm,
+            { fontSize: BPM_TEXT * textskala, lineHeight: BPM_RADHÖJD * textskala },
+          ]}
+        >
+          {bpm}
+        </Text>
+        <Text style={[styles.unit, { fontSize: ENHET_TEXT * textskala }]}>
+          {T.lista.slagPerMinut}
+        </Text>
+        <View
+          style={[
+            styles.beats,
+            { gap: beatGap, marginTop: TAKTPRICKAR_AVSTÅND * textskala },
+          ]}
+        >
           {beatDots.map((index) => (
             <View
               key={index}
@@ -340,23 +380,20 @@ const makeStyles = (t: Palette) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // Storleken sätts vid ritningen, se textskala: den följer hjulets storlek.
   bpm: {
     color: t.text,
-    fontSize: 64,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
-    lineHeight: 68,
   },
   unit: {
     color: t.textMuted,
-    fontSize: 13,
     letterSpacing: 1,
     textTransform: 'uppercase',
   },
   beats: {
     flexDirection: 'row',
     gap: 6,
-    marginTop: 10,
     height: 10,
   },
   beatDot: {
