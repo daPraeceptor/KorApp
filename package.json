@@ -39,6 +39,7 @@
     "prov:webb": "node verktyg/kopiera-webbprov.mjs",
     "bygg:webb": "node verktyg/kopiera-webbprov.mjs && expo export -p web",
     "bilder:butik": "node verktyg/butiksbilder.mjs",
+    "prova:csp": "node verktyg/prova-csp.mjs",
     "test": "node --test src/**/*.test.ts",
     "test:stress": "node --test stress/*.stress.ts"
   },

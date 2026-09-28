@@ -64,10 +64,32 @@ nästa Expo-uppdatering, inte `--force`.
 - `maxLength` på titel- och mapprutorna.
 - Fälla: `python3 - <<EOF || node - <<EOF2` — python3 finns och körde det tomma
   skriptet, så node kördes aldrig. Skriv skripten till fil och kör med node.
-- Fälla: skärmfilerna har CRLF, strängersättning med 
- missar. Använd Edit.
+- Fälla: skärmfilerna har CRLF, strängersättning med `\n` missar. Använd Edit.
 - `npm test`: 193/193. `npm run test:stress`: 22/22. `tsc --noEmit` rent.
 
 ## Återstår
 
 Webben: ta bort `app.js-passenger-av`, `.htaccess` med https och säkerhetshuvuden.
+
+### Webben
+
+- `public/.htaccess`: `Options -Indexes`, http→https (med vakt mot
+  X-Forwarded-Proto-slinga), HSTS 1 år, nosniff, `Referrer-Policy: no-referrer`,
+  Permissions-Policy, X-Frame-Options DENY och CSP. `expo export` kopierar
+  punktfilen till `dist/` — kontrollerat.
+- Bundlen: två `eval`, båda i reservvägar (Metros asynkrona laddning, crypto
+  utan fönster). `script-src 'self'` räcker. `style-src` behöver `'unsafe-inline'`.
+- `verktyg/prova-csp.mjs` (`npm run prova:csp`): läser CSP ur `.htaccess`,
+  serverar bygget med den, Chrome går igenom flikarna och trycker en tangent med
+  flygeln vald. Resultat: 17 pianoprov hämtade, inget stoppat.
+  `UTAN_CSP=1` ger kontrollkörning utan policy.
+- Fälla: webben börjar i körtonen, och `parseSettings` ställer tillbaka klangen
+  om `migrationer` saknas. Provet måste skriva `migrationer: 99` för att flygeln
+  ska stå kvar. Första körningarna gav 0 prov, också utan CSP — felet låg i provet.
+- På servern låg också `index-7b68….js` i rotkatalogen (första deployen, 4 aug).
+- `skicka-till-webben.sh` steg 1 döpte om `.htaccess` → skulle ha döpt bort den
+  nya vid varje deploy. Ersatt med: ta bort `app.js-passenger-av` och
+  `index-*.js` i roten. `.htaccess-passenger-av` får ligga (403). Steg 3
+  kontrollerar nu säkerhetshuvudena och http-omdirigeringen.
+- Fälla: `String.replace` med `$'` i ersättningstexten förstörde skriptet
+  (`$'` = texten efter träffen). Återställt med git checkout, gjort om med Edit.

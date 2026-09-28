@@ -1,0 +1,31 @@
+# Serverns regler för korapp.huleteknik.se.
+#
+# Filen följer med bygget ur public/ och laddas upp av skicka-till-webben.sh.
+# Säkerhetshuvudena provas mot bygget med verktyg/prova-csp.mjs, som läser
+# Content-Security-Policy direkt ur den här filen — ändra här, pröva där.
+
+Options -Indexes
+
+# Allt över krypterad förbindelse. Villkoret på X-Forwarded-Proto hindrar en
+# omdirigeringsslinga om servern någon gång hamnar bakom en proxy som sköter
+# krypteringen och själv talar okrypterat med Apache.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{HTTP:X-Forwarded-Proto} !=https
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+</IfModule>
+
+<IfModule mod_headers.c>
+  # Webbläsaren minns i ett år att sidan bara nås krypterat.
+  Header always set Strict-Transport-Security "max-age=31536000"
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "no-referrer"
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  # Appen hämtar bara från sin egen server. style-src behöver 'unsafe-inline'
+  # för att react-native-web lägger sina stilar i <style>-taggar, liksom
+  # index.html och sidorna i public/. data: för bilder som ritas i appen.
+  # frame-ancestors hindrar andra sidor att bädda in appen.
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' data: blob:; connect-src 'self'; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'"
+  Header always set X-Frame-Options "DENY"
+</IfModule>

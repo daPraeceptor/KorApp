@@ -50,18 +50,24 @@ finns() {
     "$VARD$ROT/" | awk '{print $NF}' | grep -qx "$1"
 }
 
-# 1. Stäng av Passenger.
+# 1. Sopa bort Passengers kvarlevor.
 #
-# Node-appen på subdomänen äger hela adressrymden (PassengerBaseURI "/") och
-# svarar "It works!" på varje anrop, även på JavaScript-bundlen. Filerna döps om
-# i stället för att raderas, så att allt går att ångra med ett omvänt RNFR/RNTO.
-for fil in .htaccess app.js; do
-  if finns "$fil"; then
-    echo "Döper om $fil -> $fil-passenger-av"
-    ftp_kommando -Q "RNFR $ROT/$fil" -Q "RNTO $ROT/$fil-passenger-av"
-  else
-    echo "$fil finns inte längre — hoppar över"
-  fi
+# Node-appen på subdomänen ägde en gång hela adressrymden (PassengerBaseURI
+# "/") och svarade "It works!" på varje anrop, även på JavaScript-bundlen. Den
+# stängdes av genom att .htaccess och app.js döptes om till *-passenger-av.
+# Nu kommer en egen .htaccess med bygget (public/.htaccess), och den får inte
+# döpas om. app.js-passenger-av gick att ladda ner som vanlig text och tas
+# bort; .htaccess-passenger-av får ligga kvar som minne av konfigurationen —
+# Apache vägrar lämna ut filer som börjar på .ht.
+#
+# En bundle i rotkatalogen är en rest från den första deployen, innan den
+# hamnade under _expo/. Ingen sida pekar på den.
+rester=$(curl --silent --ssl-reqd --netrc-file "$NETRC" --max-time 60 \
+  "$VARD$ROT/" | awk '{print $NF}' \
+  | grep -xE 'app\.js-passenger-av|index-[0-9a-f]+\.js' || true)
+for fil in $rester; do
+  echo "Tar bort $fil"
+  ftp_kommando -Q "DELE $ROT/$fil"
 done
 
 # 2. Lägg upp bygget.
@@ -92,6 +98,19 @@ case "$sidhuvud" in
   *"It works"*)        echo "  startsidan: fortfarande Node-appen — Passenger lever kvar" ;;
   *)                   echo "  startsidan: oväntat innehåll: ${sidhuvud:0:60}" ;;
 esac
+# Säkerhetshuvudena kommer från public/.htaccess. Saknas de har Apache inte
+# läst filen, och då gäller inte omdirigeringen till https heller.
+huvuden=$(curl -sI --max-time 20 "https://korapp.huleteknik.se/")
+for huvud in Strict-Transport-Security Content-Security-Policy X-Content-Type-Options; do
+  if printf '%s' "$huvuden" | grep -qi "^$huvud:"; then
+    echo "  $huvud: finns"
+  else
+    echo "  $huvud: SAKNAS — .htaccess verkar inte läsas"
+  fi
+done
+omdirigering=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' --max-time 20 \
+  "http://korapp.huleteknik.se/")
+echo "  http:// svarar: $omdirigering"
 case "$typ" in
   *javascript*) echo "  bundlen: serveras som JavaScript ($typ)" ;;
   *)            echo "  bundlen: fel innehållstyp ($typ) — appen startar inte" ;;
