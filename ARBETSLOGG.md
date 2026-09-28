@@ -67,10 +67,6 @@ nästa Expo-uppdatering, inte `--force`.
 - Fälla: skärmfilerna har CRLF, strängersättning med `\n` missar. Använd Edit.
 - `npm test`: 193/193. `npm run test:stress`: 22/22. `tsc --noEmit` rent.
 
-## Återstår
-
-Webben: ta bort `app.js-passenger-av`, `.htaccess` med https och säkerhetshuvuden.
-
 ### Webben
 
 - `public/.htaccess`: `Options -Indexes`, http→https (med vakt mot
@@ -93,3 +89,15 @@ Webben: ta bort `app.js-passenger-av`, `.htaccess` med https och säkerhetshuvud
   kontrollerar nu säkerhetshuvudena och http-omdirigeringen.
 - Fälla: `String.replace` med `$'` i ersättningstexten förstörde skriptet
   (`$'` = texten efter träffen). Återställt med git checkout, gjort om med Edit.
+
+### Driftsatt
+
+Commit `d569cdc` pushad; webben deployad med bundle `index-5eb0b6cd….js`.
+Kontroll live: `app.js-passenger-av` och gamla rotbundlen ger 404; alla huvuden
+finns; CSP live är byte för byte den som provades; `http://` ger 301 till
+`https://`; pianoprov serveras (200 audio/ogg).
+
+## Återstår
+
+- iOS: appdelen (`3d79e15`) når telefonerna först med nästa bygge, som Peter kör.
+- `npm audit`: 15 (4 höga), alla i byggverktygen. Vänta på Expo-uppdatering.

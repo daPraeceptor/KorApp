@@ -2,26 +2,32 @@
 
 ## Läget
 
-Säkerhetsgenomgång gjord 2026-09-28 på `aab4ce4`, inget ändrat i koden. Detaljer
-i `ARBETSLOGG.md`. Appen är i grunden sund: inget nätverk, inga hemligheter i
-repot, inläsning av kopior går genom fuzz-testade tolkar.
+Säkerhetsgenomgång 2026-09-28, allt som hittades är åtgärdat. Detaljer och
+fällor i `ARBETSLOGG.md`. Webben är deployad; iOS-appen har ändringarna i koden
+men inte i något bygge än.
 
-## Öppet (i prioritetsordning)
+## Klart
 
-1. **Datafallet i `src/state/AppState.tsx` (~rad 300):** kastar
-   `AsyncStorage.getItem` sparas ett tomt bibliotek över det riktiga. Lägg till en
-   `catch` som *inte* sätter `loaded`, så att inga skrivningar görs den sessionen.
-2. **Längdgränser i `normalizeSong`/`normalizeFolder`** (`src/store/songs.ts`):
-   korta titel, anteckningar, id, mappnamn; tak på antal låtar/mappar och på
-   filstorleken före `JSON.parse` i `läsInKopia`.
-3. **Kläm `updatedAt`** till högst `Date.now()` vid import.
-4. **Webben:** ta bort `app.js-passenger-av`; lägg en `.htaccess` i `public/` med
-   http→https, HSTS, `X-Content-Type-Options`, `Referrer-Policy`, CSP med
-   `frame-ancestors 'none'`. Kräver kontroll att Expo-bundlen tål CSP:n
-   (blob:-URL:er för export, `'unsafe-inline'` för style-taggen).
-5. **npm audit:** bara byggverktyg; vänta på Expo-uppdatering.
+- **Biblioteket kan inte längre tömmas av en misslyckad läsning**
+  (`src/state/AppState.tsx`, flaggan `lagringenLäst` styr sparningen).
+- **Gränser för inlästa kopior** (`src/backup/bibliotekskopia.ts`,
+  `src/store/songs.ts`): filstorlek 1 MB, 2000 låtar, 200 mappar, textlängder,
+  id-längd. Ändringstid mer än ett dygn fram räknas som 0. `maxLength` på rutorna.
+- **Webben** (`public/.htaccess`): https-omdirigering, HSTS, CSP, nosniff,
+  inget inbäddande, ingen kataloglistning. Prövas med `npm run prova:csp`
+  (kräver `npm run bygg:webb` först). Ändra CSP bara i `.htaccess` — provet läser
+  den därifrån.
+- **Deployen** (`skicka-till-webben.sh`) tar bort Passengers rester och kontrollerar
+  att säkerhetshuvudena och omdirigeringen fungerar.
 
-## Nästa steg
+## Öppet
 
-Peter väljer vilka punkter som görs. iOS-bygget kör Peter själv; webbdeployen
-(`bash skicka-till-webben.sh`) kör Claude.
+- Nytt iOS-bygge för att appdelen ska nå användarna. Peter kör det själv
+  (`bash bygg-ios.sh`).
+- `npm audit`: sårbarheterna sitter bara i byggverktygen. Rättas bäst med nästa
+  Expo-uppdatering, inte med `--force`.
+
+## Tänk på
+
+- Ändras CSP:n eller läggs något externt till (typsnitt, analys, CDN) måste
+  `public/.htaccess` uppdateras och `npm run prova:csp` köras innan deploy.
