@@ -34,6 +34,18 @@ export const FILFORMAT = 'kormetronom-bibliotek';
 /** Räknas upp om filens form någon gång ändras oförenligt. */
 export const FILVERSION = 1;
 
+/**
+ * Gränser för en fil utifrån. En kör med tvåtusen låtar ryms med god
+ * marginal i en megabyte; det som är större är inte en bibliotekskopia från
+ * den här appen. Taket på antalet skyddar lagringen: varje post blir några
+ * hundra tecken när den fyllts ut, hur kort den än var i filen.
+ */
+export const MAX_FILSTORLEK = 1_000_000;
+export const MAX_LÅTAR = 2000;
+export const MAX_MAPPAR = 200;
+
+const DYGN_MS = 24 * 60 * 60 * 1000;
+
 export interface Bibliotekskopia {
   format: typeof FILFORMAT;
   version: number;
@@ -81,7 +93,11 @@ export function läsInKopia(
   json: string,
   befintligaSongs: Song[],
   befintligaFolders: Folder[],
+  nu: number = Date.now(),
 ): Sammanfogning | null {
+  if (json.length > MAX_FILSTORLEK) {
+    return null;
+  }
   let rå: unknown;
   try {
     rå = JSON.parse(json);
@@ -98,8 +114,18 @@ export function läsInKopia(
   const kopia = rå as { songs?: unknown; folders?: unknown };
 
   // Samma väg som lagringen: varje post normaliseras eller faller bort.
-  const lästaSongs = parseLibrary(JSON.stringify(kopia.songs ?? []));
-  const lästaFolders = parseFolders(JSON.stringify(kopia.folders ?? []));
+  // En ändringstid mer än ett dygn fram i tiden kan inte vara sann — ett
+  // dygn räcker för klockor som går olika på två telefoner. En sådan låt
+  // räknas som äldst av alla: finns den inte kommer den in, men den tar
+  // aldrig över en befintlig. Annars skulle en fil daterad år 2400 vinna
+  // över varje senare ändring av samma låt, vid varje ny inläsning.
+  const lästaSongs = parseLibrary(JSON.stringify(kopia.songs ?? []))
+    .slice(0, MAX_LÅTAR)
+    .map((song) => (song.updatedAt > nu + DYGN_MS ? { ...song, updatedAt: 0 } : song));
+  const lästaFolders = parseFolders(JSON.stringify(kopia.folders ?? [])).slice(
+    0,
+    MAX_MAPPAR,
+  );
 
   // Mappar: befintliga behåller sitt namn — ett id är samma mapp, och det
   // man döpt om lokalt ska inte döpas tillbaka av en gammal kopia.

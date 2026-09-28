@@ -42,7 +42,7 @@ import {
   ratioLabel,
 } from '../theory/tuning';
 import { fyllUtSpann } from './klaviaturSpann';
-import { MAX_TONES } from '../store/songs';
+import { MAX_TITEL, MAX_TONES } from '../store/songs';
 import { Palette, radius, spacing } from '../theme';
 import { useTheme, useThemedStyles } from '../ThemeContext';
 
@@ -757,6 +757,7 @@ export function PlayScreen({ onOpenSongs }: { onOpenSongs: () => void }) {
         <TextInput
           value={titleDraft}
           onChangeText={setTitleDraft}
+          maxLength={MAX_TITEL}
           placeholder={T.spel.namnPåLåten}
           placeholderTextColor={t.textMuted}
           style={styles.titleInput}

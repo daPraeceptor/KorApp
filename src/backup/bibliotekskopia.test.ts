@@ -11,11 +11,22 @@ import assert from 'node:assert/strict';
 
 import {
   FILFORMAT,
+  MAX_FILSTORLEK,
+  MAX_LÅTAR,
+  MAX_MAPPAR,
   kopieNamn,
   läsInKopia,
   skapaKopia,
 } from './bibliotekskopia.ts';
-import { type Song, createSong, createFolder } from '../store/songs.ts';
+import {
+  MAX_ANTECKNINGAR,
+  MAX_ID,
+  MAX_MAPPNAMN,
+  MAX_TITEL,
+  type Song,
+  createSong,
+  createFolder,
+} from '../store/songs.ts';
 
 const NU = new Date('2026-08-19T10:00:00Z');
 
@@ -148,4 +159,58 @@ test('20 000 slumpade sammanfogningar tappar aldrig en låt', () => {
       assert.ok(kvarIds.has(id), `varv ${varv}: låten ${id} försvann`);
     }
   }
+});
+
+test('en för stor fil avvisas innan den tolkas', () => {
+  const fil = JSON.stringify({ format: FILFORMAT, songs: [], utfyllnad: 'x'.repeat(MAX_FILSTORLEK) });
+  assert.equal(läsInKopia(fil, [låt('a', 'Kvar', 1)], []), null);
+});
+
+test('långa texter kortas och överlånga id faller bort', () => {
+  const fil = JSON.stringify({
+    format: FILFORMAT,
+    songs: [
+      { id: 'lång', title: 't'.repeat(10_000), notes: 'n'.repeat(100_000) },
+      { id: 'i'.repeat(MAX_ID + 1), title: 'Fel id' },
+      { id: 'mapplös', title: 'Mapp', folderId: 'm'.repeat(MAX_ID + 1) },
+    ],
+    folders: [{ id: 'm1', name: 'n'.repeat(10_000) }],
+  });
+  const resultat = läsInKopia(fil, [], []);
+  assert.ok(resultat);
+  assert.deepEqual(resultat.songs.map((s) => s.id).sort(), ['lång', 'mapplös']);
+  const lång = resultat.songs.find((s) => s.id === 'lång');
+  assert.equal(lång?.title.length, MAX_TITEL);
+  assert.equal(lång?.notes.length, MAX_ANTECKNINGAR);
+  assert.equal(resultat.songs.find((s) => s.id === 'mapplös')?.folderId, null);
+  assert.equal(resultat.folders[0].name.length, MAX_MAPPNAMN);
+});
+
+test('antalet låtar och mappar i en fil har ett tak', () => {
+  const songs = Array.from({ length: MAX_LÅTAR + 50 }, (_, i) => ({ id: `s${i}`, title: '' }));
+  const folders = Array.from({ length: MAX_MAPPAR + 50 }, (_, i) => ({ id: `f${i}`, name: '' }));
+  const resultat = läsInKopia(JSON.stringify({ format: FILFORMAT, songs, folders }), [], []);
+  assert.ok(resultat);
+  assert.equal(resultat.songs.length, MAX_LÅTAR);
+  assert.equal(resultat.folders.length, MAX_MAPPAR);
+});
+
+test('en ändringstid långt i framtiden tar aldrig över en befintlig låt', () => {
+  const nu = NU.getTime();
+  const fil = skapaKopia([låt('a', 'Från framtiden', 1e15), låt('b', 'Ny', 1e15)], [], NU);
+  const resultat = läsInKopia(fil, [låt('a', 'Lokal', 100)], [], nu);
+  assert.ok(resultat);
+  assert.equal(resultat.songs.find((s) => s.id === 'a')?.title, 'Lokal');
+  // En låt som inte fanns kommer in, men med en tid som inte ligger i framtiden.
+  assert.equal(resultat.songs.find((s) => s.id === 'b')?.updatedAt, 0);
+  assert.equal(resultat.tillagda, 1);
+  assert.equal(resultat.uppdaterade, 0);
+});
+
+test('en klocka som går några timmar före godtas', () => {
+  const nu = NU.getTime();
+  const fil = skapaKopia([låt('a', 'Från andra telefonen', nu + 3 * 3600_000)], [], NU);
+  const resultat = läsInKopia(fil, [låt('a', 'Lokal', nu - 1000)], [], nu);
+  assert.ok(resultat);
+  assert.equal(resultat.songs[0].title, 'Från andra telefonen');
 });

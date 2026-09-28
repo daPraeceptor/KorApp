@@ -280,6 +280,12 @@ const AppStateContext = createContext<AppStateValue | null>(null);
 
 export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [loaded, setLoaded] = useState(false);
+  /**
+   * Sant först när lagringen faktiskt gått att läsa. Skiljer sig från loaded
+   * när läsningen kastar: då ska appen ändå starta, men den får inte spara —
+   * ett tomt bibliotek i minnet skulle annars skrivas över det riktiga.
+   */
+  const [lagringenLäst, setLagringenLäst] = useState(false);
   const [songs, setSongs] = useState<Song[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
@@ -336,9 +342,20 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
           sättSpråk(laddadeInställningar.language);
         }
         setSettings(laddadeInställningar);
+        if (!cancelled) {
+          setLagringenLäst(true);
+        }
+      } catch (fel) {
+        // Android kastar här om en rad blivit större än vad CursorWindow
+        // rymmer. Det som står sparat kan vara helt i sin ordning; det är
+        // bara läsningen som gick fel. Därför lämnas det orört: inga
+        // skrivningar görs under den här körningen, och nästa start får
+        // försöka igen.
+        console.warn('Lagringen gick inte att läsa, sparar ingenting', fel);
       } finally {
-        // Först här börjar skrivningarna gälla, så att inläsningen inte
-        // skriver tillbaka standardvärdena ovanpå det som redan står sparat.
+        // Gränssnittet släpps fram även när läsningen misslyckats.
+        // Skrivningarna följer lagringenLäst ovan, inte den här flaggan, så
+        // att inläsningen aldrig skriver standardvärden ovanpå det sparade.
         if (!cancelled) {
           setLoaded(true);
         }
@@ -354,9 +371,9 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   // under tiden. En dragning i listan flyttar en låt förbi en granne i taget,
   // och varje bokstav i en titel är en ändring — utan fördröjning skulle
   // hela biblioteket skrivas om för vart och ett av dem.
-  useFördröjdSparning(SONGS_KEY, songs, loaded);
-  useFördröjdSparning(FOLDERS_KEY, folders, loaded);
-  useFördröjdSparning(SETTINGS_KEY, settings, loaded);
+  useFördröjdSparning(SONGS_KEY, songs, lagringenLäst);
+  useFördröjdSparning(FOLDERS_KEY, folders, lagringenLäst);
+  useFördröjdSparning(SETTINGS_KEY, settings, lagringenLäst);
 
   useEffect(() => {
     audioEngine.setVolume(settings.volume);

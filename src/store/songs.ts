@@ -46,6 +46,18 @@ export interface Folder {
   createdAt: number;
 }
 
+/**
+ * Längsta texter som tas in. Klaviaturen och rutorna i appen håller sig
+ * långt under dem; de finns för filer utifrån. En kopia med megabytelånga
+ * titlar skulle annars sparas som den är, och på Android blir en rad i
+ * lagringen oläslig någonstans över två megabyte.
+ */
+export const MAX_TITEL = 200;
+export const MAX_MAPPNAMN = 100;
+export const MAX_ANTECKNINGAR = 2000;
+/** Appens egna id är ett tjugotal tecken. */
+export const MAX_ID = 64;
+
 export function createFolder(name: string): Folder {
   return {
     id: `f-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
@@ -59,12 +71,16 @@ function normalizeFolder(raw: unknown): Folder | null {
     return null;
   }
   const value = raw as Record<string, unknown>;
-  if (typeof value.id !== 'string' || typeof value.name !== 'string') {
+  if (
+    typeof value.id !== 'string' ||
+    value.id.length > MAX_ID ||
+    typeof value.name !== 'string'
+  ) {
     return null;
   }
   return {
     id: value.id,
-    name: value.name,
+    name: value.name.slice(0, MAX_MAPPNAMN),
     createdAt:
       typeof value.createdAt === 'number' && Number.isFinite(value.createdAt)
         ? value.createdAt
@@ -162,7 +178,11 @@ export function normalizeSong(raw: unknown): Song | null {
     return null;
   }
   const value = raw as Record<string, unknown>;
-  if (typeof value.id !== 'string' || typeof value.title !== 'string') {
+  if (
+    typeof value.id !== 'string' ||
+    value.id.length > MAX_ID ||
+    typeof value.title !== 'string'
+  ) {
     return null;
   }
 
@@ -186,7 +206,7 @@ export function normalizeSong(raw: unknown): Song | null {
 
   return {
     id: value.id,
-    title: value.title,
+    title: value.title.slice(0, MAX_TITEL),
     bpm: clampBpm(number(value.bpm, DEFAULT_BPM)),
     beatsPerBar: clampBeatsPerBar(number(value.beatsPerBar, 4)),
     // Underdelningen sparades förr som antal klick per slag.
@@ -194,9 +214,12 @@ export function normalizeSong(raw: unknown): Song | null {
     tuningSystem: value.tuningSystem === 'just' ? 'just' : 'tempered',
     tonicPitchClass: ((Math.round(number(value.tonicPitchClass, 0)) % 12) + 12) % 12,
     tones,
-    notes: typeof value.notes === 'string' ? value.notes : '',
+    notes: typeof value.notes === 'string' ? value.notes.slice(0, MAX_ANTECKNINGAR) : '',
     updatedAt: number(value.updatedAt, Date.now()),
-    folderId: typeof value.folderId === 'string' ? value.folderId : null,
+    folderId:
+      typeof value.folderId === 'string' && value.folderId.length <= MAX_ID
+        ? value.folderId
+        : null,
     // Bibliotek sparade före ordningen fanns får noll och sorteras på titel.
     sortIndex: Math.max(0, Math.round(number(value.sortIndex, 0))),
   };

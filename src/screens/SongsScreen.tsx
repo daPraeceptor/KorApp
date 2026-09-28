@@ -43,7 +43,7 @@ import { ärLiggande } from '../orientering';
 import { klaviaturSpann } from './klaviaturSpann';
 import { useAppState } from '../state/AppState';
 import { getPulse } from '../state/pulse';
-import { Folder, Song, searchSongs } from '../store/songs';
+import { Folder, MAX_MAPPNAMN, Song, searchSongs } from '../store/songs';
 import { noteName, noteNameWithOctave } from '../theory/tuning';
 import { Palette, radius, spacing } from '../theme';
 import { useTheme, useThemedStyles } from '../ThemeContext';
@@ -1713,6 +1713,7 @@ export function SongsScreen({
                     <TextInput
                       value={draftFolderName}
                       onChangeText={setDraftFolderName}
+                      maxLength={MAX_MAPPNAMN}
                       style={[styles.input, styles.editInput]}
                       autoFocus
                       returnKeyType="done"
@@ -1815,6 +1816,7 @@ export function SongsScreen({
             <TextInput
               value={newFolderName}
               onChangeText={setNewFolderName}
+              maxLength={MAX_MAPPNAMN}
               placeholder={T.lista.namnPåMappen}
               placeholderTextColor={t.textMuted}
               style={[styles.input, styles.editInput]}
