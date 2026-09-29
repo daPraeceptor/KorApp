@@ -3,8 +3,8 @@
 ## Läget
 
 Säkerhetsgenomgång 2026-09-28, allt som hittades är åtgärdat. Detaljer och
-fällor i `ARBETSLOGG.md`. Webben är deployad; iOS-appen har ändringarna i koden
-men inte i något bygge än.
+fällor i `ARBETSLOGG.md`. Expo är uppdaterat till 57.0.26 (react-native 0.86.3). Webben är deployad;
+iOS-appen har ändringarna i koden men inte i något bygge än.
 
 ## Klart
 
@@ -24,8 +24,8 @@ men inte i något bygge än.
 
 - Nytt iOS-bygge för att appdelen ska nå användarna. Peter kör det själv
   (`bash bygg-ios.sh`).
-- `npm audit`: sårbarheterna sitter bara i byggverktygen. Rättas bäst med nästa
-  Expo-uppdatering, inte med `--force`.
+- `npm audit`: 12 kvar (1 hög, image-size), alla i Expos byggverktyg. Expo
+  uppdaterat till 57.0.26 den 2026-09-29. Aldrig `--force` — det nedgraderar Expo.
 
 ## Tänk på
 

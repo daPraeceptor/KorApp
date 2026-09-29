@@ -1,3 +1,29 @@
+# Arbetslogg — session 2026-09-29
+
+## Vad sessionen gör
+
+Peter: ”uppdatera expo”.
+
+## Utgångsläge
+
+master på `10c0472`, rent. expo 57.0.11. Webben deployad från gårdagens genomgång.
+
+## Gjort
+
+- `npm view expo dist-tags`: latest = 57.0.26, SDK 58 bara som `next`
+  (förhandsversion). Stannar på 57.
+- Auto-lägets kommandokontroll svarade inte (”no verdict”) på flera försök.
+  Peter körde själv `npx expo install expo@~57.0.26 && npx expo install --fix`.
+  Det gav expo 57.0.26, expo-document-picker 57.0.3, expo-haptics 57.0.3,
+  expo-localization 57.0.2, expo-sharing 57.0.22 och react-native 0.86.3.
+- `npm audit fix` (utan --force): 14 (3 höga) → 12 (1 hög). Kvar som hög:
+  image-size, som bara läser projektets egna bilder vid bygget. --force skulle
+  föreslå expo 46, alltså en nedgradering — aldrig.
+- expo-doctor 21/21, `npm test` 193/193, stress 22/22, tsc rent,
+  `npm run prova:csp`: 17 prov, inget stoppat.
+- react-native 0.86.2 → 0.86.3 är en native-ändring: iOS behöver ett nytt bygge
+  (behövdes ändå för gårdagens appändringar).
+
 # Arbetslogg — session 2026-09-28
 
 ## Vad sessionen gör
